@@ -2,7 +2,7 @@
 name = "better-edit-tools"
 version = "0.1.0"
 edition = "2024"
-description = "MCP server: better-edit-tools (balance, show, replace, insert, delete, batch, function-range)"
+description = "高性能 MCP 文件编辑工具集：原子写入、批量编辑智能排序、函数范围自动检测"
 
 [dependencies]
 rmcp = { version = "1.6", features = ["server", "transport-io"] }

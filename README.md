@@ -1,6 +1,10 @@
+<div align="right">
+  <a href="README.md">English</a> | <a href="README.zh.md">中文</a>
+</div>
+
 # better-edit-tools
 
-> MCP server porting [OpenCode](https://opencode.ai) built-in tools to the [Model Context Protocol](https://modelcontextprotocol.io), usable from any MCP-compatible client (Claude Desktop, Cursor, etc.).
+> A high-performance MCP (Model Context Protocol) file editing toolkit — atomic writes, smart batch sorting, and intelligent function-scope detection.
 
 ## Tools
 
@@ -14,8 +18,12 @@
 | `better_edit_batch` | Batch edit a file (or multiple files) with multiple operations in one call. Operations are applied bottom-up to avoid line-number drift. |
 | `better_edit_function_range` | Find the start/end lines of the function or block enclosing a given line, using brace counting with string/comment awareness. |
 
-> [!NOTE]
-> The original OpenCode `fast_edit_paste` and `fast_edit_save_pasted` tools are **not** ported because they depend on OpenCode's internal message storage and clipboard infrastructure, which are not meaningful in a general MCP context.
+## Design highlights
+
+- **Atomic writes**: File modifications go through a temp-file-then-rename cycle, preventing data corruption if the process crashes mid-write.
+- **Smart batch sorting**: Batch edits are automatically sorted from bottom to top, so you never have to worry about line-number offsets.
+- **isError signaling**: Errors are properly reported with `isError: true` per the MCP spec.
+- **Pure Rust**: No runtime dependencies — a single, statically linked binary.
 
 ## Usage
 
@@ -43,12 +51,9 @@ Add to your MCP client configuration:
 
 For example, Claude Desktop's config is at `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
 
-## Differences from the original OpenCode tools
+## Acknowledgements
 
-- **Name prefix**: All tools use the `better_edit_` prefix instead of the original `structure_` / `fast_edit_` prefixes.
-- **Language**: Rust instead of TypeScript/Bun. Faster startup and lower memory footprint.
-- **Error signaling**: Errors are reported with `isError: true` per the MCP spec, instead of returning an `{ "error": ... }` JSON blob with `isError: false`.
-- **Dropped tools**: `fast_edit_paste` (clipboard-dependent) and `fast_edit_save_pasted` (OpenCode-internal storage) are not included.
+The `replace`, `insert`, `delete`, and `batch` operations are inspired by [includewudi/fast-edit](https://github.com/includewudi/fast-edit).
 
 ## License
 
