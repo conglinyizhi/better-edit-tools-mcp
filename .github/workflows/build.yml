@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  # 手动触发：GitHub → Actions → Build → Run workflow
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "发布版本号（如 v0.1.0），留空则不创建 Release"
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 musl 工具链（静态链接用）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: 添加 musl 编译目标
+        run: rustup target add x86_64-unknown-linux-musl
+
+      - name: 静态编译
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: 打包二进制
+        run: |
+          mkdir -p dist
+          cp target/x86_64-unknown-linux-musl/release/better-edit-tools dist/
+          cd dist && tar czf ../better-edit-tools-x86_64-unknown-linux-musl.tar.gz better-edit-tools
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: better-edit-tools-linux
+          path: better-edit-tools-x86_64-unknown-linux-musl.tar.gz
+
+      - name: 创建 Release
+        if: ${{ github.event.inputs.version != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          files: better-edit-tools-x86_64-unknown-linux-musl.tar.gz
+          body: |
+            ## better-edit-tools ${{ github.event.inputs.version }}
+
+            静态链接，单二进制，无运行时依赖。
+            适用于任何 x86_64 Linux 环境。
