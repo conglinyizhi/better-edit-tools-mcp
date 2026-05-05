@@ -25,7 +25,7 @@
 - **Smart batch sorting**: Batch edits are automatically sorted from bottom to top, so you never have to worry about line-number offsets.
 - **isError signaling**: Errors are properly reported with `isError: true` per the MCP spec.
 - **Pure Rust**: No runtime dependencies — a single, statically linked binary.
-- **Degraded JSON parsing**: When the LLM produces malformed JSON (unescaped quotes, backticks, `${}`), the `write` tool falls back to a character-level state machine to extract `file` and `content` fields.
+- **Fault-tolerant JSON parsing**: AI-generated file content often contains backticks, `${}`, or unescaped quotes that break standard JSON encoding. The `write` tool automatically falls back to character-level extraction, so formatting errors don't block file writes.
 
 
 ## Usage
