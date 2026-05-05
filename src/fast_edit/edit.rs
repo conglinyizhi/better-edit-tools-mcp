@@ -335,7 +335,7 @@ pub fn op_delete(
 }
 
 /// 批量编辑
-pub fn op_batch(spec: &str, _format: &str) -> Result<BatchResult, String> {
+pub fn op_batch(spec: &str) -> Result<BatchResult, String> {
     let spec_val: serde_json::Value =
         serde_json::from_str(spec).map_err(|e| format!("batch spec JSON 解析失败: {}", e))?;
 

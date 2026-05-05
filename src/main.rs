@@ -51,7 +51,6 @@ struct DeleteParams {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 struct BatchParams {
     spec: String,
-    format: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -134,8 +133,7 @@ impl OpenCodeTools {
 
     #[tool(description = "批量编辑文件（单次调用完成多处修改）。性能最优，推荐用于 3+ 处修改。支持单文件或多文件。所有行号均基于原始文件，工具内部自动从下往上执行，无需手动排序。spec JSON 格式：单文件 {\"file\":\"/path\",\"edits\":[{\"action\":\"replace-lines\",\"start\":10,\"end\":12,\"content\":\"new\"}]} 或多文件 {\"files\":[...]}")]
     fn better_edit_batch(&self, Parameters(params): Parameters<BatchParams>) -> Result<String, String> {
-        let fmt = params.format.as_deref().unwrap_or("plain");
-        let r = fast_edit::op_batch(&params.spec, fmt)?;
+        let r = fast_edit::op_batch(&params.spec)?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 

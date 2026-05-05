@@ -182,29 +182,28 @@ fn parse_spec_raw(spec: &str) -> Result<WriteSpec, String> {
 
 /// 从标准 JSON Value 中解析文件规格
 fn parse_write_value(val: &serde_json::Value) -> Result<WriteSpec, String> {
+    let parse_one = |v: &serde_json::Value| -> Result<WriteFileSpec, String> {
+        let file = v.get("file").and_then(|v| v.as_str()).ok_or_else(|| "缺少 file 字段".to_string())?;
+        let mut content = v.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        // 支持 extract: true，自动提取 ``` 代码块内容
+        if v.get("extract").and_then(|v| v.as_bool()).unwrap_or(false) {
+            content = extract_code_blocks(&content);
+        }
+        Ok(WriteFileSpec { file: file.to_string(), content })
+    };
+
     if let Some(files) = val.get("files").and_then(|v| v.as_array()) {
         let mut specs = Vec::new();
         for f in files {
-            let file = f.get("file").and_then(|v| v.as_str()).ok_or_else(|| "缺少 file 字段".to_string())?;
-            let content = f.get("content").and_then(|v| v.as_str()).unwrap_or("");
-            specs.push(WriteFileSpec {
-                file: file.to_string(),
-                content: content.to_string(),
-            });
+            specs.push(parse_one(f)?);
         }
         Ok(WriteSpec::Multi(specs))
     } else {
-        let file = val.get("file").and_then(|v| v.as_str()).unwrap_or("");
-        let content = val.get("content").and_then(|v| v.as_str()).unwrap_or("");
-        Ok(WriteSpec::Single(WriteFileSpec {
-            file: file.to_string(),
-            content: content.to_string(),
-        }))
+        parse_one(val).map(WriteSpec::Single)
     }
 }
 
 /// 提取 markdown 代码块内容，无代码块则返回原文
-#[allow(dead_code)]
 fn extract_code_blocks(text: &str) -> String {
     let mut result = String::new();
     let mut in_block = false;
