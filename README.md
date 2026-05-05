@@ -16,6 +16,7 @@
 | `better_edit_insert` | Insert content after a given line (`line=0` inserts at the beginning). |
 | `better_edit_delete` | Delete line(s) — single line, range, or batch by JSON array of line numbers. |
 | `better_edit_batch` | Batch edit a file (or multiple files) with multiple operations in one call. Operations are applied bottom-up to avoid line-number drift. |
+| `better_edit_write` | Write raw content to file(s). Supports both single-file `{"file","content"}` and multi-file `{"files":[...]}`. When standard JSON parsing fails (e.g. unescaped backticks or `${}`), falls back to a state-machine-based degraded extractor. |
 | `better_edit_function_range` | Find the start/end lines of the function or block enclosing a given line, using brace counting with string/comment awareness. |
 
 ## Design highlights
@@ -24,6 +25,8 @@
 - **Smart batch sorting**: Batch edits are automatically sorted from bottom to top, so you never have to worry about line-number offsets.
 - **isError signaling**: Errors are properly reported with `isError: true` per the MCP spec.
 - **Pure Rust**: No runtime dependencies — a single, statically linked binary.
+- **Degraded JSON parsing**: When the LLM produces malformed JSON (unescaped quotes, backticks, `${}`), the `write` tool falls back to a character-level state machine to extract `file` and `content` fields.
+
 
 ## Usage
 

@@ -60,9 +60,10 @@ src/
 
 ## 工具说明
 
-7 个 MCP tools，定义在 `main.rs`：
+8 个 MCP tools，定义在 `main.rs`：
 - `better_edit_balance` — 调用 `structure_balance::check_structure_balance()`
-- `better_edit_show/replace/insert/delete/batch/function_range` — 调用 `fast_edit::op_*()`
+- `better_edit_show/replace/insert/delete/batch/write` — 调用 `fast_edit::op_*()`
+- `better_edit_function_range` — 调用 `fast_edit::op_function_range()`
 
 所有工具返回 `Result<String, String>`，错误时 MCP 自动设 `isError: true`。
 
@@ -71,6 +72,8 @@ src/
 - **无测试**：项目目前没有测试，修改时需手动验证
 - **原子写入**：`fast_edit::write_file_atomic()` 先写临时文件再 rename，防崩溃
 - **op_batch 忽略 format 参数**：`_format` 前缀表明暂未使用（为签名兼容保留）
+- **JSON 降级解析**：`op_write` 先尝试 `serde_json::from_str`，失败则调用 `parse_spec_raw` 状态机降级提取。实现在 `fast_edit.rs` 末尾。
+
 - **中文描述**：所有 tool description 是中文的，rmcp `#[tool]` 宏直接透传
 - **受限于文件系统**：所有工具操作本地文件，无网络/数据库能力
 - **不在 OpenCode plugin 内**：这是标准 MCP 服务器，与 `@opencode-ai/plugin` 无关（原始 TypeScript 版才依赖那个包）
