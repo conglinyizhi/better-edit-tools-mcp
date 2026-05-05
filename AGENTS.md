@@ -48,9 +48,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-too
 
 ```
 src/
-├── main.rs              # MCP 服务器入口 + 工具注册（#[tool_router]）
-├── fast_edit.rs         # 文件编辑核心操作（show/replace/insert/delete/batch/function-range）
-└── structure_balance.rs # 符号平衡检查核心逻辑
+├── main.rs                       # MCP 服务器入口 + 工具注册（#[tool_router]）
+├── fast_edit/
+│   ├── mod.rs                    # 公共 API 导出
+│   ├── core.rs                   # 核心工具函数（read_lines, write_file_atomic 等）
+│   ├── edit.rs                   # 编辑操作（show/replace/insert/delete/batch）
+│   ├── write.rs                  # 写入操作 + JSON 降级解析
+│   └── func_range.rs             # 函数范围检测
+├── structure_balance.rs          # 符号平衡检查核心逻辑
 ```
 
 关键入口点：
