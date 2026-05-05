@@ -57,4 +57,4 @@ The `replace`, `insert`, `delete`, and `batch` operations are inspired by [inclu
 
 ## License
 
-Apache-2.0
+MIT
