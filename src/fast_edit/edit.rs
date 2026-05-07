@@ -136,25 +136,24 @@ pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: 
     let new_content = lines.concat();
     write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
 
-    // 修改后上下文
-    let (after_lines, _) = read_lines(filepath).map_err(|e| EditError::reread_path(filepath, e))?;
+    // 修改后上下文（使用内存中已修改的 lines，避免多余重读）
     let delta = new_lines.len() as isize - (end as isize - start as isize + 1);
-    let after_end = (before_end as isize + delta).max(0) as usize;
-    let after_end = after_end.min(after_lines.len());
-    let after_content: Vec<String> = after_lines[before_start - 1..after_end].to_vec();
+    let after_total = lines.len();
+    let after_end = ((before_end as isize + delta).max(0) as usize).min(after_total);
+    let after_content: Vec<String> = lines[before_start - 1..after_end].to_vec();
 
     let diff = build_diff(&before_content, &after_content, before_start, format);
-    let balance = quick_balance_check(&after_lines.concat());
+    let balance = quick_balance_check(&lines.concat());
 
     Ok(ReplaceResult {
         status: "ok".to_string(),
         file: Path::new(filepath).to_string_lossy().to_string(),
         removed: end - start + 1,
         added: new_lines.len(),
-        total: after_lines.len(),
+        total: after_total,
         diff,
         balance,
-        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_lines.len()),
+        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
     })
 }
 
@@ -190,23 +189,23 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
 
     let new_content = result.concat();
     write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
-
-    let (after_lines, _) = read_lines(filepath).map_err(|e| EditError::reread_path(filepath, e))?;
-    let after_end = (before_end + new_lines.len()).min(after_lines.len());
-    let after_content: Vec<String> = after_lines[before_start - 1..after_end].to_vec();
+    // 修改后上下文（使用内存中的 result，避免多余重读）
+    let after_total = result.len();
+    let after_end = (before_end + new_lines.len()).min(after_total);
+    let after_content: Vec<String> = result[before_start - 1..after_end].to_vec();
 
     let diff = build_diff(&before_content, &after_content, before_start, format);
-    let balance = quick_balance_check(&after_lines.concat());
+    let balance = quick_balance_check(&result.concat());
 
     Ok(InsertResult {
         status: "ok".to_string(),
         file: Path::new(filepath).to_string_lossy().to_string(),
         after: after_line,
         added: new_lines.len(),
-        total: after_lines.len(),
+        total: after_total,
         diff,
         balance,
-        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_lines.len()),
+        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
     })
 }
 
@@ -236,9 +235,8 @@ pub fn op_delete(
         let before_end = total.min(max_del + CTX);
         let before_content: Vec<String> = file_lines[before_start - 1..before_end].to_vec();
         let to_delete: std::collections::HashSet<usize> = valid.iter().copied().collect();
-        // 重新读取文件并过滤掉要删除的行
-        let (orig_lines, _le) = read_lines(filepath).map_err(|e| EditError::reread_path(filepath, e))?;
-        let filtered: Vec<String> = orig_lines
+        // 使用 file_lines 直接过滤（消除 TOCTOU：原代码重复读文件导致文件可能被其他请求修改）
+        let filtered: Vec<String> = file_lines
             .into_iter()
             .enumerate()
             .filter(|(i, _)| !to_delete.contains(&(i + 1)))
@@ -247,19 +245,20 @@ pub fn op_delete(
         let new_content = filtered.concat();
         write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
 
-        let (after_lines, _) = read_lines(filepath).map_err(|e| EditError::reread_path(filepath, e))?;
+        let after_total = filtered.len();
         let after_end = (before_end as isize - valid.len() as isize).max(0) as usize;
-        let after_end = after_end.min(after_lines.len());
-        let after_content: Vec<String> = after_lines[before_start - 1..after_end].to_vec();
+        let after_end = after_end.min(after_total);
+        let after_content: Vec<String> = filtered[before_start - 1..after_end].to_vec();
         let diff = build_diff(&before_content, &after_content, before_start, format);
-        let balance = quick_balance_check(&after_lines.concat());
+        let balance = quick_balance_check(&new_content);
+
         return Ok(DeleteResult {
             status: "ok".to_string(),
             file: Path::new(filepath).to_string_lossy().to_string(),
-            total: after_lines.len(),
+            total: after_total,
             diff,
             balance,
-            affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_lines.len()),
+            affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
         });
     }
 
@@ -281,21 +280,21 @@ pub fn op_delete(
     file_lines.splice(s - 1..e, std::iter::empty());
     let new_content = file_lines.concat();
     write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
-
-    let (after_lines, _) = read_lines(filepath).map_err(|e| EditError::reread_path(filepath, e))?;
+    // 修改后上下文（使用内存中已修改的 file_lines，避免多余重读）
+    let after_total = file_lines.len();
     let after_end = (before_end as isize - deleted as isize).max(0) as usize;
-    let after_end = after_end.min(after_lines.len());
-    let after_content: Vec<String> = after_lines[before_start - 1..after_end].to_vec();
+    let after_end = after_end.min(after_total);
+    let after_content: Vec<String> = file_lines[before_start - 1..after_end].to_vec();
     let diff = build_diff(&before_content, &after_content, before_start, format);
-    let balance = quick_balance_check(&after_lines.concat());
+    let balance = quick_balance_check(&file_lines.concat());
 
     Ok(DeleteResult {
         status: "ok".to_string(),
         file: Path::new(filepath).to_string_lossy().to_string(),
-        total: after_lines.len(),
+        total: after_total,
         diff,
         balance,
-        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_lines.len()),
+        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
     })
 }
 

@@ -7,9 +7,6 @@ pub enum EditError {
     #[error("文件 {path} 写入失败: {source}")]
     WriteFile { path: String, source: std::io::Error },
 
-    #[error("文件 {path} 重新读取失败: {source}")]
-    ReReadFile { path: String, source: std::io::Error },
-
     #[error("JSON 解析失败: {0}")]
     JsonParse(#[from] serde_json::Error),
 
@@ -22,7 +19,6 @@ impl EditError {
         EditError::InvalidArgument(msg.into())
     }
 
-
     pub fn read_path(path: &str, source: std::io::Error) -> Self {
         EditError::ReadFile {
             path: path.to_string(),
@@ -32,13 +28,6 @@ impl EditError {
 
     pub fn write_path(path: &str, source: std::io::Error) -> Self {
         EditError::WriteFile {
-            path: path.to_string(),
-            source,
-        }
-    }
-
-    pub fn reread_path(path: &str, source: std::io::Error) -> Self {
-        EditError::ReReadFile {
             path: path.to_string(),
             source,
         }
