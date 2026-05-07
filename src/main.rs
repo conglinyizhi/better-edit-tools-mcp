@@ -5,6 +5,12 @@ mod fast_edit;
 mod structure_balance;
 mod error;
 
+fn validate_format(fmt: &str) -> Result<(), String> {
+    if !matches!(fmt, "plain" | "diff") {
+        return Err(format!("format 参数仅支持 'plain' 或 'diff', 收到: '{}'", fmt));
+    }
+    Ok(())
+}
 // ── Parameters structs ──
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -97,6 +103,7 @@ impl OpenCodeTools {
     fn better_edit_replace(&self, Parameters(params): Parameters<ReplaceParams>) -> Result<String, String> {
         let raw = params.raw.unwrap_or(false);
         let fmt = params.format.as_deref().unwrap_or("plain");
+        validate_format(fmt)?;
         let r = fast_edit::op_replace(
             &params.file, params.start as usize, params.end as usize,
             &params.content, raw, fmt,
@@ -110,6 +117,7 @@ impl OpenCodeTools {
     fn better_edit_insert(&self, Parameters(params): Parameters<InsertParams>) -> Result<String, String> {
         let raw = params.raw.unwrap_or(false);
         let fmt = params.format.as_deref().unwrap_or("plain");
+        validate_format(fmt)?;
         let r = fast_edit::op_insert(&params.file, params.line as usize, &params.content, raw, fmt).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
@@ -119,6 +127,7 @@ impl OpenCodeTools {
     #[tool(description = "删除文件中指定行范围。start/end 传数字（省略时删除单行 line）；或传入 lines JSON 数组字符串批量删除多行。")]
     fn better_edit_delete(&self, Parameters(params): Parameters<DeleteParams>) -> Result<String, String> {
         let fmt = params.format.as_deref().unwrap_or("plain");
+        validate_format(fmt)?;
         let r = fast_edit::op_delete(
             &params.file,
             params.start.map(|v| v as usize),
