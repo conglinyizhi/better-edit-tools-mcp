@@ -15,7 +15,7 @@ pub(crate) fn read_lines(filepath: &str) -> io::Result<(Vec<String>, String)> {
 
 pub(crate) fn detect_line_ending(content: &str) -> &str {
     let crlf = content.matches("\r\n").count();
-    if crlf > content.lines().count() / 2 { "\r\n" } else { "\n" }
+    if crlf >= content.lines().count() / 2 { "\r\n" } else { "\n" }
 }
 
 /// 原子写入：先写临时文件再 rename

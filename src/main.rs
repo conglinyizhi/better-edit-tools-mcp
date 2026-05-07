@@ -160,7 +160,7 @@ impl OpenCodeTools {
 // ── Entry point ──
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service = OpenCodeTools.serve(stdio()).await?;
     service.waiting().await?;
     Ok(())

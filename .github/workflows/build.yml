@@ -28,6 +28,8 @@ jobs:
       - name: 添加 musl 编译目标
         run: rustup target add x86_64-unknown-linux-musl
 
+      - name: 代码风格检查 (clippy)
+        run: cargo clippy --all-targets -- -D warnings
       - name: 静态编译
         run: cargo build --release --target x86_64-unknown-linux-musl
 
