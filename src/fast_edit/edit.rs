@@ -252,14 +252,12 @@ pub fn op_delete(
         let after_content: Vec<String> = after_lines[before_start - 1..after_end].to_vec();
         let diff = build_diff(&before_content, &after_content, before_start, format);
         let balance = quick_balance_check(&after_lines.concat());
-        let tip = "注意：该工具修改方式激进，若不确定请及时重新读取源码文件".to_string();
-
         return Ok(DeleteResult {
             status: "ok".to_string(),
             file: Path::new(filepath).to_string_lossy().to_string(),
             total: after_lines.len(),
             diff,
-            balance: format!("{}\n{}", balance, tip),
+            balance,
             affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_lines.len()),
         });
     }
@@ -289,14 +287,13 @@ pub fn op_delete(
     let after_content: Vec<String> = after_lines[before_start - 1..after_end].to_vec();
     let diff = build_diff(&before_content, &after_content, before_start, format);
     let balance = quick_balance_check(&after_lines.concat());
-    let tip = "注意：该工具修改方式激进，若不确定请及时重新读取源码文件".to_string();
 
     Ok(DeleteResult {
         status: "ok".to_string(),
         file: Path::new(filepath).to_string_lossy().to_string(),
         total: after_lines.len(),
         diff,
-        balance: format!("{}\n{}", balance, tip),
+        balance,
         affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_lines.len()),
     })
 }

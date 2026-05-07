@@ -301,11 +301,10 @@ fn format_aggregate(symbol_lines: &HashMap<String, Vec<usize>>) -> String {
     lines.join("\n")
 }
 
-fn format_tree(matched: &[MatchedPair]) -> String {
+fn format_tree_inner(matched: &[MatchedPair], empty_msg: &str, header: &str) -> String {
     if matched.is_empty() {
-        return "(无匹配的括号对)".to_string();
+        return empty_msg.to_string();
     }
-    let header = "depth\tsymbol\tline\tpair_line";
     let rows: Vec<String> = matched
         .iter()
         .map(|m| {
@@ -321,24 +320,12 @@ fn format_tree(matched: &[MatchedPair]) -> String {
     result
 }
 
+fn format_tree(matched: &[MatchedPair]) -> String {
+    format_tree_inner(matched, "(无匹配的括号对)", "depth\tsymbol\tline\tpair_line")
+}
+
 fn format_tag_tree(tag_matched: &[MatchedPair]) -> String {
-    if tag_matched.is_empty() {
-        return "(无匹配的标签)".to_string();
-    }
-    let header = "depth\ttag\topen\tclose";
-    let rows: Vec<String> = tag_matched
-        .iter()
-        .map(|m| {
-            let indent = "  ".repeat(std::cmp::min(m.depth.saturating_sub(1), 10));
-            format!("{}\t{}{}\t{}\t{}", m.depth, indent, m.symbol, m.open_line, m.close_line)
-        })
-        .collect();
-    let mut result = header.to_string();
-    for r in rows {
-        result.push_str("\n");
-        result.push_str(&r);
-    }
-    result
+    format_tree_inner(tag_matched, "(无匹配的标签)", "depth\ttag\topen\tclose")
 }
 
 fn format_unbalanced(unbalanced: &[UnbalancedItem], quote_warnings: &[QuoteWarning]) -> serde_json::Value {
