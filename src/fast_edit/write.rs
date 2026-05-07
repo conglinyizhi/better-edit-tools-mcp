@@ -1,4 +1,5 @@
 use crate::fast_edit::core::write_file_atomic;
+use crate::error::{EditError, EditResult};
 
 // ── Internal types ──
 
@@ -110,11 +111,11 @@ fn extract_file_raw(spec: &str) -> Option<String> {
 }
 
 /// 降级方案：手动从 JSON-like 字符串中提取 file 和 content 字段
-fn parse_spec_raw(spec: &str) -> Result<WriteSpec, String> {
+fn parse_spec_raw(spec: &str) -> EditResult<WriteSpec> {
     // 检测多文件模式
     if let Some(files_idx) = spec.find("\"files\"") {
         let after_files = &spec[files_idx + 8..];
-        let bracket = after_files.find('[').ok_or_else(|| "files 字段后找不到 [".to_string())?;
+        let bracket = after_files.find('[').ok_or_else(|| EditError::invalid_arg("files 字段后找不到 ["))?;
         let array_start = files_idx + 8 + bracket;
 
         let mut depth = 0i32;
@@ -130,7 +131,7 @@ fn parse_spec_raw(spec: &str) -> Result<WriteSpec, String> {
                 if depth == 0 { array_end = Some(array_start + i); break; }
             }
         }
-        let array_end = array_end.ok_or_else(|| "找不到数组结束的 ]".to_string())?;
+        let array_end = array_end.ok_or_else(|| EditError::invalid_arg("找不到数组结束的 ]"))?;
         let array_body = &spec[array_start + 1..array_end];
 
         let mut results = Vec::new();
@@ -166,14 +167,14 @@ fn parse_spec_raw(spec: &str) -> Result<WriteSpec, String> {
         }
 
         if results.is_empty() {
-            return Err("从 files 数组中解析出 0 个有效元素".to_string());
+            return Err(EditError::invalid_arg("从 files 数组中解析出 0 个有效元素"));
         }
         return Ok(WriteSpec::Multi(results));
     }
 
     // 单文件模式
     let fp = extract_file_raw(spec);
-    let ct = extract_content_raw(spec).ok_or_else(|| "找不到 content 字段".to_string())?;
+    let ct = extract_content_raw(spec).ok_or_else(|| EditError::invalid_arg("找不到 content 字段"))?;
     Ok(WriteSpec::Single(WriteFileSpec {
         file: fp.unwrap_or_default(),
         content: ct,
@@ -181,9 +182,9 @@ fn parse_spec_raw(spec: &str) -> Result<WriteSpec, String> {
 }
 
 /// 从标准 JSON Value 中解析文件规格
-fn parse_write_value(val: &serde_json::Value) -> Result<WriteSpec, String> {
-    let parse_one = |v: &serde_json::Value| -> Result<WriteFileSpec, String> {
-        let file = v.get("file").and_then(|v| v.as_str()).ok_or_else(|| "缺少 file 字段".to_string())?;
+fn parse_write_value(val: &serde_json::Value) -> EditResult<WriteSpec> {
+    let parse_one = |v: &serde_json::Value| -> EditResult<WriteFileSpec> {
+        let file = v.get("file").and_then(|v| v.as_str()).ok_or_else(|| EditError::invalid_arg("缺少 file 字段"))?;
         let mut content = v.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
         // 支持 extract: true，自动提取 ``` 代码块内容
         if v.get("extract").and_then(|v| v.as_bool()).unwrap_or(false) {
@@ -236,7 +237,7 @@ fn extract_code_blocks(text: &str) -> String {
 // ── Public API ──
 
 /// 写入文件内容，支持 JSON 降级解析
-pub fn op_write(spec: &str) -> Result<WriteResult, String> {
+pub fn op_write(spec: &str) -> EditResult<WriteResult> {
     let (write_spec, degraded) = match serde_json::from_str::<serde_json::Value>(spec) {
         Ok(val) => {
             let specs = parse_write_value(&val)?;
@@ -256,7 +257,7 @@ pub fn op_write(spec: &str) -> Result<WriteResult, String> {
     let mut results = Vec::new();
     for fs in &file_specs {
         let content = fs.content.clone();
-        write_file_atomic(&fs.file, &content).map_err(|e| format!("写入 {} 失败: {}", fs.file, e))?;
+        write_file_atomic(&fs.file, &content).map_err(|e| EditError::write_path(&fs.file, e))?;
         let line_count = content.lines().count();
         let byte_count = content.len();
         results.push(WriteFileResult {

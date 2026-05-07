@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+use crate::error::{EditError, EditResult};
 
 // ── Data structures ──
 
@@ -48,9 +49,9 @@ fn void_elements() -> HashSet<&'static str> {
 
 // ── Core scanning ──
 
-fn scan_file(filepath: &str) -> Result<ScanResult, String> {
+fn scan_file(filepath: &str) -> EditResult<ScanResult> {
     let content = fs::read_to_string(Path::new(filepath))
-        .map_err(|e| format!("读取文件失败: {}", e))?;
+        .map_err(|e| EditError::read_path(filepath, e))?;
 
     let lines: Vec<&str> = content.split('\n').collect();
 
@@ -355,7 +356,7 @@ pub fn check_structure_balance(file: &str, mode: &str) -> Result<String, String>
         return Err(format!("未知 mode: \"{}\"，支持: aggregate, unbalanced, tree", mode));
     }
 
-    let result = scan_file(file)?;
+    let result = scan_file(file).map_err(|e| e.to_string())?;
 
     let output = match mode {
         "aggregate" => {

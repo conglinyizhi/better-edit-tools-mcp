@@ -3,6 +3,7 @@ use rmcp::{schemars, tool, tool_router, ServiceExt, transport::stdio};
 
 mod fast_edit;
 mod structure_balance;
+mod error;
 
 // ── Parameters structs ──
 
@@ -86,7 +87,7 @@ impl OpenCodeTools {
 
     #[tool(description = "显示文件指定行范围的内容（带行号）。end 可省略或传 'auto'，自动扩展到包含 start 行的完整函数范围。")]
     fn better_edit_show(&self, Parameters(params): Parameters<ShowParams>) -> Result<String, String> {
-        let r = fast_edit::op_show(&params.file, params.start as usize, params.end.as_deref())?;
+        let r = fast_edit::op_show(&params.file, params.start as usize, params.end.as_deref()).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -99,7 +100,7 @@ impl OpenCodeTools {
         let r = fast_edit::op_replace(
             &params.file, params.start as usize, params.end as usize,
             &params.content, raw, fmt,
-        )?;
+        ).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -109,7 +110,7 @@ impl OpenCodeTools {
     fn better_edit_insert(&self, Parameters(params): Parameters<InsertParams>) -> Result<String, String> {
         let raw = params.raw.unwrap_or(false);
         let fmt = params.format.as_deref().unwrap_or("plain");
-        let r = fast_edit::op_insert(&params.file, params.line as usize, &params.content, raw, fmt)?;
+        let r = fast_edit::op_insert(&params.file, params.line as usize, &params.content, raw, fmt).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -125,7 +126,7 @@ impl OpenCodeTools {
             params.line.map(|v| v as usize),
             params.lines.as_deref(),
             fmt,
-        )?;
+        ).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -133,7 +134,7 @@ impl OpenCodeTools {
 
     #[tool(description = "批量编辑文件（单次调用完成多处修改）。性能最优，推荐用于 3+ 处修改。支持单文件或多文件。所有行号均基于原始文件，工具内部自动从下往上执行，无需手动排序。spec JSON 格式：单文件 {\"file\":\"/path\",\"edits\":[{\"action\":\"replace-lines\",\"start\":10,\"end\":12,\"content\":\"new\"}]} 或多文件 {\"files\":[...]}")]
     fn better_edit_batch(&self, Parameters(params): Parameters<BatchParams>) -> Result<String, String> {
-        let r = fast_edit::op_batch(&params.spec)?;
+        let r = fast_edit::op_batch(&params.spec).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -141,7 +142,7 @@ impl OpenCodeTools {
 
     #[tool(description = "批量写入文件内容。JSON 格式：{\"file\":\"/path\",\"content\":\"...\"} 或 {\"files\":[...]}。当 JSON 因特殊字符解析失败时自动启用状态机降级提取。")]
     fn better_edit_write(&self, Parameters(params): Parameters<WriteParams>) -> Result<String, String> {
-        let r = fast_edit::op_write(&params.spec)?;
+        let r = fast_edit::op_write(&params.spec).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -152,7 +153,7 @@ impl OpenCodeTools {
         &self,
         Parameters(params): Parameters<FunctionRangeParams>,
     ) -> Result<String, String> {
-        let r = fast_edit::op_function_range(&params.file, params.line as usize)?;
+        let r = fast_edit::op_function_range(&params.file, params.line as usize).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 }

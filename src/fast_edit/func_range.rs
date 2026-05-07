@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use crate::error::{EditError, EditResult};
 
 #[derive(serde::Serialize)]
 pub struct FunctionRangeResult {
@@ -8,12 +9,12 @@ pub struct FunctionRangeResult {
 }
 
 /// 查找函数范围（基于花括号计数）
-pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> Result<(usize, usize), String> {
+pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> EditResult<(usize, usize)> {
     let content = fs::read_to_string(Path::new(filepath))
-        .map_err(|e| format!("读取文件失败: {}", e))?;
+        .map_err(|e| EditError::read_path(filepath, e))?;
     let lines: Vec<&str> = content.split('\n').collect();
     if target_line < 1 || target_line > lines.len() {
-        return Err(format!("目标行 {} 超出文件范围 (1..{})", target_line, lines.len()));
+        return Err(EditError::invalid_arg(format!("目标行 {} 超出文件范围 (1..{})", target_line, lines.len())));
     }
 
     #[derive(Clone, Copy)]
@@ -128,13 +129,13 @@ pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> Resul
         }
     }
 
-    Err(format!(
+    Err(EditError::invalid_arg(format!(
         "第 {} 行不在任何函数/块范围内（基于花括号检测）",
         target_line
-    ))
+    )))
 }
 
-pub fn op_function_range(filepath: &str, line: usize) -> Result<FunctionRangeResult, String> {
+pub fn op_function_range(filepath: &str, line: usize) -> EditResult<FunctionRangeResult> {
     let (start, end) = op_function_range_raw(filepath, line)?;
     Ok(FunctionRangeResult { start, end })
 }
