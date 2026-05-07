@@ -55,6 +55,36 @@ pub(crate) fn parse_content(text: &str) -> String {
     result
 }
 
+/// 将内容解析并转换为带行尾符的行列表（共享管道）
+/// 步骤：parse(如果 raw=false) → split → trim \r → 追加行尾符 → 去除尾部空行
+pub(crate) fn prepare_content_lines(
+    content: &str,
+    line_ending: &str,
+    raw: bool,
+) -> Vec<String> {
+    let parsed = if raw {
+        content.to_string()
+    } else {
+        parse_content(content)
+    };
+
+    if parsed.is_empty() {
+        return Vec::new();
+    }
+
+    let mut lines: Vec<String> = parsed
+        .split('\n')
+        .map(|l| format!("{}{}", l.trim_end_matches('\r'), line_ending))
+        .collect();
+
+    // 去掉末尾多余的空行
+    while lines.last().map_or(false, |l| l.trim().is_empty()) {
+        lines.pop();
+    }
+
+    lines
+}
+
 /// 快速符号闭合检查
 pub(crate) fn quick_balance_check(content: &str) -> String {
     let mut curly: i32 = 0;

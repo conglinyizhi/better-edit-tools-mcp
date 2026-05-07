@@ -1,5 +1,5 @@
 use std::path::Path;
-use crate::fast_edit::core::{read_lines, write_file_atomic, parse_content, quick_balance_check, build_diff};
+use crate::fast_edit::core::{read_lines, write_file_atomic, prepare_content_lines, quick_balance_check, build_diff};
 use crate::fast_edit::func_range::op_function_range_raw;
 
 // ── Result structs ──
@@ -129,24 +129,7 @@ pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: 
     let before_end = total.min(end + CTX);
     let before_content: Vec<String> = lines[before_start - 1..before_end].to_vec();
 
-    let nc = if raw { content.to_string() } else { parse_content(content) };
-    let mut new_lines: Vec<String> = if nc.is_empty() {
-        Vec::new()
-    } else {
-        nc.split('\n')
-            .map(|l| format!("{}{}", l.trim_end_matches('\r'), le))
-            .collect()
-    };
-    // 去掉末尾多余的空行（ts 版本的行为）
-    while new_lines.last().map_or(false, |l| l.trim().is_empty()) {
-        new_lines.pop();
-    }
-    // 确保最后一行后有换行
-    if !new_lines.is_empty() && !new_lines.last().expect("已检查非空").ends_with('\n') {
-        if let Some(last) = new_lines.last_mut() {
-            last.push_str(&le);
-        }
-    }
+    let new_lines = prepare_content_lines(content, &le, raw);
 
     lines.splice(start - 1..end, new_lines.clone());
     let new_content = lines.concat();
@@ -188,23 +171,7 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
     let before_end = total.min(after + CTX);
     let before_content: Vec<String> = lines[before_start - 1..before_end].to_vec();
 
-    let nc = if raw { content.to_string() } else { parse_content(content) };
-    let mut new_lines: Vec<String> = if nc.is_empty() {
-        Vec::new()
-    } else {
-        nc.split('\n')
-            .map(|l| format!("{}{}", l.trim_end_matches('\r'), le))
-            .collect()
-    };
-    // 清理空的末尾行
-    while new_lines.last().map_or(false, |l| l.trim().is_empty()) {
-        new_lines.pop();
-    }
-    if !new_lines.is_empty() && !new_lines.last().expect("已检查非空").ends_with('\n') {
-        if let Some(last) = new_lines.last_mut() {
-            last.push_str(&le);
-        }
-    }
+    let new_lines = prepare_content_lines(content, &le, raw);
 
     let insert_pos = after;
     let after_line = insert_pos;
@@ -393,27 +360,7 @@ pub fn op_batch(spec: &str) -> Result<BatchResult, String> {
                         return Err(format!("batch/replace: end ({}) 超出范围 ({}..{})", e, s, lines.len()));
                     }
                     let raw_content = edit["content"].as_str().unwrap_or("");
-                    let nc = raw_content
-                        .split('\n')
-                        .map(|l| format!("{}{}", l.trim_end_matches('\r'), le))
-                        .collect::<Vec<_>>()
-                        .join("");
-                    let new_lines: Vec<String> = if nc.is_empty() {
-                        Vec::new()
-                    } else {
-                        let mut nl: Vec<String> = nc.split('\n')
-                            .map(|l| format!("{}{}", l.trim_end_matches('\r'), le))
-                            .collect();
-                        if e < lines.len() && !nl.is_empty() && !nl.last().expect("已检查非空").ends_with('\n') {
-                            if let Some(last) = nl.last_mut() {
-                                last.push_str(&le);
-                            }
-                        }
-                        while nl.len() > 1 && nl.last().map_or(false, |l| l.trim().is_empty()) {
-                            nl.pop();
-                        }
-                        nl
-                    };
+                    let new_lines = prepare_content_lines(raw_content, &le, true);
                     lines.splice(s - 1..e, new_lines);
                 }
                 "insert-after" => {
