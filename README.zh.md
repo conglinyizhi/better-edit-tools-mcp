@@ -10,7 +10,7 @@
 
 | 工具 | 说明 |
 |------|------|
-| `better_edit_balance` | 检查文件中括号/花括号/方括号的成对情况、HTML/XML 标签闭合以及引号奇偶警告。支持三种模式：`aggregate`（聚合）、`unbalanced`（失衡，默认）、`tree`（树状嵌套）。 |
+| `better_edit_balance` | 检查文件中括号/花括号/方括号的成对情况、HTML/XML 标签闭合以及引号奇偶警告。扫描时会尽量忽略字符串与注释中的符号。支持三种模式：`aggregate`（聚合）、`unbalanced`（失衡，默认）、`tree`（树状嵌套）。 |
 | `better_edit_show` | 带行号显示文件内容。`end` 可传行号或 `"auto"`，自动扩展到所在函数范围。 |
 | `better_edit_replace` | 替换文件中指定行范围的内容。 |
 | `better_edit_insert` | 在指定行后插入内容（`line=0` 表示插入到文件开头）。 |
