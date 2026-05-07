@@ -55,13 +55,14 @@ src/
 │   ├── edit.rs                   # 编辑操作（show/replace/insert/delete/batch）
 │   ├── write.rs                  # 写入操作 + JSON 降级解析
 │   └── func_range.rs             # 函数范围检测
+├── error.rs                      # 共享错误类型（EditError / EditResult）
 ├── structure_balance.rs          # 符号平衡检查核心逻辑
 ```
 
 关键入口点：
 - `main.rs:OpenCodeTools` — 唯一 struct，所有工具通过 `#[tool_router(server_handler)]` 注册
 - `main.rs:main()` — `OpenCodeTools.serve(stdio()).await?`
-- `fast_edit.rs:op_show()`, `op_replace()`, 等 — 每个 `pub fn` 对应一个 MCP tool 的后端实现
+- `fast_edit::op_show()`, `op_replace()`, 等 — 每个 `pub fn` 对应一个 MCP tool 的后端实现
 
 ## 工具说明
 
@@ -70,13 +71,13 @@ src/
 - `better_edit_show/replace/insert/delete/batch/write` — 调用 `fast_edit::op_*()`
 - `better_edit_function_range` — 调用 `fast_edit::op_function_range()`
 
-所有工具返回 `Result<String, String>`，错误时 MCP 自动设 `isError: true`。
+MCP 工具对外仍返回 `Result<String, String>`，错误时 MCP 自动设 `isError: true`；内部编辑逻辑统一使用 `EditResult<T>` / `EditError`。
 
 ## 注意事项
 
 - **无测试**：项目目前没有测试，修改时需手动验证
 - **原子写入**：`fast_edit::write_file_atomic()` 先写临时文件再 rename，防崩溃
-- **JSON 降级解析**：`op_write` 先尝试 `serde_json::from_str`，失败则调用 `parse_spec_raw` 状态机降级提取。实现在 `fast_edit.rs` 末尾。
+- **JSON 降级解析**：`op_write` 先尝试 `serde_json::from_str`，失败则调用 `parse_spec_raw` 状态机降级提取。实现在 `src/fast_edit/write.rs`。
 
 - **中文描述**：所有 tool description 是中文的，rmcp `#[tool]` 宏直接透传
 - **受限于文件系统**：所有工具操作本地文件，无网络/数据库能力
