@@ -70,6 +70,10 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
     let mut tag_stack: Vec<(String, usize)> = Vec::new();
     let mut tag_matched: Vec<MatchedPair> = Vec::new();
     let void_elts = void_elements();
+    let mut in_string = false;
+    let mut string_char = ' ';
+    let mut escape_next = false;
+    let mut in_block_comment = false;
 
     let opens: HashSet<char> = ['{', '[', '('].iter().copied().collect();
     let closes: HashMap<char, &str> =
@@ -87,6 +91,64 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
 
         while col < chars.len() {
             let ch = chars[col];
+            let next = if col + 1 < chars.len() { Some(chars[col + 1]) } else { None };
+
+            if escape_next {
+                escape_next = false;
+                col += 1;
+                continue;
+            }
+
+            if ch == '\\' && in_string {
+                escape_next = true;
+                col += 1;
+                continue;
+            }
+
+            if in_block_comment {
+                if ch == '*' && next == Some('/') {
+                    in_block_comment = false;
+                    col += 2;
+                } else {
+                    col += 1;
+                }
+                continue;
+            }
+
+            if !in_string && ch == '/' && next == Some('/') {
+                break;
+            }
+            if !in_string && ch == '/' && next == Some('*') {
+                in_block_comment = true;
+                col += 2;
+                continue;
+            }
+
+            if (ch == '"' || ch == '\'') && !in_string {
+                in_string = true;
+                string_char = ch;
+                if ch == '"' {
+                    quote_lines.get_mut("\"").unwrap().push(line_num);
+                } else {
+                    quote_lines.get_mut("'").unwrap().push(line_num);
+                }
+                col += 1;
+                continue;
+            } else if in_string && ch == string_char {
+                in_string = false;
+                if ch == '"' {
+                    quote_lines.get_mut("\"").unwrap().push(line_num);
+                } else {
+                    quote_lines.get_mut("'").unwrap().push(line_num);
+                }
+                col += 1;
+                continue;
+            }
+
+            if in_string {
+                col += 1;
+                continue;
+            }
 
             // ── HTML/XML 标签解析 ──
             if ch == '<' {
@@ -107,10 +169,8 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                         } else if sc == '<' {
                             break;
                         }
-                    } else {
-                        if sc == q_char {
-                            in_q = false;
-                        }
+                    } else if sc == q_char {
+                        in_q = false;
                     }
                     s += 1;
                 }
@@ -214,12 +274,6 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
             }
 
             // ── 引号计数 ──
-            if ch == '"' {
-                quote_lines.get_mut("\"").unwrap().push(line_num);
-            } else if ch == '\'' {
-                quote_lines.get_mut("'").unwrap().push(line_num);
-            }
-
             col += 1;
         }
     }
@@ -315,7 +369,7 @@ fn format_tree_inner(matched: &[MatchedPair], empty_msg: &str, header: &str) -> 
         .collect();
     let mut result = header.to_string();
     for r in rows {
-        result.push_str("\n");
+        result.push('\n');
         result.push_str(&r);
     }
     result

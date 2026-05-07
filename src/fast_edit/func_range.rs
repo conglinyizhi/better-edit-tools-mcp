@@ -108,11 +108,11 @@ pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> EditR
                 depth += 1;
             } else if ch == '}' {
                 depth -= 1;
-                if depth == 0 {
-                    if let Some(start) = current_start {
-                        ranges.push((start, line_idx + 1));
-                        current_start = None;
-                    }
+                if depth == 0
+                    && let Some(start) = current_start
+                {
+                    ranges.push((start, line_idx + 1));
+                    current_start = None;
                 }
                 if depth < 0 {
                     depth = 0;

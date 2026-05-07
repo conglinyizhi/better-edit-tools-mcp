@@ -84,7 +84,7 @@ pub fn op_show(filepath: &str, start: usize, end: Option<&str>) -> EditResult<Sh
                     let ctx_start = s.saturating_sub(ctx_before).max(1);
                     let mut ctx_end = (s + ctx_after).min(total);
                     if ctx_end - ctx_start + 1 < min_lines {
-                        let extra = (min_lines - (ctx_end - ctx_start + 1) + 1) / 2;
+                        let extra = (min_lines - (ctx_end - ctx_start + 1)).div_ceil(2);
                         ctx_end = total.min(ctx_end + extra);
                     }
                     s = ctx_start;
@@ -176,10 +176,11 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
     let insert_pos = after;
     let after_line = insert_pos;
     // 确保前一行有换行
-    if after_line > 0 && after_line <= lines.len() {
-        if !lines[after_line - 1].ends_with('\n') {
-            lines[after_line - 1].push_str(&le);
-        }
+    if after_line > 0
+        && after_line <= lines.len()
+        && !lines[after_line - 1].ends_with('\n')
+    {
+        lines[after_line - 1].push_str(&le);
     }
 
     let mut result = Vec::with_capacity(lines.len() + new_lines.len());
@@ -224,7 +225,7 @@ pub fn op_delete(
 
     if let Some(json) = lines_json {
         let nums: Vec<usize> = serde_json::from_str::<Vec<usize>>(json)
-            .map_err(|e| EditError::JsonParse(e))?;
+            .map_err(EditError::JsonParse)?;
         let valid: Vec<usize> = nums.into_iter().filter(|&n| n >= 1 && n <= total).collect();
         if valid.is_empty() {
             return Err(EditError::invalid_arg(format!("delete: 所有行号均超出文件范围 (1..{})", total)));
@@ -369,7 +370,7 @@ pub fn op_batch(spec: &str) -> EditResult<BatchResult> {
                         .split('\n')
                         .map(|l| format!("{}{}", l.trim_end_matches('\r'), le))
                         .collect();
-                    while new_lines.last().map_or(false, |l| l.trim().is_empty()) {
+                    while new_lines.last().is_some_and(|l| l.trim().is_empty()) {
                         new_lines.pop();
                     }
                     if ln > 0 && ln <= lines.len() && !lines[ln - 1].ends_with('\n') {
