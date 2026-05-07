@@ -85,12 +85,86 @@ pub(crate) fn prepare_content_lines(
     lines
 }
 
-/// 快速符号闭合检查
+/// 快速符号闭合检查（支持字符串/注释感知，避免误报）
 pub(crate) fn quick_balance_check(content: &str) -> String {
     let mut curly: i32 = 0;
     let mut square: i32 = 0;
     let mut paren: i32 = 0;
-    for ch in content.chars() {
+    let mut in_string = false;
+    let mut string_char = ' ';
+    let mut escape = false;
+    let mut in_line_comment = false;
+    let mut in_block_comment = false;
+    let chars: Vec<char> = content.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let ch = chars[i];
+        let next = chars.get(i + 1).copied();
+
+        // 转义：跳过下一个字符
+        if escape {
+            escape = false;
+            i += 1;
+            continue;
+        }
+
+        if ch == '\\' && in_string {
+            escape = true;
+            i += 1;
+            continue;
+        }
+
+        // 行注释 //
+        if !in_string && !in_block_comment && ch == '/' && next == Some('/') {
+            in_line_comment = true;
+            i += 1;
+            continue;
+        }
+        // 换行结束行注释
+        if in_line_comment && ch == '\n' {
+            in_line_comment = false;
+            i += 1;
+            continue;
+        }
+        if in_line_comment {
+            i += 1;
+            continue;
+        }
+
+        // 块注释 /* */
+        if !in_string && !in_block_comment && ch == '/' && next == Some('*') {
+            in_block_comment = true;
+            i += 2;
+            continue;
+        }
+        if in_block_comment && ch == '*' && next == Some('/') {
+            in_block_comment = false;
+            i += 2;
+            continue;
+        }
+        if in_block_comment {
+            i += 1;
+            continue;
+        }
+
+        // 字符串开始/结束
+        if (ch == '"' || ch == '\'' || ch == '`') && !in_string {
+            in_string = true;
+            string_char = ch;
+            i += 1;
+            continue;
+        }
+        if in_string && ch == string_char {
+            in_string = false;
+            i += 1;
+            continue;
+        }
+        if in_string {
+            i += 1;
+            continue;
+        }
+
+        // 花括号/方括号/圆括号计数
         match ch {
             '{' => curly += 1,
             '}' => curly -= 1,
@@ -100,7 +174,9 @@ pub(crate) fn quick_balance_check(content: &str) -> String {
             ')' => paren -= 1,
             _ => {}
         }
+        i += 1;
     }
+
     let mut errors: Vec<String> = Vec::new();
     if curly != 0 { errors.push(format!("{{}} 差 {} 个", curly.abs())); }
     if square != 0 { errors.push(format!("[] 差 {} 个", square.abs())); }
