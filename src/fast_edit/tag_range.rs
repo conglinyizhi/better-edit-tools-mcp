@@ -50,10 +50,10 @@ pub fn op_tag_range(filepath: &str, line: usize) -> EditResult<TagRangeResult> {
                     while j < chars.len() && chars[j] != '>' {
                         j += 1;
                     }
-                    if let Some((open_tag, open_line)) = stack.pop() {
-                        if open_tag == tag {
-                            open_ranges.push((open_tag, open_line, line_no));
-                        }
+                    if let Some((open_tag, open_line)) = stack.pop()
+                        && open_tag == tag
+                    {
+                        open_ranges.push((open_tag, open_line, line_no));
                     }
                     cursor = j.saturating_add(1);
                     continue;
