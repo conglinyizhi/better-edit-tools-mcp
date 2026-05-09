@@ -25,6 +25,8 @@ pub struct ReplaceResult {
     diff: String,
     balance: String,
     affected: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    preview: Option<bool>,
 }
 
 #[derive(serde::Serialize)]
@@ -37,6 +39,8 @@ pub struct InsertResult {
     diff: String,
     balance: String,
     affected: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    preview: Option<bool>,
 }
 
 #[derive(serde::Serialize)]
@@ -47,6 +51,8 @@ pub struct DeleteResult {
     diff: String,
     balance: String,
     affected: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    preview: Option<bool>,
 }
 
 #[derive(serde::Serialize)]
@@ -54,6 +60,8 @@ pub struct BatchResult {
     status: String,
     files: usize,
     results: Vec<BatchFileResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    preview: Option<bool>,
 }
 
 #[derive(serde::Serialize)]
@@ -129,7 +137,7 @@ pub fn op_show(filepath: &str, start: usize, end: Option<ShowEnd>) -> EditResult
 }
 
 /// 替换文件内容
-pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: bool, format: &str) -> EditResult<ReplaceResult> {
+pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: bool, format: &str, preview: bool) -> EditResult<ReplaceResult> {
     let (mut lines, le) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let total = lines.len();
 
@@ -149,7 +157,9 @@ pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: 
 
     lines.splice(start - 1..end, new_lines.clone());
     let new_content = lines.concat();
-    write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+    if !preview {
+        write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+    }
 
     // 修改后上下文（使用内存中已修改的 lines，避免多余重读）
     let delta = new_lines.len() as isize - (end as isize - start as isize + 1);
@@ -169,11 +179,12 @@ pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: 
         diff,
         balance,
         affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+        preview: preview.then_some(true),
     })
 }
 
 /// 在指定行后插入内容，after=0 表示文件开头
-pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format: &str) -> EditResult<InsertResult> {
+pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format: &str, preview: bool) -> EditResult<InsertResult> {
     let (mut lines, le) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let total = lines.len();
 
@@ -204,7 +215,9 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
     result.extend_from_slice(&lines[after_line..]);
 
     let new_content = result.concat();
-    write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+    if !preview {
+        write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+    }
     // 修改后上下文（使用内存中的 result，避免多余重读）
     let after_total = result.len();
     let after_end = (before_end + new_lines.len()).min(after_total);
@@ -222,6 +235,7 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
         diff,
         balance,
         affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+        preview: preview.then_some(true),
     })
 }
 
@@ -233,6 +247,7 @@ pub fn op_delete(
     line: Option<usize>,
     lines_json: Option<&str>,
     format: &str,
+    preview: bool,
 ) -> EditResult<DeleteResult> {
     let (mut file_lines, _) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let total = file_lines.len();
@@ -259,7 +274,9 @@ pub fn op_delete(
             .map(|(_, l)| l)
             .collect();
         let new_content = filtered.concat();
-        write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+        if !preview {
+            write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+        }
 
         let after_total = filtered.len();
         let after_end = (before_end as isize - valid.len() as isize).max(0) as usize;
@@ -275,6 +292,7 @@ pub fn op_delete(
             diff,
             balance,
             affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+            preview: preview.then_some(true),
         });
     }
 
@@ -295,7 +313,9 @@ pub fn op_delete(
 
     file_lines.splice(s - 1..e, std::iter::empty());
     let new_content = file_lines.concat();
-    write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+    if !preview {
+        write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+    }
     // 修改后上下文（使用内存中已修改的 file_lines，避免多余重读）
     let after_total = file_lines.len();
     let after_end = (before_end as isize - deleted as isize).max(0) as usize;
@@ -311,11 +331,12 @@ pub fn op_delete(
         diff,
         balance,
         affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+        preview: preview.then_some(true),
     })
 }
 
 /// 批量编辑
-pub fn op_batch(spec: &str) -> EditResult<BatchResult> {
+pub fn op_batch(spec: &str, preview: bool) -> EditResult<BatchResult> {
     let spec_val: serde_json::Value = serde_json::from_str(spec)?;
 
     let file_specs = match &spec_val {
@@ -415,8 +436,10 @@ pub fn op_batch(spec: &str) -> EditResult<BatchResult> {
         }
 
         let new_content = lines.concat();
-        write_file_atomic(filepath, &new_content)
-            .map_err(|e| EditError::write_path(filepath, e))?;
+        if !preview {
+            write_file_atomic(filepath, &new_content)
+                .map_err(|e| EditError::write_path(filepath, e))?;
+        }
 
         results.push(BatchFileResult {
             file: Path::new(filepath).to_string_lossy().to_string(),
@@ -429,5 +452,6 @@ pub fn op_batch(spec: &str) -> EditResult<BatchResult> {
         status: "ok".to_string(),
         files: results.len(),
         results,
+        preview: preview.then_some(true),
     })
 }

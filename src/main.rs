@@ -5,6 +5,8 @@ mod fast_edit;
 mod structure_balance;
 mod error;
 
+use fast_edit::{resolve_target_span, CommonEditParams};
+
 fn validate_format(fmt: &str) -> Result<(), String> {
     if !matches!(fmt, "plain" | "diff") {
         return Err(format!("format 参数仅支持 'plain' 或 'diff', 收到: '{}'", fmt));
@@ -41,6 +43,8 @@ struct ReplaceParams {
     content: String,
     raw: Option<bool>,
     format: Option<String>,
+    #[serde(default, flatten)]
+    common: CommonEditParams,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -50,6 +54,8 @@ struct InsertParams {
     content: String,
     raw: Option<bool>,
     format: Option<String>,
+    #[serde(default, flatten)]
+    common: CommonEditParams,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -60,11 +66,15 @@ struct DeleteParams {
     line: Option<u32>,
     lines: Option<String>,
     format: Option<String>,
+    #[serde(default, flatten)]
+    common: CommonEditParams,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 struct BatchParams {
     spec: String,
+    #[serde(default, flatten)]
+    common: CommonEditParams,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -82,6 +92,8 @@ struct TagRangeParams {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 struct WriteParams {
     spec: String,
+    #[serde(default, flatten)]
+    common: CommonEditParams,
 }
 
 // ── Server ──
@@ -125,9 +137,15 @@ impl OpenCodeTools {
         let raw = params.raw.unwrap_or(false);
         let fmt = params.format.as_deref().unwrap_or("plain");
         validate_format(fmt)?;
+        let (start, end) = if let Some(target) = params.common.target.as_ref() {
+            let span = resolve_target_span(&params.file, target).map_err(|e| e.to_string())?;
+            (span.start, span.end)
+        } else {
+            (params.start as usize, params.end as usize)
+        };
         let r = fast_edit::op_replace(
-            &params.file, params.start as usize, params.end as usize,
-            &params.content, raw, fmt,
+            &params.file, start, end,
+            &params.content, raw, fmt, params.common.preview,
         ).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
@@ -139,7 +157,13 @@ impl OpenCodeTools {
         let raw = params.raw.unwrap_or(false);
         let fmt = params.format.as_deref().unwrap_or("plain");
         validate_format(fmt)?;
-        let r = fast_edit::op_insert(&params.file, params.line as usize, &params.content, raw, fmt).map_err(|e| e.to_string())?;
+        let after = if let Some(target) = params.common.target.as_ref() {
+            let span = resolve_target_span(&params.file, target).map_err(|e| e.to_string())?;
+            span.end
+        } else {
+            params.line as usize
+        };
+        let r = fast_edit::op_insert(&params.file, after, &params.content, raw, fmt, params.common.preview).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -149,13 +173,24 @@ impl OpenCodeTools {
     fn be_delete(&self, Parameters(params): Parameters<DeleteParams>) -> Result<String, String> {
         let fmt = params.format.as_deref().unwrap_or("plain");
         validate_format(fmt)?;
+        let (start, end, line) = if let Some(target) = params.common.target.as_ref() {
+            let span = resolve_target_span(&params.file, target).map_err(|e| e.to_string())?;
+            (Some(span.start), Some(span.end), None)
+        } else {
+            (
+                params.start.map(|v| v as usize),
+                params.end.map(|v| v as usize),
+                params.line.map(|v| v as usize),
+            )
+        };
         let r = fast_edit::op_delete(
             &params.file,
-            params.start.map(|v| v as usize),
-            params.end.map(|v| v as usize),
-            params.line.map(|v| v as usize),
+            start,
+            end,
+            line,
             params.lines.as_deref(),
             fmt,
+            params.common.preview,
         ).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
@@ -164,7 +199,7 @@ impl OpenCodeTools {
 
     #[tool(name = "be-batch", description = "批量编辑文件（单次调用完成多处修改）。性能最优，推荐用于 3+ 处修改。支持单文件或多文件。所有行号均基于原始文件，工具内部自动从下往上执行，无需手动排序。spec JSON 格式：单文件 {\"file\":\"/path\",\"edits\":[{\"action\":\"replace-lines\",\"start\":10,\"end\":12,\"content\":\"new\"}]} 或多文件 {\"files\":[...]}")]
     fn be_batch(&self, Parameters(params): Parameters<BatchParams>) -> Result<String, String> {
-        let r = fast_edit::op_batch(&params.spec).map_err(|e| e.to_string())?;
+        let r = fast_edit::op_batch(&params.spec, params.common.preview).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
@@ -172,7 +207,7 @@ impl OpenCodeTools {
 
     #[tool(name = "be-write", description = "批量写入文件内容。JSON 格式：{\"file\":\"/path\",\"content\":\"...\"} 或 {\"files\":[...]}。当 JSON 因特殊字符解析失败时自动启用状态机降级提取。")]
     fn be_write(&self, Parameters(params): Parameters<WriteParams>) -> Result<String, String> {
-        let r = fast_edit::op_write(&params.spec).map_err(|e| e.to_string())?;
+        let r = fast_edit::op_write(&params.spec, params.common.preview).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 

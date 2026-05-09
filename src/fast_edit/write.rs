@@ -24,6 +24,8 @@ pub struct WriteResult {
     pub degraded: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<bool>,
 }
 
 #[derive(serde::Serialize)]
@@ -237,7 +239,7 @@ fn extract_code_blocks(text: &str) -> String {
 // ── Public API ──
 
 /// 写入文件内容，支持 JSON 降级解析
-pub fn op_write(spec: &str) -> EditResult<WriteResult> {
+pub fn op_write(spec: &str, preview: bool) -> EditResult<WriteResult> {
     let (write_spec, degraded) = match serde_json::from_str::<serde_json::Value>(spec) {
         Ok(val) => {
             let specs = parse_write_value(&val)?;
@@ -259,10 +261,12 @@ pub fn op_write(spec: &str) -> EditResult<WriteResult> {
         .iter()
         .map(|fs| (fs.file.clone(), fs.content.clone()))
         .collect();
-    write_files_atomic(&writes).map_err(|e| {
-        let path = writes.first().map(|(p, _)| p.as_str()).unwrap_or(spec);
-        EditError::write_path(path, e)
-    })?;
+    if !preview {
+        write_files_atomic(&writes).map_err(|e| {
+            let path = writes.first().map(|(p, _)| p.as_str()).unwrap_or(spec);
+            EditError::write_path(path, e)
+        })?;
+    }
 
     for fs in &file_specs {
         let content = fs.content.clone();
@@ -281,6 +285,7 @@ pub fn op_write(spec: &str) -> EditResult<WriteResult> {
         results,
         degraded: None,
         warning: None,
+        preview: preview.then_some(true),
     };
 
     if degraded {
