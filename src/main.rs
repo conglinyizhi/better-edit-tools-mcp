@@ -33,6 +33,8 @@ struct ShowParams {
     file: String,
     start: u32,
     end: Option<ShowEndParam>,
+    #[serde(default, flatten)]
+    common: CommonEditParams,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -118,15 +120,21 @@ impl OpenCodeTools {
 
     #[tool(name = "be-show", description = "显示文件指定行范围的内容（带行号）。end 可省略、传数字，或传 'auto' 自动扩展到包含 start 行的完整函数范围。")]
     fn be_show(&self, Parameters(params): Parameters<ShowParams>) -> Result<String, String> {
-        let end = match params.end {
-            None => None,
-            Some(ShowEndParam::Auto(s)) if s == "auto" => Some(fast_edit::ShowEnd::Auto),
-            Some(ShowEndParam::Auto(s)) => {
-                return Err(format!("end 参数仅支持数字或 'auto', 收到: '{}'", s));
-            }
-            Some(ShowEndParam::Line(v)) => Some(fast_edit::ShowEnd::Line(v as usize)),
+        let (start, end) = if let Some(target) = params.common.target.as_ref() {
+            let span = resolve_target_span(&params.file, target).map_err(|e| e.to_string())?;
+            (span.start, Some(fast_edit::ShowEnd::Line(span.end)))
+        } else {
+            let end = match params.end {
+                None => None,
+                Some(ShowEndParam::Auto(s)) if s == "auto" => Some(fast_edit::ShowEnd::Auto),
+                Some(ShowEndParam::Auto(s)) => {
+                    return Err(format!("end 参数仅支持数字或 'auto', 收到: '{}'", s));
+                }
+                Some(ShowEndParam::Line(v)) => Some(fast_edit::ShowEnd::Line(v as usize)),
+            };
+            (params.start as usize, end)
         };
-        let r = fast_edit::op_show(&params.file, params.start as usize, end).map_err(|e| e.to_string())?;
+        let r = fast_edit::op_show(&params.file, start, end).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 
