@@ -35,6 +35,77 @@ pub(crate) fn write_file_atomic(filepath: &str, content: &str) -> io::Result<()>
     Ok(())
 }
 
+/// 多文件原子写入：尽量保证要么全部成功，要么回滚到原始状态
+pub(crate) fn write_files_atomic(writes: &[(String, String)]) -> io::Result<()> {
+    if writes.is_empty() {
+        return Ok(());
+    }
+
+    let mut temp_paths: Vec<(String, std::path::PathBuf)> = Vec::new();
+    let mut backup_paths: Vec<(String, Option<std::path::PathBuf>)> = Vec::new();
+
+    for (filepath, content) in writes {
+        let abs = Path::new(filepath);
+        let parent = abs.parent().unwrap_or(Path::new("."));
+        let stem = abs
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("tmp");
+        let counter = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let tmp_name = format!(".fe-{}-{}.tmp", stem, counter);
+        let tmp_path = parent.join(&tmp_name);
+        fs::write(&tmp_path, content)?;
+        temp_paths.push((filepath.clone(), tmp_path));
+
+        if abs.exists() {
+            let backup_name = format!(".fe-{}-{}.bak", stem, counter);
+            let backup_path = parent.join(&backup_name);
+            fs::copy(abs, &backup_path)?;
+            backup_paths.push((filepath.clone(), Some(backup_path)));
+        } else {
+            backup_paths.push((filepath.clone(), None));
+        }
+    }
+
+    let mut committed: Vec<String> = Vec::new();
+    for (filepath, tmp_path) in &temp_paths {
+        let dest = Path::new(filepath);
+        if let Err(err) = fs::rename(tmp_path, dest) {
+            // 尝试回滚已提交的文件
+            for committed_file in committed.iter().rev() {
+                if let Some((_, backup)) = backup_paths.iter().find(|(path, _)| path == committed_file) {
+                    match backup {
+                        Some(backup_path) => {
+                            let _ = fs::rename(backup_path, Path::new(committed_file));
+                        }
+                        None => {
+                            let _ = fs::remove_file(Path::new(committed_file));
+                        }
+                    }
+                }
+            }
+            // 清理剩余临时文件和备份
+            for (_, pending_tmp) in &temp_paths {
+                let _ = fs::remove_file(pending_tmp);
+            }
+            for (_, backup) in &backup_paths {
+                if let Some(backup_path) = backup {
+                    let _ = fs::remove_file(backup_path);
+                }
+            }
+            return Err(err);
+        }
+        committed.push(filepath.clone());
+    }
+
+    for (_, backup) in &backup_paths {
+        if let Some(backup_path) = backup {
+            let _ = fs::remove_file(backup_path);
+        }
+    }
+    Ok(())
+}
+
 /// 将 \n \t 转义字符串还原为实际字符
 pub(crate) fn parse_content(text: &str) -> String {
     let mut result = String::with_capacity(text.len());

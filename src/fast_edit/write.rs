@@ -1,4 +1,4 @@
-use crate::fast_edit::core::write_file_atomic;
+use crate::fast_edit::core::write_files_atomic;
 use crate::error::{EditError, EditResult};
 
 // ── Internal types ──
@@ -255,9 +255,17 @@ pub fn op_write(spec: &str) -> EditResult<WriteResult> {
     };
 
     let mut results = Vec::new();
+    let writes: Vec<(String, String)> = file_specs
+        .iter()
+        .map(|fs| (fs.file.clone(), fs.content.clone()))
+        .collect();
+    write_files_atomic(&writes).map_err(|e| {
+        let path = writes.first().map(|(p, _)| p.as_str()).unwrap_or(spec);
+        EditError::write_path(path, e)
+    })?;
+
     for fs in &file_specs {
         let content = fs.content.clone();
-        write_file_atomic(&fs.file, &content).map_err(|e| EditError::write_path(&fs.file, e))?;
         let line_count = content.lines().count();
         let byte_count = content.len();
         results.push(WriteFileResult {
