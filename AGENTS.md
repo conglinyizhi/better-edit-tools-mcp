@@ -75,6 +75,7 @@ MCP 工具对外仍返回 `Result<String, String>`，错误时 MCP 自动设 `is
 
 ## 注意事项
 
+- **实验性项目**：工具名称、参数和行为可能继续调整。不要在 prompt 或自动化脚本里写死具体工具名，优先使用能力描述或动态解析的方式选择工具。
 - **无测试**：项目目前没有测试，修改时需手动验证
 - **原子写入**：`fast_edit::write_file_atomic()` 先写临时文件再 rename，防崩溃
 - **JSON 降级解析**：`op_write` 先尝试 `serde_json::from_str`，失败则调用 `parse_spec_raw` 状态机降级提取。实现在 `src/fast_edit/write.rs`。

@@ -37,6 +37,7 @@ tar xzf "${TMPFILE}" -C "${INSTALL_DIR}"
 chmod +x "${BIN_PATH}"
 
 echo "✓ 安装完成: ${BIN_PATH}"
+echo "⚠ 这是实验性项目，工具名称和参数可能继续变化。不要把具体工具名写死到 prompt 里。"
 echo ""
 echo "MCP 配置:"
 cat <<JSON

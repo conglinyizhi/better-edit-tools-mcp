@@ -5,6 +5,7 @@
 # better-edit-tools
 
 > A high-performance MCP (Model Context Protocol) file editing toolkit — atomic writes, smart batch sorting, and intelligent function-scope detection.
+> Experimental project: tool names, parameters, and behaviors may change as the design evolves. Do not hardcode specific tool names into prompts; prefer capability-based or dynamically resolved tool selection.
 
 ## Tools
 
