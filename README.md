@@ -10,14 +10,14 @@
 
 | Tool | Description |
 |------|-------------|
-| `better_edit_balance` | Check bracket/brace/parenthesis matching, HTML/XML tag closure, and quote parity in a file. Supports three modes: `aggregate`, `unbalanced` (default), `tree`. |
-| `better_edit_show` | Display file content with line numbers. `end` can be a line number or `"auto"` to auto-expand to the enclosing function scope. |
-| `better_edit_replace` | Replace a range of lines in a file. |
-| `better_edit_insert` | Insert content after a given line (`line=0` inserts at the beginning). |
-| `better_edit_delete` | Delete line(s) — single line, range, or batch by JSON array of line numbers. |
-| `better_edit_batch` | Batch edit a file (or multiple files) with multiple operations in one call. Operations are applied bottom-up to avoid line-number drift. |
-| `better_edit_write` | Write raw content to file(s). Supports both single-file `{"file","content"}` and multi-file `{"files":[...]}`. When standard JSON parsing fails (e.g. unescaped backticks or `${}`), falls back to a state-machine-based degraded extractor. |
-| `better_edit_function_range` | Find the start/end lines of the function or block enclosing a given line, using brace counting with string/comment awareness. |
+| `be-balance` | Check bracket/brace/parenthesis matching, HTML/XML tag closure, and quote parity in a file. Supports three modes: `aggregate`, `unbalanced` (default), `tree`. |
+| `be-show` | Display file content with line numbers. `end` can be a line number or `"auto"` to auto-expand to the enclosing function scope. |
+| `be-replace` | Replace a range of lines in a file. |
+| `be-insert` | Insert content after a given line (`line=0` inserts at the beginning). |
+| `be-delete` | Delete line(s) — single line, range, or batch by JSON array of line numbers. |
+| `be-batch` | Batch edit a file (or multiple files) with multiple operations in one call. Operations are applied bottom-up to avoid line-number drift. |
+| `be-write` | Write raw content to file(s). Supports both single-file `{"file","content"}` and multi-file `{"files":[...]}`. When standard JSON parsing fails (e.g. unescaped backticks or `${}`), falls back to a state-machine-based degraded extractor. |
+| `be-function-range` | Find the start/end lines of the function or block enclosing a given line, using brace counting with string/comment awareness. |
 
 ## Design highlights
 

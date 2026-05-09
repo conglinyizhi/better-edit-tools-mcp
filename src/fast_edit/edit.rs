@@ -63,15 +63,27 @@ pub struct BatchFileResult {
     total: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ShowEnd {
+    Auto,
+    Line(usize),
+}
+
 // ── Operations ──
 
 /// 显示文件内容
-pub fn op_show(filepath: &str, start: usize, end: Option<&str>) -> EditResult<ShowResult> {
+pub fn op_show(filepath: &str, start: usize, end: Option<ShowEnd>) -> EditResult<ShowResult> {
     let (lines, _) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let total = lines.len();
+    if total == 0 {
+        return Err(EditError::invalid_arg("show: 文件为空"));
+    }
+    if start < 1 || start > total {
+        return Err(EditError::invalid_arg(format!("show: start 超出范围 (1..{})", total)));
+    }
     let mut s = start.max(1);
     let e = match end {
-        Some("auto") | None => {
+        Some(ShowEnd::Auto) | None => {
             match op_function_range_raw(filepath, s) {
                 Ok(r) => {
                     s = r.0;
@@ -92,8 +104,11 @@ pub fn op_show(filepath: &str, start: usize, end: Option<&str>) -> EditResult<Sh
                 }
             }
         }
-        Some(v) => v.parse::<usize>().map_err(|_| EditError::invalid_arg("end 参数必须是数字或 'auto'"))?,
+        Some(ShowEnd::Line(v)) => v,
     };
+    if e < s {
+        return Err(EditError::invalid_arg(format!("show: end 不能小于 start ({}..{})", s, total)));
+    }
     let e = e.min(total);
 
     let content: String = lines[s - 1..e]
