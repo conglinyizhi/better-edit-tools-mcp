@@ -105,16 +105,6 @@ struct OpenCodeTools;
 
 #[tool_router(server_handler)]
 impl OpenCodeTools {
-    // ── structure-balance ──
-
-    #[tool(name = "be-balance", description = "检查文件中括号/花括号/方括号的成对情况、HTML/XML 标签闭合，以及引号的奇偶警告。三种模式：aggregate（聚合）、unbalanced（失衡，默认）、tree（树状嵌套）")]
-    fn be_balance(
-        &self,
-        Parameters(params): Parameters<StructureBalanceParams>,
-    ) -> Result<String, String> {
-        let mode = params.mode.as_deref().unwrap_or("unbalanced");
-        structure_balance::check_structure_balance(&params.file, mode)
-    }
 
     // ── fast-edit: show ──
 
@@ -237,6 +227,16 @@ impl OpenCodeTools {
     ) -> Result<String, String> {
         let r = fast_edit::op_tag_range(&params.file, params.line as usize).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
+    }
+
+    // ── structure-balance ──
+    #[tool(name = "be-balance", description = "检查文件中括号/花括号/方括号的成对情况、HTML/XML 标签闭合，以及引号的奇偶警告。三种模式：aggregate（聚合）、unbalanced（失衡，默认）、tree（树状嵌套）")]
+    fn be_balance(
+        &self,
+        Parameters(params): Parameters<StructureBalanceParams>,
+    ) -> Result<String, String> {
+        let mode = params.mode.as_deref().unwrap_or("unbalanced");
+        structure_balance::check_structure_balance(&params.file, mode)
     }
 }
 
