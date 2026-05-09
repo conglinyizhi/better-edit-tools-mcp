@@ -12,11 +12,11 @@
 |------|-------------|
 | `be-balance` | Check bracket/brace/parenthesis matching, HTML/XML tag closure, and quote parity in a file. Supports three modes: `aggregate`, `unbalanced` (default), `tree`. |
 | `be-show` | Display file content with line numbers. `end` can be a line number or `"auto"` to auto-expand to the enclosing function scope. |
-| `be-replace` | Replace a range of lines in a file. |
-| `be-insert` | Insert content after a given line (`line=0` inserts at the beginning). |
-| `be-delete` | Delete line(s) — single line, range, or batch by JSON array of line numbers. |
-| `be-batch` | Batch edit a file (or multiple files) with multiple operations in one call. Operations are applied bottom-up to avoid line-number drift. |
-| `be-write` | Write raw content to file(s). Supports both single-file `{"file","content"}` and multi-file `{"files":[...]}`. When standard JSON parsing fails (e.g. unescaped backticks or `${}`), falls back to a state-machine-based degraded extractor. |
+| `be-replace` | Replace a range of lines in a file. Supports shared `target` and `preview` parameters. |
+| `be-insert` | Insert content after a given line (`line=0` inserts at the beginning). Supports shared `target` and `preview` parameters. |
+| `be-delete` | Delete line(s) — single line, range, or batch by JSON array of line numbers. Supports shared `target` and `preview` parameters. |
+| `be-batch` | Batch edit a file (or multiple files) with multiple operations in one call. Operations are applied bottom-up to avoid line-number drift. Supports shared `preview` parameters. |
+| `be-write` | Write raw content to file(s). Supports both single-file `{"file","content"}` and multi-file `{"files":[...]}`. When standard JSON parsing fails (e.g. unescaped backticks or `${}`), falls back to a state-machine-based degraded extractor. Supports shared `preview` parameters. |
 | `be-func-range` | Find the start/end lines of the `{}` block or function enclosing a given line, using brace counting with string/comment awareness. |
 | `be-tag-range` | Find the start/end lines of the XML/HTML/Vue tag pair enclosing a given line. |
 
