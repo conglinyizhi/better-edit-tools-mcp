@@ -68,7 +68,13 @@ struct BatchParams {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-struct FunctionRangeParams {
+struct FuncRangeParams {
+    file: String,
+    line: u32,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct TagRangeParams {
     file: String,
     line: u32,
 }
@@ -172,12 +178,21 @@ impl OpenCodeTools {
 
     // ── fast-edit: function-range ──
 
-    #[tool(name = "be-function-range", description = "传入文件路径和行号，返回该行所在函数的起止行号（基于花括号计数，支持字符串/注释感知）。")]
-    fn be_function_range(
+    #[tool(name = "be-func-range", description = "传入文件路径和行号，返回该行所在 {} 块/函数的起止行号（基于花括号计数，支持字符串/注释感知）。")]
+    fn be_func_range(
         &self,
-        Parameters(params): Parameters<FunctionRangeParams>,
+        Parameters(params): Parameters<FuncRangeParams>,
     ) -> Result<String, String> {
-        let r = fast_edit::op_function_range(&params.file, params.line as usize).map_err(|e| e.to_string())?;
+        let r = fast_edit::op_func_range(&params.file, params.line as usize).map_err(|e| e.to_string())?;
+        serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
+    }
+
+    #[tool(name = "be-tag-range", description = "传入文件路径和行号，返回该行所在 XML/HTML/Vue tag 的起止行号。")]
+    fn be_tag_range(
+        &self,
+        Parameters(params): Parameters<TagRangeParams>,
+    ) -> Result<String, String> {
+        let r = fast_edit::op_tag_range(&params.file, params.line as usize).map_err(|e| e.to_string())?;
         serde_json::to_string_pretty(&r).map_err(|e| format!("JSON 序列化失败: {}", e))
     }
 }

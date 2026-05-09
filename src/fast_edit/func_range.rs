@@ -139,3 +139,7 @@ pub fn op_function_range(filepath: &str, line: usize) -> EditResult<FunctionRang
     let (start, end) = op_function_range_raw(filepath, line)?;
     Ok(FunctionRangeResult { start, end })
 }
+
+pub fn op_func_range(filepath: &str, line: usize) -> EditResult<FunctionRangeResult> {
+    op_function_range(filepath, line)
+}

@@ -17,7 +17,8 @@
 | `be-delete` | Delete line(s) — single line, range, or batch by JSON array of line numbers. |
 | `be-batch` | Batch edit a file (or multiple files) with multiple operations in one call. Operations are applied bottom-up to avoid line-number drift. |
 | `be-write` | Write raw content to file(s). Supports both single-file `{"file","content"}` and multi-file `{"files":[...]}`. When standard JSON parsing fails (e.g. unescaped backticks or `${}`), falls back to a state-machine-based degraded extractor. |
-| `be-function-range` | Find the start/end lines of the function or block enclosing a given line, using brace counting with string/comment awareness. |
+| `be-func-range` | Find the start/end lines of the `{}` block or function enclosing a given line, using brace counting with string/comment awareness. |
+| `be-tag-range` | Find the start/end lines of the XML/HTML/Vue tag pair enclosing a given line. |
 
 ## Design highlights
 
