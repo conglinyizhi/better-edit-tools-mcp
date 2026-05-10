@@ -1,7 +1,19 @@
-use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{schemars, tool, tool_router, ServiceExt, transport::stdio};
+use std::borrow::Cow;
 
-use crate::fast_edit::{resolve_target_span, CommonEditParams};
+use rmcp::handler::server::tool::ToolRouter;
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::{
+    model::{ListToolsResult, PaginatedRequestParams, Tool},
+    schemars,
+    tool, tool_handler, tool_router,
+    transport::stdio,
+    ServiceExt,
+};
+
+use crate::{
+    fast_edit::{CommonEditParams, resolve_target_span},
+    lang::Lang,
+};
 
 fn validate_format(fmt: &str) -> Result<(), String> {
     if !matches!(fmt, "plain" | "diff") {
@@ -94,10 +106,59 @@ struct WriteParams {
 }
 
 #[derive(Clone)]
-struct OpenCodeTools;
+struct OpenCodeTools {
+    lang: Lang,
+    tool_router: ToolRouter<Self>,
+}
 
-#[tool_router(server_handler)]
 impl OpenCodeTools {
+    fn new(lang: Lang) -> Self {
+        Self {
+            lang,
+            tool_router: Self::tool_router(),
+        }
+    }
+
+    fn localize_tool(&self, mut tool: Tool) -> Tool {
+        if let Some(description) = localized_tool_description(self.lang, tool.name.as_ref()) {
+            tool.description = Some(Cow::Borrowed(description));
+        }
+        tool
+    }
+}
+
+fn localized_tool_description(lang: Lang, name: &str) -> Option<&'static str> {
+    match lang {
+        Lang::En => match name {
+            "be-show" => Some("Display file content with line numbers."),
+            "be-replace" => Some("Replace a precise line range in a file."),
+            "be-insert" => Some("Insert content after a specific line."),
+            "be-delete" => Some("Delete one line, a line range, or a batch of line numbers."),
+            "be-batch" => Some("Apply multiple edits in one call, including multi-file edits."),
+            "be-write" => Some("Write raw content to file(s), with a degraded parser for malformed JSON payloads."),
+            "be-func-range" => Some("Find the enclosing function or brace block for a given line."),
+            "be-tag-range" => Some("Find the enclosing XML/HTML/Vue tag pair for a given line."),
+            "be-balance" => Some("Check bracket, brace, parenthesis, tag, and quote balance."),
+            _ => None,
+        },
+        Lang::Zh => match name {
+            "be-show" => Some("按行号展示文件内容。"),
+            "be-replace" => Some("替换文件中的指定行范围。"),
+            "be-insert" => Some("在指定行后插入内容。"),
+            "be-delete" => Some("删除单行、范围或批量指定的行号。"),
+            "be-batch" => Some("一次执行多处编辑，支持多文件。"),
+            "be-write" => Some("直接写入文件内容，JSON 失败时会尽量降级解析。"),
+            "be-func-range" => Some("定位某一行所在的函数或花括号范围。"),
+            "be-tag-range" => Some("定位某一行所在的 XML/HTML/Vue 标签配对范围。"),
+            "be-balance" => Some("检查括号、标签和引号的配对情况。"),
+            _ => None,
+        },
+    }
+}
+
+#[tool_router]
+impl OpenCodeTools {
+
     #[tool(name = "be-show", description = "显示文件指定行范围的内容（带行号）。end 可省略、传数字，或传 'auto' 自动扩展到包含 start 行的完整函数范围。")]
     fn be_show(&self, Parameters(params): Parameters<ShowParams>) -> Result<String, String> {
         let (start, end) = if let Some(target) = params.common.target.as_ref() {
@@ -217,8 +278,35 @@ impl OpenCodeTools {
     }
 }
 
-pub(crate) async fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let service = OpenCodeTools.serve(stdio()).await?;
+#[tool_handler(router = self.tool_router)]
+impl rmcp::ServerHandler for OpenCodeTools {
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<ListToolsResult, rmcp::ErrorData> {
+        let tools = self
+            .tool_router
+            .list_all()
+            .into_iter()
+            .map(|tool| self.localize_tool(tool))
+            .collect();
+        Ok(ListToolsResult {
+            tools,
+            ..Default::default()
+        })
+    }
+
+    fn get_tool(&self, name: &str) -> Option<Tool> {
+        self.tool_router
+            .get(name)
+            .cloned()
+            .map(|tool| self.localize_tool(tool))
+    }
+}
+
+pub(crate) async fn run(lang: Lang) -> Result<(), Box<dyn std::error::Error>> {
+    let service = OpenCodeTools::new(lang).serve(stdio()).await?;
     service.waiting().await?;
     Ok(())
 }
