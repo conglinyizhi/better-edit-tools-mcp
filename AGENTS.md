@@ -42,13 +42,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-too
 }
 ```
 
-所有工具通过 stdio 传输暴露，工具名前缀统一为 `better_edit_`。
+所有工具通过 stdio 传输暴露，工具名前缀统一为 `be-`。
 
 ## 架构
 
 ```
 src/
-├── main.rs                       # MCP 服务器入口 + 工具注册（#[tool_router]）
+├── main.rs                       # 启动入口：CLI 解析后进入 server::run()
+├── cli.rs                        # 命令行解析（--help / --version / --lang）
+├── lang.rs                       # 语言标签解析与默认语言选择
+├── server.rs                     # MCP 服务器 + 工具注册 + 运行时本地化描述
 ├── fast_edit/
 │   ├── mod.rs                    # 公共 API 导出
 │   ├── core.rs                   # 核心工具函数（read_lines, write_file_atomic 等）
@@ -60,8 +63,9 @@ src/
 ```
 
 关键入口点：
-- `main.rs:OpenCodeTools` — 唯一 struct，所有工具通过 `#[tool_router(server_handler)]` 注册
-- `main.rs:main()` — `OpenCodeTools.serve(stdio()).await?`
+- `main.rs:main()` — 解析 CLI 参数后调用 `server::run(lang).await?`
+- `server.rs:OpenCodeTools` — 统一持有工具路由，`list_tools` / `get_tool` 会根据语言覆盖 `Tool.description`
+- `server.rs` 的 `#[tool_router]` + `#[tool_handler]` 组合负责工具调用与元数据返回
 - `fast_edit::op_show()`, `op_replace()`, 等 — 每个 `pub fn` 对应一个 MCP tool 的后端实现
 
 ## 工具说明
@@ -76,10 +80,11 @@ MCP 工具对外仍返回 `Result<String, String>`，错误时 MCP 自动设 `is
 ## 注意事项
 
 - **实验性项目**：工具名称、参数和行为可能继续调整。不要在 prompt 或自动化脚本里写死具体工具名，优先使用能力描述或动态解析的方式选择工具。
+- **多语言描述**：工具名和参数保持稳定，`--lang <zh|en>` 只影响 tool description 和文档文本，不改变执行语义。
 - **无测试**：项目目前没有测试，修改时需手动验证
 - **原子写入**：`fast_edit::write_file_atomic()` 先写临时文件再 rename，防崩溃
 - **JSON 降级解析**：`op_write` 先尝试 `serde_json::from_str`，失败则调用 `parse_spec_raw` 状态机降级提取。实现在 `src/fast_edit/write.rs`。
 
-- **中文描述**：所有 tool description 是中文的，rmcp `#[tool]` 宏直接透传
+- **语言协商**：启动时可通过 `--lang <zh|en>` 指定 tool description 语言；未指定时回退到 `LANG` 环境变量，最终默认英文
 - **受限于文件系统**：所有工具操作本地文件，无网络/数据库能力
 - **不在 OpenCode plugin 内**：这是标准 MCP 服务器，与 `@opencode-ai/plugin` 无关（原始 TypeScript 版才依赖那个包）
