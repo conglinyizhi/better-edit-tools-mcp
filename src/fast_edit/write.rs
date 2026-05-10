@@ -1,5 +1,5 @@
-use crate::fast_edit::core::write_files_atomic;
 use crate::error::{EditError, EditResult};
+use crate::fast_edit::core::write_files_atomic;
 
 // ── Internal types ──
 
@@ -117,20 +117,33 @@ fn parse_spec_raw(spec: &str) -> EditResult<WriteSpec> {
     // 检测多文件模式
     if let Some(files_idx) = spec.find("\"files\"") {
         let after_files = &spec[files_idx + 8..];
-        let bracket = after_files.find('[').ok_or_else(|| EditError::invalid_arg("files 字段后找不到 ["))?;
+        let bracket = after_files
+            .find('[')
+            .ok_or_else(|| EditError::invalid_arg("files 字段后找不到 ["))?;
         let array_start = files_idx + 8 + bracket;
 
         let mut depth = 0i32;
         let mut in_str = false;
         let mut array_end = None;
         for (i, &b) in spec.as_bytes()[array_start..].iter().enumerate() {
-            if b == b'\\' && in_str { continue; }
-            if b == b'"' { in_str = !in_str; continue; }
-            if in_str { continue; }
-            if b == b'[' { depth += 1; }
-            else if b == b']' {
+            if b == b'\\' && in_str {
+                continue;
+            }
+            if b == b'"' {
+                in_str = !in_str;
+                continue;
+            }
+            if in_str {
+                continue;
+            }
+            if b == b'[' {
+                depth += 1;
+            } else if b == b']' {
                 depth -= 1;
-                if depth == 0 { array_end = Some(array_start + i); break; }
+                if depth == 0 {
+                    array_end = Some(array_start + i);
+                    break;
+                }
             }
         }
         let array_end = array_end.ok_or_else(|| EditError::invalid_arg("找不到数组结束的 ]"))?;
@@ -146,13 +159,24 @@ fn parse_spec_raw(spec: &str) -> EditResult<WriteSpec> {
             let mut elem_end = None;
             let elem_bytes = array_body.as_bytes();
             for (i, &b) in elem_bytes[abs_start..].iter().enumerate() {
-                if b == b'\\' && in_str { continue; }
-                if b == b'"' { in_str = !in_str; continue; }
-                if in_str { continue; }
-                if b == b'{' { depth += 1; }
-                else if b == b'}' {
+                if b == b'\\' && in_str {
+                    continue;
+                }
+                if b == b'"' {
+                    in_str = !in_str;
+                    continue;
+                }
+                if in_str {
+                    continue;
+                }
+                if b == b'{' {
+                    depth += 1;
+                } else if b == b'}' {
                     depth -= 1;
-                    if depth == 0 { elem_end = Some(abs_start + i + 1); break; }
+                    if depth == 0 {
+                        elem_end = Some(abs_start + i + 1);
+                        break;
+                    }
                 }
             }
             let elem_end = match elem_end {
@@ -163,7 +187,10 @@ fn parse_spec_raw(spec: &str) -> EditResult<WriteSpec> {
             let elem = &array_body[abs_start..elem_end];
             if let Some(fp) = extract_file_raw(elem) {
                 let ct = extract_content_raw(elem).unwrap_or_default();
-                results.push(WriteFileSpec { file: fp, content: ct });
+                results.push(WriteFileSpec {
+                    file: fp,
+                    content: ct,
+                });
             }
             search_pos = elem_end;
         }
@@ -176,7 +203,8 @@ fn parse_spec_raw(spec: &str) -> EditResult<WriteSpec> {
 
     // 单文件模式
     let fp = extract_file_raw(spec);
-    let ct = extract_content_raw(spec).ok_or_else(|| EditError::invalid_arg("找不到 content 字段"))?;
+    let ct =
+        extract_content_raw(spec).ok_or_else(|| EditError::invalid_arg("找不到 content 字段"))?;
     Ok(WriteSpec::Single(WriteFileSpec {
         file: fp.unwrap_or_default(),
         content: ct,
@@ -186,13 +214,23 @@ fn parse_spec_raw(spec: &str) -> EditResult<WriteSpec> {
 /// 从标准 JSON Value 中解析文件规格
 fn parse_write_value(val: &serde_json::Value) -> EditResult<WriteSpec> {
     let parse_one = |v: &serde_json::Value| -> EditResult<WriteFileSpec> {
-        let file = v.get("file").and_then(|v| v.as_str()).ok_or_else(|| EditError::invalid_arg("缺少 file 字段"))?;
-        let mut content = v.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let file = v
+            .get("file")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| EditError::invalid_arg("缺少 file 字段"))?;
+        let mut content = v
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         // 支持 extract: true，自动提取 ``` 代码块内容
         if v.get("extract").and_then(|v| v.as_bool()).unwrap_or(false) {
             content = extract_code_blocks(&content);
         }
-        Ok(WriteFileSpec { file: file.to_string(), content })
+        Ok(WriteFileSpec {
+            file: file.to_string(),
+            content,
+        })
     };
 
     if let Some(files) = val.get("files").and_then(|v| v.as_array()) {

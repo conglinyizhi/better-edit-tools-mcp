@@ -11,11 +11,15 @@ pub struct TagRangeResult {
 }
 
 pub fn op_tag_range(filepath: &str, line: usize) -> EditResult<TagRangeResult> {
-    let content = fs::read_to_string(Path::new(filepath))
-        .map_err(|e| EditError::read_path(filepath, e))?;
+    let content =
+        fs::read_to_string(Path::new(filepath)).map_err(|e| EditError::read_path(filepath, e))?;
     let lines: Vec<&str> = content.split('\n').collect();
     if line < 1 || line > lines.len() {
-        return Err(EditError::invalid_arg(format!("目标行 {} 超出文件范围 (1..{})", line, lines.len())));
+        return Err(EditError::invalid_arg(format!(
+            "目标行 {} 超出文件范围 (1..{})",
+            line,
+            lines.len()
+        )));
     }
 
     let mut stack: Vec<(String, usize)> = Vec::new();

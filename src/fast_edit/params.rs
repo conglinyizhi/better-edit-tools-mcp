@@ -29,8 +29,8 @@ pub struct TargetSpan {
 }
 
 pub fn resolve_target_span(filepath: &str, target: &ContentTarget) -> EditResult<TargetSpan> {
-    let content = std::fs::read_to_string(filepath)
-        .map_err(|e| EditError::read_path(filepath, e))?;
+    let content =
+        std::fs::read_to_string(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let lines: Vec<&str> = content.lines().collect();
     if lines.is_empty() {
         return Err(EditError::invalid_arg("target: 文件为空"));
@@ -40,9 +40,16 @@ pub fn resolve_target_span(filepath: &str, target: &ContentTarget) -> EditResult
         ContentTarget::Line(line) => {
             let line = *line as usize;
             if line < 1 || line > lines.len() {
-                return Err(EditError::invalid_arg(format!("target line {} 超出文件范围 (1..{})", line, lines.len())));
+                return Err(EditError::invalid_arg(format!(
+                    "target line {} 超出文件范围 (1..{})",
+                    line,
+                    lines.len()
+                )));
             }
-            Ok(TargetSpan { start: line, end: line })
+            Ok(TargetSpan {
+                start: line,
+                end: line,
+            })
         }
         ContentTarget::Marker(marker) => {
             let needle = marker.trim();
@@ -54,7 +61,10 @@ pub fn resolve_target_span(filepath: &str, target: &ContentTarget) -> EditResult
                 .position(|line| line.contains(needle))
                 .map(|idx| idx + 1)
                 .ok_or_else(|| EditError::invalid_arg(format!("未找到 marker: {}", needle)))?;
-            Ok(TargetSpan { start: found, end: found })
+            Ok(TargetSpan {
+                start: found,
+                end: found,
+            })
         }
         ContentTarget::Function(name) => {
             let needle = name.trim();
@@ -63,7 +73,10 @@ pub fn resolve_target_span(filepath: &str, target: &ContentTarget) -> EditResult
             }
             let found = lines
                 .iter()
-                .position(|line| line.contains(&format!("fn {}", needle)) || line.contains(&format!("{}(", needle)))
+                .position(|line| {
+                    line.contains(&format!("fn {}", needle))
+                        || line.contains(&format!("{}(", needle))
+                })
                 .map(|idx| idx + 1)
                 .ok_or_else(|| EditError::invalid_arg(format!("未找到 function: {}", needle)))?;
             let (start, end) = op_function_range_raw(filepath, found)?;
@@ -76,11 +89,17 @@ pub fn resolve_target_span(filepath: &str, target: &ContentTarget) -> EditResult
             }
             let found = lines
                 .iter()
-                .position(|line| line.contains(&format!("<{}", needle)) || line.contains(&format!("</{}", needle)))
+                .position(|line| {
+                    line.contains(&format!("<{}", needle))
+                        || line.contains(&format!("</{}", needle))
+                })
                 .map(|idx| idx + 1)
                 .ok_or_else(|| EditError::invalid_arg(format!("未找到 tag: {}", needle)))?;
             let tag = op_tag_range(filepath, found)?;
-            Ok(TargetSpan { start: tag.start, end: tag.end })
+            Ok(TargetSpan {
+                start: tag.start,
+                end: tag.end,
+            })
         }
     }
 }

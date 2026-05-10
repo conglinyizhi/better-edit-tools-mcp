@@ -1,6 +1,6 @@
+use crate::error::{EditError, EditResult};
 use std::fs;
 use std::path::Path;
-use crate::error::{EditError, EditResult};
 
 #[derive(serde::Serialize)]
 pub struct FunctionRangeResult {
@@ -9,12 +9,19 @@ pub struct FunctionRangeResult {
 }
 
 /// 查找函数范围（基于花括号计数）
-pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> EditResult<(usize, usize)> {
-    let content = fs::read_to_string(Path::new(filepath))
-        .map_err(|e| EditError::read_path(filepath, e))?;
+pub(crate) fn op_function_range_raw(
+    filepath: &str,
+    target_line: usize,
+) -> EditResult<(usize, usize)> {
+    let content =
+        fs::read_to_string(Path::new(filepath)).map_err(|e| EditError::read_path(filepath, e))?;
     let lines: Vec<&str> = content.split('\n').collect();
     if target_line < 1 || target_line > lines.len() {
-        return Err(EditError::invalid_arg(format!("目标行 {} 超出文件范围 (1..{})", target_line, lines.len())));
+        return Err(EditError::invalid_arg(format!(
+            "目标行 {} 超出文件范围 (1..{})",
+            target_line,
+            lines.len()
+        )));
     }
 
     #[derive(Clone, Copy)]
@@ -43,7 +50,11 @@ pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> EditR
 
         'col_loop: while col < chars.len() {
             let ch = chars[col];
-            let next = if col + 1 < chars.len() { Some(chars[col + 1]) } else { None };
+            let next = if col + 1 < chars.len() {
+                Some(chars[col + 1])
+            } else {
+                None
+            };
 
             if escape_next {
                 escape_next = false;
@@ -52,13 +63,21 @@ pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> EditR
             }
 
             // 行注释
-            if !in_string && !matches!(comment_state, CommentState::Block) && ch == '/' && next == Some('/') {
+            if !in_string
+                && !matches!(comment_state, CommentState::Block)
+                && ch == '/'
+                && next == Some('/')
+            {
                 comment_state = CommentState::Line;
                 break 'col_loop;
             }
 
             // 块注释开始
-            if !in_string && !matches!(comment_state, CommentState::Block) && ch == '/' && next == Some('*') {
+            if !in_string
+                && !matches!(comment_state, CommentState::Block)
+                && ch == '/'
+                && next == Some('*')
+            {
                 comment_state = CommentState::Block;
                 col += 2;
                 continue;
@@ -71,7 +90,9 @@ pub(crate) fn op_function_range_raw(filepath: &str, target_line: usize) -> EditR
                 continue;
             }
 
-            if matches!(comment_state, CommentState::Block) || matches!(comment_state, CommentState::Line) {
+            if matches!(comment_state, CommentState::Block)
+                || matches!(comment_state, CommentState::Line)
+            {
                 col += 1;
                 continue;
             }

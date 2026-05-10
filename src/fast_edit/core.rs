@@ -15,17 +15,18 @@ pub(crate) fn read_lines(filepath: &str) -> io::Result<(Vec<String>, String)> {
 
 pub(crate) fn detect_line_ending(content: &str) -> &str {
     let crlf = content.matches("\r\n").count();
-    if crlf > content.lines().count() / 2 { "\r\n" } else { "\n" }
+    if crlf > content.lines().count() / 2 {
+        "\r\n"
+    } else {
+        "\n"
+    }
 }
 
 /// 原子写入：先写临时文件再 rename
 pub(crate) fn write_file_atomic(filepath: &str, content: &str) -> io::Result<()> {
     let abs = Path::new(filepath);
     let parent = abs.parent().unwrap_or(Path::new("."));
-    let stem = abs
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("tmp");
+    let stem = abs.file_stem().and_then(|s| s.to_str()).unwrap_or("tmp");
     let counter = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let tmp_name = format!(".fe-{}-{}.tmp", stem, counter);
     let tmp_path = parent.join(&tmp_name);
@@ -47,10 +48,7 @@ pub(crate) fn write_files_atomic(writes: &[(String, String)]) -> io::Result<()> 
     for (filepath, content) in writes {
         let abs = Path::new(filepath);
         let parent = abs.parent().unwrap_or(Path::new("."));
-        let stem = abs
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("tmp");
+        let stem = abs.file_stem().and_then(|s| s.to_str()).unwrap_or("tmp");
         let counter = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
         let tmp_name = format!(".fe-{}-{}.tmp", stem, counter);
         let tmp_path = parent.join(&tmp_name);
@@ -73,7 +71,9 @@ pub(crate) fn write_files_atomic(writes: &[(String, String)]) -> io::Result<()> 
         if let Err(err) = fs::rename(tmp_path, dest) {
             // 尝试回滚已提交的文件
             for committed_file in committed.iter().rev() {
-                if let Some((_, backup)) = backup_paths.iter().find(|(path, _)| path == committed_file) {
+                if let Some((_, backup)) =
+                    backup_paths.iter().find(|(path, _)| path == committed_file)
+                {
                     match backup {
                         Some(backup_path) => {
                             let _ = fs::rename(backup_path, Path::new(committed_file));
@@ -116,7 +116,10 @@ pub(crate) fn parse_content(text: &str) -> String {
                 Some('n') => result.push('\n'),
                 Some('t') => result.push('\t'),
                 Some('r') => result.push('\r'),
-                Some(c) => { result.push('\\'); result.push(c); }
+                Some(c) => {
+                    result.push('\\');
+                    result.push(c);
+                }
                 None => result.push('\\'),
             }
         } else {
@@ -128,11 +131,7 @@ pub(crate) fn parse_content(text: &str) -> String {
 
 /// 将内容解析并转换为带行尾符的行列表（共享管道）
 /// 步骤：parse(如果 raw=false) → split → trim \r → 追加行尾符 → 去除尾部空行
-pub(crate) fn prepare_content_lines(
-    content: &str,
-    line_ending: &str,
-    raw: bool,
-) -> Vec<String> {
+pub(crate) fn prepare_content_lines(content: &str, line_ending: &str, raw: bool) -> Vec<String> {
     let parsed = if raw {
         content.to_string()
     } else {
@@ -249,9 +248,15 @@ pub(crate) fn quick_balance_check(content: &str) -> String {
     }
 
     let mut errors: Vec<String> = Vec::new();
-    if curly != 0 { errors.push(format!("{{}} 差 {} 个", curly.abs())); }
-    if square != 0 { errors.push(format!("[] 差 {} 个", square.abs())); }
-    if paren != 0 { errors.push(format!("() 差 {} 个", paren.abs())); }
+    if curly != 0 {
+        errors.push(format!("{{}} 差 {} 个", curly.abs()));
+    }
+    if square != 0 {
+        errors.push(format!("[] 差 {} 个", square.abs()));
+    }
+    if paren != 0 {
+        errors.push(format!("() 差 {} 个", paren.abs()));
+    }
     if errors.is_empty() {
         "符号闭合快速检查：OK".to_string()
     } else {
@@ -270,12 +275,19 @@ pub(crate) fn build_diff(
         let mut out = String::new();
         out.push_str(&format!(
             "@@ -{},{} +{},{} @@\n",
-            base_line, before.len(), base_line, after.len()
+            base_line,
+            before.len(),
+            base_line,
+            after.len()
         ));
         let max_len = std::cmp::max(before.len(), after.len());
         for i in 0..max_len {
-            let b = before.get(i).map(|s| s.trim_end_matches('\n').trim_end_matches('\r'));
-            let a = after.get(i).map(|s| s.trim_end_matches('\n').trim_end_matches('\r'));
+            let b = before
+                .get(i)
+                .map(|s| s.trim_end_matches('\n').trim_end_matches('\r'));
+            let a = after
+                .get(i)
+                .map(|s| s.trim_end_matches('\n').trim_end_matches('\r'));
             match (b, a) {
                 (Some(b), Some(a)) if b == a => {
                     out.push_str(&format!(" {}\n", b));
@@ -301,11 +313,22 @@ pub(crate) fn build_diff(
         let after_end = base_line + after.len() - 1;
         let mut out = format!("--- 修改前（行 {}-{}）---\n", base_line, before_end);
         for (i, l) in before.iter().enumerate() {
-            out.push_str(&format!("{}\t{}\n", base_line + i, l.trim_end_matches('\n').trim_end_matches('\r')));
+            out.push_str(&format!(
+                "{}\t{}\n",
+                base_line + i,
+                l.trim_end_matches('\n').trim_end_matches('\r')
+            ));
         }
-        out.push_str(&format!("\n+++ 修改后（行 {}-{}）+++\n", base_line, after_end));
+        out.push_str(&format!(
+            "\n+++ 修改后（行 {}-{}）+++\n",
+            base_line, after_end
+        ));
         for (i, l) in after.iter().enumerate() {
-            out.push_str(&format!("{}\t{}\n", base_line + i, l.trim_end_matches('\n').trim_end_matches('\r')));
+            out.push_str(&format!(
+                "{}\t{}\n",
+                base_line + i,
+                l.trim_end_matches('\n').trim_end_matches('\r')
+            ));
         }
         if out.ends_with('\n') {
             out.pop();

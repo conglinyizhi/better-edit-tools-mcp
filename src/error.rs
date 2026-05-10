@@ -1,11 +1,16 @@
-
 #[derive(Debug, thiserror::Error)]
 pub enum EditError {
     #[error("文件 {path} 读取失败: {source}")]
-    ReadFile { path: String, source: std::io::Error },
+    ReadFile {
+        path: String,
+        source: std::io::Error,
+    },
 
     #[error("文件 {path} 写入失败: {source}")]
-    WriteFile { path: String, source: std::io::Error },
+    WriteFile {
+        path: String,
+        source: std::io::Error,
+    },
 
     #[error("JSON 解析失败: {0}")]
     JsonParse(#[from] serde_json::Error),
