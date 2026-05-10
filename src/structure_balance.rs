@@ -47,7 +47,29 @@ fn void_elements() -> HashSet<&'static str> {
     .collect()
 }
 
-// ── Core scanning ──
+fn is_ident_start(ch: char) -> bool {
+    ch == '_' || ch == '$' || ch.is_ascii_alphabetic()
+}
+
+fn is_ident_continue(ch: char) -> bool {
+    is_ident_start(ch) || ch.is_ascii_digit()
+}
+
+fn regex_keyword(word: &str) -> bool {
+    matches!(
+        word,
+        "return" | "throw" | "case" | "else" | "do" | "typeof" | "instanceof" | "in"
+            | "new" | "void" | "delete" | "yield" | "await"
+    )
+}
+
+fn regex_can_start_after(ch: char) -> bool {
+    matches!(
+        ch,
+        '(' | '[' | '{' | ',' | ';' | ':' | '=' | '!' | '?' | '+' | '-' | '*' | '%' | '&'
+            | '|' | '^' | '~' | '<' | '>'
+    )
+}
 
 fn scan_file(filepath: &str) -> EditResult<ScanResult> {
     let content = fs::read_to_string(Path::new(filepath))
@@ -70,10 +92,22 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
     let mut tag_stack: Vec<(String, usize)> = Vec::new();
     let mut tag_matched: Vec<MatchedPair> = Vec::new();
     let void_elts = void_elements();
-    let mut in_string = false;
-    let mut string_char = ' ';
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Mode {
+        Code,
+        LineComment,
+        BlockComment,
+        String(char),
+        Template,
+        TemplateExpr { brace_depth: usize },
+        Regex { in_class: bool },
+    }
+
+    let mut modes: Vec<Mode> = vec![Mode::Code];
     let mut escape_next = false;
-    let mut in_block_comment = false;
+    let mut regex_can_start = true;
+    let mut pending_ident = String::new();
 
     let opens: HashSet<char> = ['{', '[', '('].iter().copied().collect();
     let closes: HashMap<char, &str> =
@@ -99,60 +133,152 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                 continue;
             }
 
-            if ch == '\\' && in_string {
-                escape_next = true;
-                col += 1;
-                continue;
-            }
-
-            if in_block_comment {
-                if ch == '*' && next == Some('/') {
-                    in_block_comment = false;
-                    col += 2;
-                } else {
-                    col += 1;
+            match *modes.last().unwrap() {
+                Mode::LineComment => {
+                    break;
                 }
-                continue;
+                Mode::BlockComment => {
+                    if ch == '*' && next == Some('/') {
+                        modes.pop();
+                        col += 2;
+                    } else {
+                        col += 1;
+                    }
+                    continue;
+                }
+                Mode::String(quote) => {
+                    if ch == '\\' {
+                        escape_next = true;
+                        col += 1;
+                        continue;
+                    }
+                    if ch == quote {
+                        modes.pop();
+                        if quote == '"' {
+                            quote_lines.get_mut("\"").unwrap().push(line_num);
+                        } else {
+                            quote_lines.get_mut("'").unwrap().push(line_num);
+                        }
+                        regex_can_start = false;
+                    }
+                    col += 1;
+                    continue;
+                }
+                Mode::Template => {
+                    if ch == '\\' {
+                        escape_next = true;
+                        col += 1;
+                        continue;
+                    }
+                    if ch == '`' {
+                        modes.pop();
+                        regex_can_start = false;
+                        col += 1;
+                        continue;
+                    }
+                    if ch == '$' && next == Some('{') {
+                        let ch_str = "{".to_string();
+                        if let Some(list) = symbol_lines.get_mut(&ch_str) {
+                            list.push(line_num);
+                        }
+                        stack.push((ch_str, line_num));
+                        modes.push(Mode::TemplateExpr { brace_depth: 1 });
+                        regex_can_start = true;
+                        col += 2;
+                        continue;
+                    }
+                    col += 1;
+                    continue;
+                }
+                Mode::Regex { in_class } => {
+                    if ch == '\\' {
+                        escape_next = true;
+                        col += 1;
+                        continue;
+                    }
+                    if ch == '[' {
+                        if let Some(Mode::Regex { in_class }) = modes.last_mut() {
+                            *in_class = true;
+                        }
+                        col += 1;
+                        continue;
+                    }
+                    if ch == ']' {
+                        if let Some(Mode::Regex { in_class }) = modes.last_mut() {
+                            *in_class = false;
+                        }
+                        col += 1;
+                        continue;
+                    }
+                    if ch == '/' && !in_class {
+                        modes.pop();
+                        regex_can_start = false;
+                    }
+                    col += 1;
+                    continue;
+                }
+                Mode::Code | Mode::TemplateExpr { .. } => {}
             }
 
-            if !in_string && ch == '/' && next == Some('/') {
-                break;
+            if is_ident_continue(ch) {
+                if pending_ident.is_empty() && is_ident_start(ch) {
+                    pending_ident.push(ch);
+                    col += 1;
+                    continue;
+                }
+                if !pending_ident.is_empty() {
+                    pending_ident.push(ch);
+                    col += 1;
+                    continue;
+                }
             }
-            if !in_string && ch == '/' && next == Some('*') {
-                in_block_comment = true;
+
+            if !pending_ident.is_empty() {
+                regex_can_start = regex_keyword(&pending_ident);
+                pending_ident.clear();
+            }
+
+            if ch == '/' && next == Some('/') {
+                modes.push(Mode::LineComment);
+                col += 2;
+                continue;
+            }
+            if ch == '/' && next == Some('*') {
+                modes.push(Mode::BlockComment);
                 col += 2;
                 continue;
             }
 
-            if (ch == '"' || ch == '\'') && !in_string {
-                in_string = true;
-                string_char = ch;
+            if ch == '`' {
+                modes.push(Mode::Template);
+                regex_can_start = true;
+                col += 1;
+                continue;
+            }
+            if ch == '"' || ch == '\'' {
+                modes.push(Mode::String(ch));
                 if ch == '"' {
                     quote_lines.get_mut("\"").unwrap().push(line_num);
                 } else {
                     quote_lines.get_mut("'").unwrap().push(line_num);
                 }
+                regex_can_start = false;
                 col += 1;
                 continue;
-            } else if in_string && ch == string_char {
-                in_string = false;
-                if ch == '"' {
-                    quote_lines.get_mut("\"").unwrap().push(line_num);
-                } else {
-                    quote_lines.get_mut("'").unwrap().push(line_num);
+            }
+
+            if ch == '/' && regex_can_start {
+                if let Some(n) = next {
+                    if !matches!(n, '/' | '*' | '\n' | '\r') {
+                        modes.push(Mode::Regex { in_class: false });
+                        regex_can_start = false;
+                        col += 1;
+                        continue;
+                    }
                 }
-                col += 1;
-                continue;
             }
 
-            if in_string {
-                col += 1;
-                continue;
-            }
-
-            // ── HTML/XML 标签解析 ──
             if ch == '<' {
-                // 找到对应的 >
                 let mut in_q = false;
                 let mut q_char = ' ';
                 let mut tag_end = None;
@@ -186,13 +312,11 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                 let full_tag: String = chars[col..=tag_end].iter().collect();
                 col = tag_end + 1;
 
-                // 注释/处理指令 <!...>  <?...> 跳过
                 if full_tag.starts_with("<!") || full_tag.starts_with("<?") {
                     continue;
                 }
 
                 if full_tag.starts_with("</") {
-                    // 闭标签 </tag>
                     if let Some(name_match) = extract_tag_name(&full_tag, true) {
                         let tag_name = name_match.to_lowercase();
                         if let Some((last_name, last_line)) = tag_stack.last() {
@@ -222,10 +346,8 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                     continue;
                 }
 
-                // 开标签 <tag ...> 或自闭合 <tag .../>
                 if let Some(tag_name) = extract_tag_name(&full_tag, false) {
                     let tag_name = tag_name.to_lowercase();
-                    // 检查是否自闭合
                     let trimmed = full_tag.trim_end().to_string();
                     let is_self_closing = trimmed.ends_with("/>");
                     if is_self_closing {
@@ -239,7 +361,9 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                 continue;
             }
 
-            // ── 括号匹配 ──
+            let in_template_expr = matches!(modes.last(), Some(Mode::TemplateExpr { .. }));
+            let mut close_template_expr = false;
+
             let ch_str = ch.to_string();
             if symbol_lines.contains_key(&ch_str) {
                 symbol_lines.get_mut(&ch_str).unwrap().push(line_num);
@@ -247,6 +371,13 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
 
             if opens.contains(&ch) {
                 stack.push((ch_str.clone(), line_num));
+                if in_template_expr {
+                    if let Some(Mode::TemplateExpr { brace_depth }) = modes.last_mut() {
+                        if ch == '{' {
+                            *brace_depth += 1;
+                        }
+                    }
+                }
             } else if let Some(&expected_open) = closes.get(&ch) {
                 if let Some((last_sym, last_line)) = stack.last() {
                     if last_sym == expected_open {
@@ -271,14 +402,42 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                         expected: pair_of.get(ch_str.as_str()).unwrap_or(&"").to_string(),
                     });
                 }
+
+                if in_template_expr {
+                    if let Some(Mode::TemplateExpr { brace_depth }) = modes.last_mut() {
+                        if ch == '}' {
+                            if *brace_depth > 1 {
+                                *brace_depth -= 1;
+                            } else {
+                                close_template_expr = true;
+                            }
+                        }
+                    }
+                }
             }
 
-            // ── 引号计数 ──
+            if close_template_expr {
+                modes.pop();
+                regex_can_start = true;
+            }
+
+            if !ch.is_whitespace() {
+                regex_can_start = regex_can_start_after(ch);
+            }
+
             col += 1;
+        }
+
+        if !pending_ident.is_empty() {
+            regex_can_start = regex_keyword(&pending_ident);
+            pending_ident.clear();
+        }
+
+        if matches!(modes.last(), Some(Mode::LineComment)) {
+            modes.pop();
         }
     }
 
-    // 栈中剩余的未闭合开符号
     for (sym, ln) in &stack {
         unbalanced.push(UnbalancedItem {
             symbol: sym.clone(),
@@ -287,7 +446,6 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
         });
     }
 
-    // 栈中剩余的未闭合标签
     for (name, ln) in &tag_stack {
         unbalanced.push(UnbalancedItem {
             symbol: format!("<{}>", name),
@@ -296,7 +454,6 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
         });
     }
 
-    // 引号警告（奇数个）
     let mut quote_warnings = Vec::new();
     for (q, list) in &quote_lines {
         if list.len() % 2 != 0 {
