@@ -1,7 +1,9 @@
-use std::path::Path;
-use crate::fast_edit::core::{read_lines, write_file_atomic, prepare_content_lines, quick_balance_check, build_diff};
-use crate::fast_edit::func_range::op_function_range_raw;
 use crate::error::{EditError, EditResult};
+use crate::fast_edit::core::{
+    build_diff, prepare_content_lines, quick_balance_check, read_lines, write_file_atomic,
+};
+use crate::fast_edit::func_range::op_function_range_raw;
+use std::path::Path;
 
 // ── Result structs ──
 
@@ -87,42 +89,52 @@ pub fn op_show(filepath: &str, start: usize, end: Option<ShowEnd>) -> EditResult
         return Err(EditError::invalid_arg("show: 文件为空"));
     }
     if start < 1 || start > total {
-        return Err(EditError::invalid_arg(format!("show: start 超出范围 (1..{})", total)));
+        return Err(EditError::invalid_arg(format!(
+            "show: start 超出范围 (1..{})",
+            total
+        )));
     }
     let mut s = start.max(1);
     let e = match end {
-        Some(ShowEnd::Auto) | None => {
-            match op_function_range_raw(filepath, s) {
-                Ok(r) => {
-                    s = r.0;
-                    r.1
-                }
-                Err(_) => {
-                    let ctx_before = 5usize;
-                    let ctx_after = 5usize;
-                    let min_lines = 20usize;
-                    let ctx_start = s.saturating_sub(ctx_before).max(1);
-                    let mut ctx_end = (s + ctx_after).min(total);
-                    if ctx_end - ctx_start + 1 < min_lines {
-                        let extra = (min_lines - (ctx_end - ctx_start + 1)).div_ceil(2);
-                        ctx_end = total.min(ctx_end + extra);
-                    }
-                    s = ctx_start;
-                    ctx_end
-                }
+        Some(ShowEnd::Auto) | None => match op_function_range_raw(filepath, s) {
+            Ok(r) => {
+                s = r.0;
+                r.1
             }
-        }
+            Err(_) => {
+                let ctx_before = 5usize;
+                let ctx_after = 5usize;
+                let min_lines = 20usize;
+                let ctx_start = s.saturating_sub(ctx_before).max(1);
+                let mut ctx_end = (s + ctx_after).min(total);
+                if ctx_end - ctx_start + 1 < min_lines {
+                    let extra = (min_lines - (ctx_end - ctx_start + 1)).div_ceil(2);
+                    ctx_end = total.min(ctx_end + extra);
+                }
+                s = ctx_start;
+                ctx_end
+            }
+        },
         Some(ShowEnd::Line(v)) => v,
     };
     if e < s {
-        return Err(EditError::invalid_arg(format!("show: end 不能小于 start ({}..{})", s, total)));
+        return Err(EditError::invalid_arg(format!(
+            "show: end 不能小于 start ({}..{})",
+            s, total
+        )));
     }
     let e = e.min(total);
 
     let content: String = lines[s - 1..e]
         .iter()
         .enumerate()
-        .map(|(i, l)| format!("{}\t{}", s + i, l.trim_end_matches('\n').trim_end_matches('\r')))
+        .map(|(i, l)| {
+            format!(
+                "{}\t{}",
+                s + i,
+                l.trim_end_matches('\n').trim_end_matches('\r')
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -137,15 +149,29 @@ pub fn op_show(filepath: &str, start: usize, end: Option<ShowEnd>) -> EditResult
 }
 
 /// 替换文件内容
-pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: bool, format: &str, preview: bool) -> EditResult<ReplaceResult> {
+pub fn op_replace(
+    filepath: &str,
+    start: usize,
+    end: usize,
+    content: &str,
+    raw: bool,
+    format: &str,
+    preview: bool,
+) -> EditResult<ReplaceResult> {
     let (mut lines, le) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let total = lines.len();
 
     if start < 1 || start > total {
-        return Err(EditError::invalid_arg(format!("replace: start 超出范围 (1..{})", total)));
+        return Err(EditError::invalid_arg(format!(
+            "replace: start 超出范围 (1..{})",
+            total
+        )));
     }
     if end < start || end > total {
-        return Err(EditError::invalid_arg(format!("replace: end 超出范围 ({}..{})", start, total)));
+        return Err(EditError::invalid_arg(format!(
+            "replace: end 超出范围 ({}..{})",
+            start, total
+        )));
     }
 
     const CTX: usize = 5;
@@ -158,7 +184,8 @@ pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: 
     lines.splice(start - 1..end, new_lines.clone());
     let new_content = lines.concat();
     if !preview {
-        write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+        write_file_atomic(filepath, &new_content)
+            .map_err(|e| EditError::write_path(filepath, e))?;
     }
 
     // 修改后上下文（使用内存中已修改的 lines，避免多余重读）
@@ -178,18 +205,31 @@ pub fn op_replace(filepath: &str, start: usize, end: usize, content: &str, raw: 
         total: after_total,
         diff,
         balance,
-        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+        affected: format!(
+            "行 {}-{}（当前共 {} 行）",
+            before_start, after_end, after_total
+        ),
         preview: preview.then_some(true),
     })
 }
 
 /// 在指定行后插入内容，after=0 表示文件开头
-pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format: &str, preview: bool) -> EditResult<InsertResult> {
+pub fn op_insert(
+    filepath: &str,
+    after: usize,
+    content: &str,
+    raw: bool,
+    format: &str,
+    preview: bool,
+) -> EditResult<InsertResult> {
     let (mut lines, le) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let total = lines.len();
 
     if after > total {
-        return Err(EditError::invalid_arg(format!("insert: line ({}) 超出范围 (0..{})", after, total)));
+        return Err(EditError::invalid_arg(format!(
+            "insert: line ({}) 超出范围 (0..{})",
+            after, total
+        )));
     }
 
     const CTX: usize = 5;
@@ -202,10 +242,7 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
     let insert_pos = after;
     let after_line = insert_pos;
     // 确保前一行有换行
-    if after_line > 0
-        && after_line <= lines.len()
-        && !lines[after_line - 1].ends_with('\n')
-    {
+    if after_line > 0 && after_line <= lines.len() && !lines[after_line - 1].ends_with('\n') {
         lines[after_line - 1].push_str(&le);
     }
 
@@ -216,7 +253,8 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
 
     let new_content = result.concat();
     if !preview {
-        write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+        write_file_atomic(filepath, &new_content)
+            .map_err(|e| EditError::write_path(filepath, e))?;
     }
     // 修改后上下文（使用内存中的 result，避免多余重读）
     let after_total = result.len();
@@ -234,7 +272,10 @@ pub fn op_insert(filepath: &str, after: usize, content: &str, raw: bool, format:
         total: after_total,
         diff,
         balance,
-        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+        affected: format!(
+            "行 {}-{}（当前共 {} 行）",
+            before_start, after_end, after_total
+        ),
         preview: preview.then_some(true),
     })
 }
@@ -249,16 +290,20 @@ pub fn op_delete(
     format: &str,
     preview: bool,
 ) -> EditResult<DeleteResult> {
-    let (mut file_lines, _) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
+    let (mut file_lines, _) =
+        read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
     let total = file_lines.len();
     const CTX: usize = 5;
 
     if let Some(json) = lines_json {
-        let nums: Vec<usize> = serde_json::from_str::<Vec<usize>>(json)
-            .map_err(EditError::JsonParse)?;
+        let nums: Vec<usize> =
+            serde_json::from_str::<Vec<usize>>(json).map_err(EditError::JsonParse)?;
         let valid: Vec<usize> = nums.into_iter().filter(|&n| n >= 1 && n <= total).collect();
         if valid.is_empty() {
-            return Err(EditError::invalid_arg(format!("delete: 所有行号均超出文件范围 (1..{})", total)));
+            return Err(EditError::invalid_arg(format!(
+                "delete: 所有行号均超出文件范围 (1..{})",
+                total
+            )));
         }
         let min_del = *valid.iter().min().expect("valid 已保证非空");
         let max_del = *valid.iter().max().expect("valid 已保证非空");
@@ -275,7 +320,8 @@ pub fn op_delete(
             .collect();
         let new_content = filtered.concat();
         if !preview {
-            write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+            write_file_atomic(filepath, &new_content)
+                .map_err(|e| EditError::write_path(filepath, e))?;
         }
 
         let after_total = filtered.len();
@@ -291,7 +337,10 @@ pub fn op_delete(
             total: after_total,
             diff,
             balance,
-            affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+            affected: format!(
+                "行 {}-{}（当前共 {} 行）",
+                before_start, after_end, after_total
+            ),
             preview: preview.then_some(true),
         });
     }
@@ -300,10 +349,16 @@ pub fn op_delete(
     let e = end.or(line).unwrap_or(s);
 
     if s < 1 || s > total {
-        return Err(EditError::invalid_arg(format!("delete: start ({}) 超出范围 (1..{})", s, total)));
+        return Err(EditError::invalid_arg(format!(
+            "delete: start ({}) 超出范围 (1..{})",
+            s, total
+        )));
     }
     if e < s || e > total {
-        return Err(EditError::invalid_arg(format!("delete: end ({}) 超出范围 ({}..{})", e, s, total)));
+        return Err(EditError::invalid_arg(format!(
+            "delete: end ({}) 超出范围 ({}..{})",
+            e, s, total
+        )));
     }
 
     let before_start = s.saturating_sub(CTX).max(1);
@@ -314,7 +369,8 @@ pub fn op_delete(
     file_lines.splice(s - 1..e, std::iter::empty());
     let new_content = file_lines.concat();
     if !preview {
-        write_file_atomic(filepath, &new_content).map_err(|e| EditError::write_path(filepath, e))?;
+        write_file_atomic(filepath, &new_content)
+            .map_err(|e| EditError::write_path(filepath, e))?;
     }
     // 修改后上下文（使用内存中已修改的 file_lines，避免多余重读）
     let after_total = file_lines.len();
@@ -330,7 +386,10 @@ pub fn op_delete(
         total: after_total,
         diff,
         balance,
-        affected: format!("行 {}-{}（当前共 {} 行）", before_start, after_end, after_total),
+        affected: format!(
+            "行 {}-{}（当前共 {} 行）",
+            before_start, after_end, after_total
+        ),
         preview: preview.then_some(true),
     })
 }
@@ -340,9 +399,7 @@ pub fn op_batch(spec: &str, preview: bool) -> EditResult<BatchResult> {
     let spec_val: serde_json::Value = serde_json::from_str(spec)?;
 
     let file_specs = match &spec_val {
-        serde_json::Value::Array(arr) => {
-            arr.iter().collect()
-        }
+        serde_json::Value::Array(arr) => arr.iter().collect(),
         serde_json::Value::Object(map) => {
             if let Some(files) = map.get("files").and_then(|v| v.as_array()) {
                 files.iter().collect()
@@ -350,7 +407,11 @@ pub fn op_batch(spec: &str, preview: bool) -> EditResult<BatchResult> {
                 vec![&spec_val]
             }
         }
-        _ => return Err(EditError::invalid_arg("batch: 不支持的 JSON 格式，需要数组或对象")),
+        _ => {
+            return Err(EditError::invalid_arg(
+                "batch: 不支持的 JSON 格式，需要数组或对象",
+            ));
+        }
     };
 
     let mut results = Vec::new();
@@ -359,21 +420,32 @@ pub fn op_batch(spec: &str, preview: bool) -> EditResult<BatchResult> {
             .get("file")
             .and_then(|v| v.as_str())
             .ok_or_else(|| EditError::invalid_arg("batch: 缺少 \"file\" 字段"))?;
-        let edits = fs
-            .get("edits")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| EditError::invalid_arg(format!("batch: 缺少 \"edits\" 数组字段 (file: {})", filepath)))?;
+        let edits = fs.get("edits").and_then(|v| v.as_array()).ok_or_else(|| {
+            EditError::invalid_arg(format!(
+                "batch: 缺少 \"edits\" 数组字段 (file: {})",
+                filepath
+            ))
+        })?;
         if edits.is_empty() {
             return Err(EditError::invalid_arg("batch: edits 数组为空"));
         }
 
-        let (mut lines, le) = read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
+        let (mut lines, le) =
+            read_lines(filepath).map_err(|e| EditError::read_path(filepath, e))?;
 
         // 从后往前排序，避免行号偏移
         let mut sorted_edits: Vec<&serde_json::Value> = edits.iter().collect();
         sorted_edits.sort_by(|a, b| {
-            let a_key = a.get("start").or_else(|| a.get("line")).and_then(|v| v.as_u64()).unwrap_or(0);
-            let b_key = b.get("start").or_else(|| b.get("line")).and_then(|v| v.as_u64()).unwrap_or(0);
+            let a_key = a
+                .get("start")
+                .or_else(|| a.get("line"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let b_key = b
+                .get("start")
+                .or_else(|| b.get("line"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             b_key.cmp(&a_key)
         });
 
@@ -384,22 +456,44 @@ pub fn op_batch(spec: &str, preview: bool) -> EditResult<BatchResult> {
                 .ok_or(EditError::invalid_arg("batch: 缺少 action 字段"))?;
             match action {
                 "replace-lines" => {
-                    let s = edit["start"].as_u64().ok_or(EditError::invalid_arg("replace-lines: 缺少 start"))? as usize;
-                    let e = edit["end"].as_u64().ok_or(EditError::invalid_arg("replace-lines: 缺少 end"))? as usize;
+                    let s = edit["start"]
+                        .as_u64()
+                        .ok_or(EditError::invalid_arg("replace-lines: 缺少 start"))?
+                        as usize;
+                    let e = edit["end"]
+                        .as_u64()
+                        .ok_or(EditError::invalid_arg("replace-lines: 缺少 end"))?
+                        as usize;
                     if s < 1 || s > lines.len() {
-                        return Err(EditError::invalid_arg(format!("batch/replace: start ({}) 超出范围 (1..{})", s, lines.len())));
+                        return Err(EditError::invalid_arg(format!(
+                            "batch/replace: start ({}) 超出范围 (1..{})",
+                            s,
+                            lines.len()
+                        )));
                     }
                     if e < s || e > lines.len() {
-                        return Err(EditError::invalid_arg(format!("batch/replace: end ({}) 超出范围 ({}..{})", e, s, lines.len())));
+                        return Err(EditError::invalid_arg(format!(
+                            "batch/replace: end ({}) 超出范围 ({}..{})",
+                            e,
+                            s,
+                            lines.len()
+                        )));
                     }
                     let raw_content = edit["content"].as_str().unwrap_or("");
                     let new_lines = prepare_content_lines(raw_content, &le, true);
                     lines.splice(s - 1..e, new_lines);
                 }
                 "insert-after" => {
-                    let ln = edit["line"].as_u64().ok_or(EditError::invalid_arg("insert-after: 缺少 line"))? as usize;
+                    let ln = edit["line"]
+                        .as_u64()
+                        .ok_or(EditError::invalid_arg("insert-after: 缺少 line"))?
+                        as usize;
                     if ln > lines.len() {
-                        return Err(EditError::invalid_arg(format!("batch/insert: line ({}) 超出范围 (0..{})", ln, lines.len())));
+                        return Err(EditError::invalid_arg(format!(
+                            "batch/insert: line ({}) 超出范围 (0..{})",
+                            ln,
+                            lines.len()
+                        )));
                     }
                     let raw_content = edit["content"].as_str().unwrap_or("");
                     let mut new_lines: Vec<String> = raw_content
@@ -419,18 +513,36 @@ pub fn op_batch(spec: &str, preview: bool) -> EditResult<BatchResult> {
                     lines = result;
                 }
                 "delete-lines" => {
-                    let s = edit["start"].as_u64().ok_or(EditError::invalid_arg("delete-lines: 缺少 start"))? as usize;
-                    let e = edit["end"].as_u64().ok_or(EditError::invalid_arg("delete-lines: 缺少 end"))? as usize;
+                    let s = edit["start"]
+                        .as_u64()
+                        .ok_or(EditError::invalid_arg("delete-lines: 缺少 start"))?
+                        as usize;
+                    let e = edit["end"]
+                        .as_u64()
+                        .ok_or(EditError::invalid_arg("delete-lines: 缺少 end"))?
+                        as usize;
                     if s < 1 || s > lines.len() {
-                        return Err(EditError::invalid_arg(format!("batch/delete: start ({}) 超出范围 (1..{})", s, lines.len())));
+                        return Err(EditError::invalid_arg(format!(
+                            "batch/delete: start ({}) 超出范围 (1..{})",
+                            s,
+                            lines.len()
+                        )));
                     }
                     if e < s || e > lines.len() {
-                        return Err(EditError::invalid_arg(format!("batch/delete: end ({}) 超出范围 ({}..{})", e, s, lines.len())));
+                        return Err(EditError::invalid_arg(format!(
+                            "batch/delete: end ({}) 超出范围 ({}..{})",
+                            e,
+                            s,
+                            lines.len()
+                        )));
                     }
                     lines.splice(s - 1..e, std::iter::empty());
                 }
                 _ => {
-                    return Err(EditError::invalid_arg(format!("batch: 未知操作 \"{}\"，支持: replace-lines, insert-after, delete-lines", action)));
+                    return Err(EditError::invalid_arg(format!(
+                        "batch: 未知操作 \"{}\"，支持: replace-lines, insert-after, delete-lines",
+                        action
+                    )));
                 }
             }
         }

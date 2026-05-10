@@ -1,7 +1,7 @@
+use crate::error::{EditError, EditResult};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use crate::error::{EditError, EditResult};
 
 // ── Data structures ──
 
@@ -39,8 +39,8 @@ struct ScanResult {
 
 fn void_elements() -> HashSet<&'static str> {
     [
-        "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
-        "meta", "param", "source", "track", "wbr",
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+        "source", "track", "wbr",
     ]
     .iter()
     .copied()
@@ -58,22 +58,49 @@ fn is_ident_continue(ch: char) -> bool {
 fn regex_keyword(word: &str) -> bool {
     matches!(
         word,
-        "return" | "throw" | "case" | "else" | "do" | "typeof" | "instanceof" | "in"
-            | "new" | "void" | "delete" | "yield" | "await"
+        "return"
+            | "throw"
+            | "case"
+            | "else"
+            | "do"
+            | "typeof"
+            | "instanceof"
+            | "in"
+            | "new"
+            | "void"
+            | "delete"
+            | "yield"
+            | "await"
     )
 }
 
 fn regex_can_start_after(ch: char) -> bool {
     matches!(
         ch,
-        '(' | '[' | '{' | ',' | ';' | ':' | '=' | '!' | '?' | '+' | '-' | '*' | '%' | '&'
-            | '|' | '^' | '~' | '<' | '>'
+        '(' | '['
+            | '{'
+            | ','
+            | ';'
+            | ':'
+            | '='
+            | '!'
+            | '?'
+            | '+'
+            | '-'
+            | '*'
+            | '%'
+            | '&'
+            | '|'
+            | '^'
+            | '~'
+            | '<'
+            | '>'
     )
 }
 
 fn scan_file(filepath: &str) -> EditResult<ScanResult> {
-    let content = fs::read_to_string(Path::new(filepath))
-        .map_err(|e| EditError::read_path(filepath, e))?;
+    let content =
+        fs::read_to_string(Path::new(filepath)).map_err(|e| EditError::read_path(filepath, e))?;
 
     let lines: Vec<&str> = content.split('\n').collect();
 
@@ -110,13 +137,21 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
     let mut pending_ident = String::new();
 
     let opens: HashSet<char> = ['{', '[', '('].iter().copied().collect();
-    let closes: HashMap<char, &str> =
-        [('}', "{"), (']', "["), (')', "(")].iter().copied().collect();
-    let pair_of: HashMap<&str, &str> =
-        [("{", "}"), ("}", "{"), ("[", "]"), ("]", "["), ("(", ")"), (")", "(")]
-            .iter()
-            .copied()
-            .collect();
+    let closes: HashMap<char, &str> = [('}', "{"), (']', "["), (')', "(")]
+        .iter()
+        .copied()
+        .collect();
+    let pair_of: HashMap<&str, &str> = [
+        ("{", "}"),
+        ("}", "{"),
+        ("[", "]"),
+        ("]", "["),
+        ("(", ")"),
+        (")", "("),
+    ]
+    .iter()
+    .copied()
+    .collect();
 
     for (i, line) in lines.iter().enumerate() {
         let line_num = i + 1;
@@ -125,7 +160,11 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
 
         while col < chars.len() {
             let ch = chars[col];
-            let next = if col + 1 < chars.len() { Some(chars[col + 1]) } else { None };
+            let next = if col + 1 < chars.len() {
+                Some(chars[col + 1])
+            } else {
+                None
+            };
 
             if escape_next {
                 escape_next = false;
@@ -267,15 +306,15 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                 continue;
             }
 
-            if ch == '/' && regex_can_start {
-                if let Some(n) = next {
-                    if !matches!(n, '/' | '*' | '\n' | '\r') {
-                        modes.push(Mode::Regex { in_class: false });
-                        regex_can_start = false;
-                        col += 1;
-                        continue;
-                    }
-                }
+            if ch == '/'
+                && regex_can_start
+                && let Some(n) = next
+                && !matches!(n, '/' | '*' | '\n' | '\r')
+            {
+                modes.push(Mode::Regex { in_class: false });
+                regex_can_start = false;
+                col += 1;
+                continue;
             }
 
             if ch == '<' {
@@ -371,12 +410,11 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
 
             if opens.contains(&ch) {
                 stack.push((ch_str.clone(), line_num));
-                if in_template_expr {
-                    if let Some(Mode::TemplateExpr { brace_depth }) = modes.last_mut() {
-                        if ch == '{' {
-                            *brace_depth += 1;
-                        }
-                    }
+                if in_template_expr
+                    && let Some(Mode::TemplateExpr { brace_depth }) = modes.last_mut()
+                    && ch == '{'
+                {
+                    *brace_depth += 1;
                 }
             } else if let Some(&expected_open) = closes.get(&ch) {
                 if let Some((last_sym, last_line)) = stack.last() {
@@ -403,15 +441,14 @@ fn scan_file(filepath: &str) -> EditResult<ScanResult> {
                     });
                 }
 
-                if in_template_expr {
-                    if let Some(Mode::TemplateExpr { brace_depth }) = modes.last_mut() {
-                        if ch == '}' {
-                            if *brace_depth > 1 {
-                                *brace_depth -= 1;
-                            } else {
-                                close_template_expr = true;
-                            }
-                        }
+                if in_template_expr
+                    && let Some(Mode::TemplateExpr { brace_depth }) = modes.last_mut()
+                    && ch == '}'
+                {
+                    if *brace_depth > 1 {
+                        *brace_depth -= 1;
+                    } else {
+                        close_template_expr = true;
                     }
                 }
             }
@@ -521,7 +558,10 @@ fn format_tree_inner(matched: &[MatchedPair], empty_msg: &str, header: &str) -> 
         .iter()
         .map(|m| {
             let indent = "  ".repeat(std::cmp::min(m.depth.saturating_sub(1), 10));
-            format!("{}\t{}{}\t{}\t{}", m.depth, indent, m.symbol, m.open_line, m.close_line)
+            format!(
+                "{}\t{}{}\t{}\t{}",
+                m.depth, indent, m.symbol, m.open_line, m.close_line
+            )
         })
         .collect();
     let mut result = header.to_string();
@@ -533,14 +573,21 @@ fn format_tree_inner(matched: &[MatchedPair], empty_msg: &str, header: &str) -> 
 }
 
 fn format_tree(matched: &[MatchedPair]) -> String {
-    format_tree_inner(matched, "(无匹配的括号对)", "depth\tsymbol\tline\tpair_line")
+    format_tree_inner(
+        matched,
+        "(无匹配的括号对)",
+        "depth\tsymbol\tline\tpair_line",
+    )
 }
 
 fn format_tag_tree(tag_matched: &[MatchedPair]) -> String {
     format_tree_inner(tag_matched, "(无匹配的标签)", "depth\ttag\topen\tclose")
 }
 
-fn format_unbalanced(unbalanced: &[UnbalancedItem], quote_warnings: &[QuoteWarning]) -> serde_json::Value {
+fn format_unbalanced(
+    unbalanced: &[UnbalancedItem],
+    quote_warnings: &[QuoteWarning],
+) -> serde_json::Value {
     let mut result = serde_json::Map::new();
     if !unbalanced.is_empty() {
         result.insert(
@@ -555,7 +602,10 @@ fn format_unbalanced(unbalanced: &[UnbalancedItem], quote_warnings: &[QuoteWarni
         );
     }
     if unbalanced.is_empty() && quote_warnings.is_empty() {
-        result.insert("status".to_string(), serde_json::Value::String("all balanced".to_string()));
+        result.insert(
+            "status".to_string(),
+            serde_json::Value::String("all balanced".to_string()),
+        );
     }
     serde_json::Value::Object(result)
 }
@@ -564,7 +614,10 @@ fn format_unbalanced(unbalanced: &[UnbalancedItem], quote_warnings: &[QuoteWarni
 
 pub fn check_structure_balance(file: &str, mode: &str) -> Result<String, String> {
     if !["aggregate", "unbalanced", "tree"].contains(&mode) {
-        return Err(format!("未知 mode: \"{}\"，支持: aggregate, unbalanced, tree", mode));
+        return Err(format!(
+            "未知 mode: \"{}\"，支持: aggregate, unbalanced, tree",
+            mode
+        ));
     }
 
     let result = scan_file(file).map_err(|e| e.to_string())?;
@@ -592,7 +645,11 @@ pub fn check_structure_balance(file: &str, mode: &str) -> Result<String, String>
                             "{} 奇数个（共 {} 个）位于行 {}",
                             q.symbol,
                             q.count,
-                            q.lines.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")
+                            q.lines
+                                .iter()
+                                .map(|n| n.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
                         )
                     })
                     .collect::<Vec<_>>()
@@ -632,11 +689,13 @@ pub fn check_structure_balance(file: &str, mode: &str) -> Result<String, String>
                 serde_json::Value::Object(map) => map,
                 _ => serde_json::Map::new(),
             };
-            base.insert("mode".to_string(), serde_json::Value::String("unbalanced".to_string()));
+            base.insert(
+                "mode".to_string(),
+                serde_json::Value::String("unbalanced".to_string()),
+            );
             serde_json::Value::Object(base)
         }
     };
 
-    serde_json::to_string_pretty(&output)
-        .map_err(|e| format!("JSON 序列化失败: {}", e))
+    serde_json::to_string_pretty(&output).map_err(|e| format!("JSON 序列化失败: {}", e))
 }
