@@ -12,6 +12,7 @@ on:
         description: "发布版本号（如 v0.1.0），留空则不创建 Release"
         required: false
         type: string
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,6 +20,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 安装 musl 工具链（静态链接用）
         run: |
@@ -28,8 +31,12 @@ jobs:
       - name: 添加 musl 编译目标
         run: rustup target add x86_64-unknown-linux-musl
 
+      - name: 代码风格检查 (fmt)
+        run: cargo fmt --all --check
+
       - name: 代码风格检查 (clippy)
         run: cargo clippy --all-targets -- -D warnings
+
       - name: 静态编译
         run: cargo build --release --target x86_64-unknown-linux-musl
 
@@ -52,7 +59,79 @@ jobs:
           if [ -z "$VERSION" ]; then
             VERSION="${{ github.ref_name }}"
           fi
-          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: 生成 Release Notes
+        id: release_notes
+        if: ${{ startsWith(github.ref, 'refs/tags/') || github.event.inputs.version != '' }}
+        run: |
+          set -euo pipefail
+
+          TAG="${{ steps.version.outputs.tag }}"
+          PREV_TAG="$(git tag --sort=-creatordate | grep -xv "$TAG" | head -n 1 || true)"
+
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${TAG}"
+          else
+            RANGE="$TAG"
+          fi
+
+          mkdir -p .release
+          {
+            echo "## better-edit-tools ${TAG}"
+            echo
+            echo "### Changes"
+            echo
+            git log --no-merges --format='%s|%h' ${RANGE} | awk '
+              BEGIN {
+                feat = 0;
+                bugfix = 0;
+                other = 0;
+              }
+              function bullet(msg, hash) {
+                return "- " msg " (`" hash "`)";
+              }
+              {
+                split($0, parts, "|");
+                subject = parts[1];
+                hash = parts[2];
+                lower = tolower(subject);
+                if (lower ~ /^(feat|feature)(\(.+\))?:/) {
+                  feat_items[++feat] = bullet(subject, hash);
+                } else if (lower ~ /^(fix|bugfix|hotfix|repair)(\(.+\))?:/) {
+                  bugfix_items[++bugfix] = bullet(subject, hash);
+                } else {
+                  other_items[++other] = bullet(subject, hash);
+                }
+              }
+              END {
+                print "#### feat";
+                if (feat == 0) {
+                  print "- (none)";
+                } else {
+                  for (i = 1; i <= feat; i++) print feat_items[i];
+                }
+
+                print;
+                print "#### bugfix";
+                if (bugfix == 0) {
+                  print "- (none)";
+                } else {
+                  for (i = 1; i <= bugfix; i++) print bugfix_items[i];
+                }
+
+                print;
+                print "#### other";
+                if (other == 0) {
+                  print "- (none)";
+                } else {
+                  for (i = 1; i <= other; i++) print other_items[i];
+                }
+              }
+            '
+          } > .release/body.md
+
+          cat .release/body.md
 
       - name: 创建 Release
         if: ${{ startsWith(github.ref, 'refs/tags/') || github.event.inputs.version != '' }}
@@ -60,8 +139,4 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: better-edit-tools-x86_64-unknown-linux-musl.tar.gz
-          body: |
-            ## better-edit-tools ${{ steps.version.outputs.tag }}
-
-            静态链接，单二进制，无运行时依赖。
-            适用于任何 x86_64 Linux 环境。
+          body_path: .release/body.md
