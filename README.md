@@ -26,17 +26,19 @@
 
 `be-replace` performs a precise line-range substitution. It is meant for surgical edits where you already know the exact span to change, and it keeps the `target` and `preview` flow consistent with the other editing tools. Compared with batch editing, it is the simplest option when a single contiguous block must be replaced.
 
+If you pass `old`, the tool verifies the current file content before writing. A mismatch returns an error instead of silently replacing the requested range. The server also accepts `old_text` as an alias for compatibility.
+
 ── Replace a known block with minimal movement and minimal surprise.
 
 ### `be-insert`
 
-`be-insert` adds content after a specified line, with `line=0` reserving the very beginning of the file. It is the preferred primitive for incremental edits because it avoids rewriting unrelated lines while still working with the shared `target` and `preview` parameters.
+`be-insert` adds content after a specified line, with `line=0` reserving the very beginning of the file. The server also accepts `after_line` as an alias for the same position. It is the preferred primitive for incremental edits because it avoids rewriting unrelated lines while still working with the shared `target` and `preview` parameters.
 
 ── Insert new content exactly where it belongs without touching the rest of the file.
 
 ### `be-delete`
 
-`be-delete` removes one line, a line range, or a batch of line numbers supplied as JSON. The tool is intentionally flexible for cleanup tasks, but still stays line-oriented so the resulting change is predictable and easy to reason about.
+`be-delete` removes one line, a line range, or a batch of line numbers supplied as JSON. The server accepts both `start` / `end` and the aliases `start_line` / `end_line` for range deletion. The tool is intentionally flexible for cleanup tasks, but still stays line-oriented so the resulting change is predictable and easy to reason about.
 
 ── Remove cleanup targets with line-level precision and predictable results.
 
@@ -48,7 +50,12 @@
 
 ### `be-write`
 
-`be-write` is the raw file write tool for full-content replacement. It accepts both single-file payloads and multi-file payloads, and it has a degraded parsing path for AI-generated content that does not survive strict JSON encoding, such as backticks, `${}`, or unescaped quotes. That fallback exists so content generation failures do not block the actual write.
+`be-write` is the raw file write tool for full-content replacement. It accepts both single-file payloads and multi-file payloads using direct arguments:
+
+- single file: `{"file":"...","content":"..."}`
+- multi file: `{"files":[{"file":"...","content":"..."}]}`
+
+It also has a degraded parsing path for AI-generated content that does not survive strict JSON encoding, such as backticks, `${}`, or unescaped quotes. That fallback exists so content generation failures do not block the actual write.
 
 ── Even when the JSON wrapper breaks, the write still tries to rescue the payload.
 
