@@ -6,20 +6,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
-func main() {
-	if len(os.Args) != 3 {
-		fatalf("usage: %s <archive> <binary>", filepath.Base(os.Args[0]))
+func runPackageZip(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: package-zip <archive> <binary>")
 	}
 
-	archivePath := os.Args[1]
-	binaryPath := os.Args[2]
-
-	if err := packageZip(archivePath, binaryPath); err != nil {
-		fatalf("%v", err)
-	}
+	return packageZip(args[0], args[1])
 }
 
 func packageZip(archivePath, binaryPath string) error {
@@ -70,9 +64,4 @@ func packageZip(archivePath, binaryPath string) error {
 		return fmt.Errorf("close archive: %w", err)
 	}
 	return nil
-}
-
-func fatalf(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
-	os.Exit(1)
 }

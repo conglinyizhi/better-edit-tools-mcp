@@ -50,14 +50,16 @@ var sectionOrder = []string{
 	"other",
 }
 
-func main() {
+func runReleaseNotes(args []string) error {
 	ref := "HEAD"
-	if len(os.Args) > 1 && strings.TrimSpace(os.Args[1]) != "" {
-		ref = strings.TrimSpace(os.Args[1])
+	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
+		ref = strings.TrimSpace(args[0])
 	}
 
 	prev, err := previousTag(ref)
-	must(err)
+	if err != nil {
+		return err
+	}
 
 	rangeSpec := ref
 	if prev != "" {
@@ -65,7 +67,9 @@ func main() {
 	}
 
 	commits, err := gitLog(rangeSpec)
-	must(err)
+	if err != nil {
+		return err
+	}
 
 	items := make([]commitItem, 0, len(commits))
 	for _, line := range commits {
@@ -108,15 +112,8 @@ func main() {
 		out.WriteString("- No commits found for this release.\n")
 	}
 
-	os.Stdout.WriteString(out.String())
-}
-
-func must(err error) {
-	if err == nil {
-		return
-	}
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
+	_, err = os.Stdout.WriteString(out.String())
+	return err
 }
 
 func previousTag(ref string) (string, error) {
