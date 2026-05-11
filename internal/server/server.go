@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/conglinyizhi/better-edit-tools-mcp/internal/app"
@@ -126,6 +127,8 @@ func (s *Server) handleToolCall(req rpcRequest) rpcResponse {
 	}
 	out, err := s.callTool(params.Name, args)
 	if err != nil {
+		// Save a chip on error if the args were substantial
+		edit.SaveChip(params.Name, args)
 		return s.ok(req.ID, map[string]any{
 			"isError": true,
 			"content": []map[string]any{{
@@ -304,6 +307,23 @@ func (s *Server) listTools() []Tool {
 				"required": []string{"file"},
 			},
 		},
+		{
+			Name:        "be-insert-chip",
+			Description: localizedDescription(s.lang, "be-insert-chip"),
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"from": map[string]any{
+						"type":        "string",
+						"description": "Source: file:///absolute/path or chip://{id}. Empty/omit to list all chip IDs.",
+					},
+					"to": map[string]any{
+						"type":        "string",
+						"description": "Target: file:///absolute/path:line_number",
+					},
+				},
+			},
+		},
 	}
 	return specs
 }
@@ -319,6 +339,7 @@ func localizedDescription(lang, name string) string {
 		"be-func-range": "定位某一行所在的函数或花括号范围。",
 		"be-tag-range":  "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
 		"be-balance":    "检查括号、标签和引号的配对情况。",
+		"be-insert-chip": "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
 	}
 	en := map[string]string{
 		"be-show":       "Display file content with line numbers.",
@@ -330,6 +351,7 @@ func localizedDescription(lang, name string) string {
 		"be-func-range": "Find the enclosing function or brace block for a given line.",
 		"be-tag-range":  "Find the enclosing XML/HTML/Vue tag pair for a given line.",
 		"be-balance":    "Check bracket, brace, parenthesis, tag, and quote balance.",
+		"be-insert-chip": "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
 	}
 	if lang == "zh" {
 		return zh[name]
@@ -569,6 +591,71 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			mode = "unbalanced"
 		}
 		return edit.CheckStructureBalance(p.File, mode)
+	case "be-insert-chip":
+		var p struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		}
+		if err := json.Unmarshal(b, &p); err != nil {
+			return "", err
+		}
+
+		// If no from/to provided, list chips
+		if p.From == "" && p.To == "" {
+			ids := edit.ListChips()
+			if len(ids) == 0 {
+				return mustJSON(map[string]any{"status": "ok", "chips": []int{}, "message": "no chips recorded"}), nil
+			}
+			return mustJSON(map[string]any{"status": "ok", "chips": ids}), nil
+		}
+
+		// Resolve from: file:// or chip://
+		var content string
+		var readErr error
+		switch {
+		case strings.HasPrefix(p.From, "file://"):
+			content, readErr = edit.ReadFileContent(strings.TrimPrefix(p.From, "file://"))
+			if readErr != nil {
+				return "", readErr
+			}
+		case strings.HasPrefix(p.From, "chip://"):
+			idStr := strings.TrimPrefix(p.From, "chip://")
+			id, convErr := strconv.Atoi(idStr)
+			if convErr != nil {
+				return "", fmt.Errorf("invalid chip ID: %s", idStr)
+			}
+			rec, err := edit.GetChip(id)
+			if err != nil {
+				return "", err
+			}
+			argsJSON, _ := json.MarshalIndent(rec.Args, "", "  ")
+			content = fmt.Sprintf("// Chip #%d from tool %q\n// Original arguments:\n%s", rec.ID, rec.Tool, string(argsJSON))
+		default:
+			return "", fmt.Errorf("invalid from format: use file:///path or chip://{id}")
+		}
+
+		// Resolve to: file:///path:line
+		if !strings.HasPrefix(p.To, "file://") {
+			return "", fmt.Errorf("invalid to format: use file:///absolute/path:line_number")
+		}
+		rest := strings.TrimPrefix(p.To, "file://")
+		colonIdx := strings.LastIndex(rest, ":")
+		if colonIdx < 0 {
+			return "", fmt.Errorf("invalid to format: missing :line_number after file:///path")
+		}
+		targetFile := rest[:colonIdx]
+		lineStr := rest[colonIdx+1:]
+		lineNum, convErr := strconv.Atoi(lineStr)
+		if convErr != nil {
+			return "", fmt.Errorf("invalid line number: %s", lineStr)
+		}
+
+		// Use the core edit.Insert with resolved content
+		res, err := edit.Insert(targetFile, lineNum, content, true, "plain", false)
+		if err != nil {
+			return "", err
+		}
+		return mustJSON(res), nil
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
