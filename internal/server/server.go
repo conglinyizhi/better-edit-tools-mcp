@@ -532,6 +532,9 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		}
 		var spec string
 		switch {
+		case p.Content != "" && strings.HasPrefix(p.Content, "{"):
+			// LLM passed raw JSON spec as content — use it directly
+			spec = p.Content
 		case p.File != "" || p.Content != "":
 			spec = mustJSON(map[string]any{
 				"file":    p.File,
