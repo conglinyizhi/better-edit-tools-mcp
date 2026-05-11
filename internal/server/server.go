@@ -554,6 +554,15 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		// degraded writes auto-save to chip — content is incomplete/unreliable
+		if res.Degraded != nil && *res.Degraded {
+			args := map[string]any{
+				"tool":    "be-write",
+				"spec":    spec,
+				"preview": p.Preview,
+			}
+			edit.SaveChip("be-write", args)
+		}
 		return mustJSON(res), nil
 	case "be-func-range":
 		var p struct {
