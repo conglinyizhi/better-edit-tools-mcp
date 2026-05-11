@@ -26,7 +26,7 @@ jobs:
 
       - name: Format check
         run: |
-          test -z "$(gofmt -l ./cmd ./internal ./scripts)"
+          test -z "$(gofmt -l ./cmd ./internal ./.github/script)"
 
       - name: Test
         run: GOCACHE=/tmp/go-build GOMODCACHE=/tmp/gomod-cache go test ./...
@@ -86,16 +86,7 @@ jobs:
         run: |
           ARCHIVE="better-edit-tools-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive_ext }}"
           if [ "${{ matrix.archive_ext }}" = "zip" ]; then
-            python - "$ARCHIVE" "better-edit-tools${{ matrix.ext }}" <<'PY'
-import sys
-import zipfile
-from pathlib import Path
-
-archive = Path(sys.argv[1])
-binary = Path(sys.argv[2])
-with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    zf.write(binary, binary.name)
-PY
+            go run ./.github/script/package-release.go "${ARCHIVE}" "better-edit-tools${{ matrix.ext }}"
           else
             mkdir -p dist
             cp "better-edit-tools${{ matrix.ext }}" dist/
@@ -136,7 +127,7 @@ PY
           set -euo pipefail
           TAG="${{ steps.version.outputs.tag }}"
           mkdir -p .release
-          go run ./scripts "${TAG}" > .release/body.md
+          go run ./.github/script/release-notes.go "${TAG}" > .release/body.md
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
