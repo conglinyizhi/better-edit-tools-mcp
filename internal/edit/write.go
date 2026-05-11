@@ -2,6 +2,7 @@ package edit
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -92,7 +93,17 @@ func parseOneWriteItem(raw any) (WriteSpecItem, error) {
 	if file == "" {
 		return WriteSpecItem{}, InvalidArg("缺少 file 字段")
 	}
-	content, _ := m["content"].(string)
+	content := ""
+	switch cv := m["content"].(type) {
+	case string:
+		content = cv
+	case fmt.Stringer:
+		content = cv.String()
+	default:
+		if m["content"] != nil {
+			content = fmt.Sprint(m["content"])
+		}
+	}
 	if m["extract"] == true {
 		content = extractCodeBlocks(content)
 	}
@@ -140,6 +151,10 @@ func parseSpecRaw(spec string) ([]WriteSpecItem, error) {
 	ct, ok := extractContentRawMaybe(spec)
 	if !ok {
 		return nil, InvalidArg("找不到 content 字段")
+	}
+	// degraded mode: scan for extract flag after content
+	if strings.Contains(spec, `"extract":true`) || strings.Contains(spec, `"extract": true`) {
+		ct = extractCodeBlocks(ct)
 	}
 	return []WriteSpecItem{{File: fp, Content: ct}}, nil
 }
