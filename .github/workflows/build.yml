@@ -15,12 +15,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.23.x"
 
@@ -65,14 +65,17 @@ jobs:
             ext: ".exe"
             archive_ext: zip
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.23.x"
+
+      - name: Build helper
+        run: go build -o .github/script/betools ./.github/script
 
       - name: Build binary
         env:
@@ -86,7 +89,7 @@ jobs:
         run: |
           ARCHIVE="better-edit-tools-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive_ext }}"
           if [ "${{ matrix.archive_ext }}" = "zip" ]; then
-            go run ./.github/script/package-release.go "${ARCHIVE}" "better-edit-tools${{ matrix.ext }}"
+            ./.github/script/betools package-zip "${ARCHIVE}" "better-edit-tools${{ matrix.ext }}"
           else
             mkdir -p dist
             cp "better-edit-tools${{ matrix.ext }}" dist/
@@ -95,7 +98,7 @@ jobs:
           sha256sum "${ARCHIVE}" > "${ARCHIVE}.sha256"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: better-edit-tools-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -109,9 +112,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Build helper
+        run: go build -o .github/script/betools ./.github/script
 
       - name: Resolve tag
         id: version
@@ -127,10 +133,10 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.version.outputs.tag }}"
           mkdir -p .release
-          go run ./.github/script/release-notes.go "${TAG}" > .release/body.md
+          ./.github/script/betools release-notes "${TAG}" > .release/body.md
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: release-artifacts
 
