@@ -1,11 +1,9 @@
 name: Build
 
 on:
-  # tag 推送时自动构建发版
   push:
     tags:
-      - 'v*'
-  # 或手动触发：GitHub → Actions → Build → Run workflow
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
@@ -14,7 +12,108 @@ on:
         type: string
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Format check
+        run: |
+          test -z "$(gofmt -l ./cmd ./internal ./scripts)"
+
+      - name: Test
+        run: GOCACHE=/tmp/go-build GOMODCACHE=/tmp/gomod-cache go test ./...
+
   build:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+            archive_ext: tar.gz
+          - goos: linux
+            goarch: arm64
+            ext: ""
+            archive_ext: tar.gz
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+            archive_ext: tar.gz
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+            archive_ext: tar.gz
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+            archive_ext: zip
+          - goos: windows
+            goarch: arm64
+            ext: ".exe"
+            archive_ext: zip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -o better-edit-tools${{ matrix.ext }} ./cmd/better-edit-tools
+
+      - name: Package binary
+        run: |
+          ARCHIVE="better-edit-tools-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive_ext }}"
+          if [ "${{ matrix.archive_ext }}" = "zip" ]; then
+            python - "$ARCHIVE" "better-edit-tools${{ matrix.ext }}" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+archive = Path(sys.argv[1])
+binary = Path(sys.argv[2])
+with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    zf.write(binary, binary.name)
+PY
+          else
+            mkdir -p dist
+            cp "better-edit-tools${{ matrix.ext }}" dist/
+            tar czf "${ARCHIVE}" -C dist "better-edit-tools${{ matrix.ext }}"
+          fi
+          sha256sum "${ARCHIVE}" > "${ARCHIVE}.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: better-edit-tools-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            better-edit-tools-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive_ext }}
+            better-edit-tools-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive_ext }}.sha256
+
+  release:
+    needs: build
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event.inputs.version != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,36 +122,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 安装 musl 工具链（静态链接用）
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools
-
-      - name: 添加 musl 编译目标
-        run: rustup target add x86_64-unknown-linux-musl
-
-      - name: 代码风格检查 (fmt)
-        run: cargo fmt --all --check
-
-      - name: 代码风格检查 (clippy)
-        run: cargo clippy --all-targets -- -D warnings
-
-      - name: 静态编译
-        run: cargo build --release --target x86_64-unknown-linux-musl
-
-      - name: 打包二进制
-        run: |
-          mkdir -p dist
-          cp target/x86_64-unknown-linux-musl/release/better-edit-tools dist/
-          cd dist && tar czf ../better-edit-tools-x86_64-unknown-linux-musl.tar.gz better-edit-tools
-
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: better-edit-tools-linux
-          path: better-edit-tools-x86_64-unknown-linux-musl.tar.gz
-
-      - name: 解析版本号
+      - name: Resolve tag
         id: version
         run: |
           VERSION="${{ github.event.inputs.version }}"
@@ -61,82 +131,37 @@ jobs:
           fi
           echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: 生成 Release Notes
-        id: release_notes
-        if: ${{ startsWith(github.ref, 'refs/tags/') || github.event.inputs.version != '' }}
+      - name: Generate release notes
         run: |
           set -euo pipefail
-
           TAG="${{ steps.version.outputs.tag }}"
-          PREV_TAG="$(git tag --sort=-creatordate | grep -xv "$TAG" | head -n 1 || true)"
-
-          if [ -n "$PREV_TAG" ]; then
-            RANGE="${PREV_TAG}..${TAG}"
-          else
-            RANGE="$TAG"
-          fi
-
           mkdir -p .release
-          {
-            echo "## better-edit-tools ${TAG}"
-            echo
-            echo "### Changes"
-            echo
-            git log --no-merges --format='%s|%h' ${RANGE} | awk '
-              BEGIN {
-                feat = 0;
-                bugfix = 0;
-                other = 0;
-              }
-              function bullet(msg, hash) {
-                return "- " msg " (`" hash "`)";
-              }
-              {
-                split($0, parts, "|");
-                subject = parts[1];
-                hash = parts[2];
-                lower = tolower(subject);
-                if (lower ~ /^(feat|feature)(\(.+\))?:/) {
-                  feat_items[++feat] = bullet(subject, hash);
-                } else if (lower ~ /^(fix|bugfix|hotfix|repair)(\(.+\))?:/) {
-                  bugfix_items[++bugfix] = bullet(subject, hash);
-                } else {
-                  other_items[++other] = bullet(subject, hash);
-                }
-              }
-              END {
-                print "#### feat";
-                if (feat == 0) {
-                  print "- (none)";
-                } else {
-                  for (i = 1; i <= feat; i++) print feat_items[i];
-                }
+          go run ./scripts "${TAG}" > .release/body.md
 
-                print;
-                print "#### bugfix";
-                if (bugfix == 0) {
-                  print "- (none)";
-                } else {
-                  for (i = 1; i <= bugfix; i++) print bugfix_items[i];
-                }
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
 
-                print;
-                print "#### other";
-                if (other == 0) {
-                  print "- (none)";
-                } else {
-                  for (i = 1; i <= other; i++) print other_items[i];
-                }
-              }
-            '
-          } > .release/body.md
+      - name: Flatten artifacts
+        run: |
+          find release-artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} . \;
 
-          cat .release/body.md
-
-      - name: 创建 Release
-        if: ${{ startsWith(github.ref, 'refs/tags/') || github.event.inputs.version != '' }}
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          files: better-edit-tools-x86_64-unknown-linux-musl.tar.gz
+          files: |
+            better-edit-tools-linux-amd64.tar.gz
+            better-edit-tools-linux-amd64.tar.gz.sha256
+            better-edit-tools-linux-arm64.tar.gz
+            better-edit-tools-linux-arm64.tar.gz.sha256
+            better-edit-tools-darwin-amd64.tar.gz
+            better-edit-tools-darwin-amd64.tar.gz.sha256
+            better-edit-tools-darwin-arm64.tar.gz
+            better-edit-tools-darwin-arm64.tar.gz.sha256
+            better-edit-tools-windows-amd64.zip
+            better-edit-tools-windows-amd64.zip.sha256
+            better-edit-tools-windows-arm64.zip
+            better-edit-tools-windows-arm64.zip.sha256
           body_path: .release/body.md
