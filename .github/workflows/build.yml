@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "发布版本号（如 v0.1.0），留空则不创建 Release"
+        description: "发布版本号（如 v0.2），留空则不创建 Release"
         required: false
         type: string
 

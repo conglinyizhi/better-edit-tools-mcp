@@ -13,7 +13,7 @@ Go 版本要求：Go 1.23+。
 打 `v*` tag 推送即触发 GitHub Actions 自动构建并创建 Release：
 
 ```bash
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.2 && git push origin v0.2
 ```
 
 Workflow 在 `.github/workflows/build.yml`，注意 job 级需声明 `permissions: contents: write` 才能创建 Release。

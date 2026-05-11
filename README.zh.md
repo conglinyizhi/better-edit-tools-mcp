@@ -118,7 +118,7 @@ go build -o better-edit-tools ./cmd/better-edit-tools
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh)
-bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh) v0.1.0
+bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh) v0.2
 ```
 
 Release 产物会提供 Linux、macOS、Windows 的 `amd64` / `arm64` 包，并附带对应的 `.sha256` 校验文件。Windows 产物使用 `.zip` 打包。

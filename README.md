@@ -113,7 +113,7 @@ The helper script downloads the latest release for your OS and architecture, ver
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh)
-bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh) v0.1.0
+bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh) v0.2
 ```
 
 Release assets are published for Linux, macOS, and Windows on both `amd64` and `arm64`, with matching `.sha256` checksum files. Windows releases are packaged as `.zip` files.
