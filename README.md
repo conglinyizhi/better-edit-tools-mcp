@@ -119,6 +119,26 @@ bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-too
 Release assets are published for Linux, macOS, and Windows on both `amd64` and `arm64`, with matching `.sha256` checksum files. Windows releases are packaged as `.zip` files.
 Release notes are grouped from Conventional Commits, so `feat(scope)!: ...` / `fix(scope): ...` style messages produce cleaner changelog sections.
 
+## Commit Style
+
+Use Conventional Commits for future work so release notes and changelogs can be generated automatically.
+
+Recommended examples:
+
+```text
+feat(parser): add release note grouping
+fix(server)!: drop legacy stdout protocol
+docs: update build instructions
+refactor(edit): simplify batch execution
+test(release): cover changelog parser
+chore: bump workflow dependencies
+```
+
+- Keep `type` lowercase and prefer `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`, or `revert`
+- Add a `scope` when the change is tied to a subsystem or module
+- Use `!` for breaking changes
+- Keep the subject short and imperative
+
 ## Acknowledgements
 
 The `replace`, `insert`, `delete`, and `batch` operations are inspired by [includewudi/fast-edit](https://github.com/includewudi/fast-edit).
