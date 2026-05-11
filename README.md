@@ -4,7 +4,7 @@
 
 # better-edit-tools
 
-> A high-performance MCP (Model Context Protocol) file editing toolkit — atomic writes, smart batch sorting, and intelligent function-scope detection.
+> A high-performance MCP (Model Context Protocol) file editing toolkit in Go - atomic writes, smart batch sorting, and intelligent function-scope detection.
 > Experimental project: tool names, parameters, and behaviors may change as the design evolves. Do not hardcode specific tool names into prompts; prefer capability-based or dynamically resolved tool selection.
 > Tool descriptions are localized at startup via `--lang <zh|en>` and fall back to the `LANG` environment variable when omitted.
 
@@ -69,7 +69,7 @@
 - **Atomic writes**: File modifications go through a temp-file-then-rename cycle, preventing data corruption if the process crashes mid-write.
 - **Smart batch sorting**: Batch edits are automatically sorted from bottom to top, so you never have to worry about line-number offsets.
 - **isError signaling**: Errors are properly reported with `isError: true` per the MCP spec.
-- **Pure Rust**: No runtime dependencies — a single, statically linked binary.
+- **Go-native**: No runtime dependencies - a single binary with a small embedded editing library.
 - **Fault-tolerant JSON parsing**: AI-generated file content often contains backticks, `${}`, or unescaped quotes that break standard JSON encoding. The `write` tool automatically falls back to character-level extraction, so formatting errors don't block file writes.
 
 ## Usage
@@ -77,15 +77,15 @@
 ### Build
 
 ```bash
-cargo build --release
+go build -o better-edit-tools ./cmd/better-edit-tools
 ```
 
-The binary will be at `target/release/better-edit-tools`.
+The binary will be at `./better-edit-tools`.
 
 ### Run
 
 ```bash
-./target/release/better-edit-tools --lang en
+./better-edit-tools --lang en
 ```
 
 If `--lang` is not provided, the server tries to infer the language from the `LANG` environment variable and defaults to English.
@@ -98,7 +98,7 @@ Add to your MCP client configuration:
 {
   "mcpServers": {
     "better-edit-tools": {
-      "command": "/path/to/better-edit-tools/target/release/better-edit-tools",
+      "command": "/path/to/better-edit-tools/better-edit-tools",
       "args": ["--lang", "en"]
     }
   }
@@ -106,6 +106,18 @@ Add to your MCP client configuration:
 ```
 
 For example, Claude Desktop's config is at `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
+
+### Install
+
+The helper script downloads the latest release for your OS and architecture, verifies the SHA-256 checksum, and installs the binary into `~/.local/share/better-edit-tools/bin/`. Pass a tag name to install a specific version.
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh) v0.1.0
+```
+
+Release assets are published for Linux, macOS, and Windows on both `amd64` and `arm64`, with matching `.sha256` checksum files. Windows releases are packaged as `.zip` files.
+Release notes are grouped from Conventional Commits, so `feat(scope)!: ...` / `fix(scope): ...` style messages produce cleaner changelog sections.
 
 ## Acknowledgements
 

@@ -1,0 +1,120 @@
+package edit
+
+import (
+	"fmt"
+	"strings"
+)
+
+func FunctionRangeRaw(path string, targetLine int) (int, int, error) {
+	content, err := ReadText(path)
+	if err != nil {
+		return 0, 0, ReadPath(path, err)
+	}
+	lines := strings.Split(content, "\n")
+	if targetLine < 1 || targetLine > len(lines) {
+		return 0, 0, InvalidArg(fmt.Sprintf("目标行 %d 超出文件范围 (1..%d)", targetLine, len(lines)))
+	}
+
+	type commentState int
+	const (
+		commentNone commentState = iota
+		commentLine
+		commentBlock
+	)
+	depth := 0
+	inString := false
+	var stringChar byte
+	escapeNext := false
+	state := commentNone
+	var currentStart *int
+	var ranges [][2]int
+
+	for lineIdx, line := range lines {
+		bytes := []byte(line)
+		if state == commentBlock {
+			// keep block comment until it closes
+		}
+		if state == commentLine {
+			state = commentNone
+		}
+		for col := 0; col < len(bytes); col++ {
+			ch := bytes[col]
+			var next byte
+			if col+1 < len(bytes) {
+				next = bytes[col+1]
+			}
+			if escapeNext {
+				escapeNext = false
+				continue
+			}
+			if !inString && state != commentBlock && ch == '/' && next == '/' {
+				state = commentLine
+				break
+			}
+			if !inString && state != commentBlock && ch == '/' && next == '*' {
+				state = commentBlock
+				col++
+				continue
+			}
+			if state == commentBlock && ch == '*' && next == '/' {
+				state = commentNone
+				col++
+				continue
+			}
+			if state == commentBlock || state == commentLine {
+				continue
+			}
+			if (ch == '"' || ch == '\'' || ch == '`') && !inString {
+				inString = true
+				stringChar = ch
+				continue
+			}
+			if inString && ch == stringChar {
+				inString = false
+				continue
+			}
+			if inString && ch == '\\' {
+				escapeNext = true
+				continue
+			}
+			if inString {
+				continue
+			}
+			if ch == '{' {
+				if depth == 0 {
+					start := lineIdx + 1
+					currentStart = &start
+				}
+				depth++
+			} else if ch == '}' {
+				depth--
+				if depth == 0 && currentStart != nil {
+					ranges = append(ranges, [2]int{*currentStart, lineIdx + 1})
+					currentStart = nil
+				}
+				if depth < 0 {
+					depth = 0
+				}
+			}
+		}
+	}
+
+	for _, rg := range ranges {
+		if rg[0] <= targetLine && targetLine <= rg[1] {
+			return rg[0], rg[1], nil
+		}
+	}
+	return 0, 0, InvalidArg(fmt.Sprintf("第 %d 行不在任何函数/块范围内（基于花括号检测）", targetLine))
+}
+
+func FunctionRange(path string, line int) (FunctionRangeResult, error) {
+	start, end, err := FunctionRangeRaw(path, line)
+	if err != nil {
+		return FunctionRangeResult{}, err
+	}
+	return FunctionRangeResult{Start: start, End: end}, nil
+}
+
+func FuncRange(path string, line int) (FunctionRangeResult, error) {
+	return FunctionRange(path, line)
+}

@@ -6,7 +6,7 @@
 
 > 实验性项目：工具名称、参数和行为都可能随着设计继续调整。不要把具体工具名写死到 prompt 里，优先使用能力描述或动态解析的方式选择工具。
 
-> 高性能 MCP（Model Context Protocol）文件编辑工具集 — 原子写入、批量编辑智能排序、函数范围自动检测。
+> 高性能 MCP（Model Context Protocol）文件编辑工具集 - Go 原生实现，提供原子写入、批量编辑智能排序、函数范围自动检测。
 > 工具描述会在启动时通过 `--lang <zh|en>` 进行本地化；如果不传，则会尝试读取 `LANG` 环境变量。
 
 ## 工具说明
@@ -70,7 +70,7 @@
 - **原子写入**：文件修改通过临时文件 + 重命名完成，即使进程崩溃也不会损坏源文件。
 - **批量编辑智能排序**：批量操作自动从下往上执行，无需手动调整行号顺序。
 - **标准错误响应**：严格按照 MCP 规范，错误时返回 `isError: true`，客户端可正确识别。
-- **纯 Rust 实现**：无运行时依赖，单二进制分发，启动快、内存低。
+- **Go 原生实现**：无运行时依赖，单二进制分发，启动快、易嵌入。
 - **容错 JSON 解析**：AI 生成复杂文件内容时容易出现转义错误（反引号、`${}`、未转义引号），`write` 工具会自动降级为字符级提取，避免因 JSON 格式问题导致写入失败。
 
 ## 使用方法
@@ -78,15 +78,15 @@
 ### 构建
 
 ```bash
-cargo build --release
+go build -o better-edit-tools ./cmd/better-edit-tools
 ```
 
-编译产物在 `target/release/better-edit-tools`。
+编译产物在 `./better-edit-tools`。
 
 ### 运行
 
 ```bash
-./target/release/better-edit-tools --lang zh
+./better-edit-tools --lang zh
 ```
 
 如果不传 `--lang`，服务会尝试从 `LANG` 环境变量推断语言，推断失败时默认英文。
@@ -99,7 +99,7 @@ cargo build --release
 {
   "mcpServers": {
     "better-edit-tools": {
-      "command": "/path/to/better-edit-tools/target/release/better-edit-tools",
+      "command": "/path/to/better-edit-tools/better-edit-tools",
       "args": ["--lang", "zh"]
     }
   }
@@ -110,6 +110,19 @@ cargo build --release
 
 - macOS：`~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows：`%APPDATA%\Claude\claude_desktop_config.json`
+
+### 安装
+
+安装脚本会根据当前系统和架构自动下载最新 Release，校验 SHA-256 后安装到 `~/.local/share/better-edit-tools/bin/`。
+也可以把 tag 作为参数传给脚本来安装指定版本。
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh) v0.1.0
+```
+
+Release 产物会提供 Linux、macOS、Windows 的 `amd64` / `arm64` 包，并附带对应的 `.sha256` 校验文件。Windows 产物使用 `.zip` 打包。
+Release notes 会按 Conventional Commits 分组，建议使用 `feat(scope)!: ...`、`fix(scope): ...` 这类写法，方便自动生成更干净的 changelog。
 
 ## 致谢
 
