@@ -67,7 +67,7 @@ func Show(path string, start int, end *ShowEnd) (ShowResult, error) {
 	}, nil
 }
 
-func Replace(path string, start, end int, content string, raw bool, format string, preview bool) (ReplaceResult, error) {
+func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool) (ReplaceResult, error) {
 	lines, le, err := ReadLines(path)
 	if err != nil {
 		return ReplaceResult{}, ReadPath(path, err)
@@ -78,6 +78,13 @@ func Replace(path string, start, end int, content string, raw bool, format strin
 	}
 	if end < start || end > total {
 		return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: end 超出范围 (%d..%d)", start, total))
+	}
+	if old != nil {
+		current := normalizeLineBlock(strings.Join(lines[start-1:end], ""))
+		expected := normalizeLineBlock(*old)
+		if current != expected {
+			return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: old 内容不匹配 (line %d-%d)", start, end))
+		}
 	}
 	beforeStart := max(1, start-5)
 	beforeEnd := min(total, end+5)
@@ -110,6 +117,10 @@ func Replace(path string, start, end int, content string, raw bool, format strin
 		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
 		Preview:  boolPtr(preview),
 	}, nil
+}
+
+func normalizeLineBlock(content string) string {
+	return strings.TrimRight(strings.ReplaceAll(content, "\r\n", "\n"), "\r\n")
 }
 
 func Insert(path string, after int, content string, raw bool, format string, preview bool) (InsertResult, error) {

@@ -57,12 +57,24 @@ func TestShowExplicitRange(t *testing.T) {
 
 func TestReplacePreviewDoesNotWrite(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
-	res, err := Replace(path, 2, 2, "x", true, "plain", true)
+	old := "b\n"
+	res, err := Replace(path, 2, 2, &old, "x", true, "plain", true)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
 	if res.Preview == nil || !*res.Preview {
 		t.Fatalf("preview flag missing: %+v", res)
+	}
+	if got := readFile(t, path); got != "a\nb\nc\n" {
+		t.Fatalf("file changed unexpectedly: %q", got)
+	}
+}
+
+func TestReplaceRejectsOldMismatch(t *testing.T) {
+	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	old := "x\n"
+	if _, err := Replace(path, 2, 2, &old, "y", true, "plain", true); err == nil {
+		t.Fatalf("expected mismatch error")
 	}
 	if got := readFile(t, path); got != "a\nb\nc\n" {
 		t.Fatalf("file changed unexpectedly: %q", got)

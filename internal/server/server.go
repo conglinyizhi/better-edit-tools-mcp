@@ -168,17 +168,77 @@ func (s *Server) listTools() []Tool {
 		{
 			Name:        "be-replace",
 			Description: localizedDescription(s.lang, "be-replace"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file":    map[string]any{"type": "string"},
+					"start":   map[string]any{"type": "integer", "minimum": 1},
+					"end":     map[string]any{"type": "integer", "minimum": 1},
+					"old":     map[string]any{"type": "string"},
+					"content": map[string]any{"type": "string"},
+					"raw":     map[string]any{"type": "boolean"},
+					"format":  map[string]any{"type": "string"},
+					"preview": map[string]any{"type": "boolean"},
+					"target": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
+							"value": map[string]any{"type": "string"},
+						},
+					},
+				},
+				"required": []string{"file", "start", "end"},
+			},
 		},
 		{
 			Name:        "be-insert",
 			Description: localizedDescription(s.lang, "be-insert"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file":       map[string]any{"type": "string"},
+					"line":       map[string]any{"type": "integer", "minimum": 0},
+					"after_line": map[string]any{"type": "integer", "minimum": 0},
+					"content":    map[string]any{"type": "string"},
+					"raw":        map[string]any{"type": "boolean"},
+					"format":     map[string]any{"type": "string"},
+					"preview":    map[string]any{"type": "boolean"},
+					"target": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
+							"value": map[string]any{"type": "string"},
+						},
+					},
+				},
+				"required": []string{"file", "line", "content"},
+			},
 		},
 		{
 			Name:        "be-delete",
 			Description: localizedDescription(s.lang, "be-delete"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file":       map[string]any{"type": "string"},
+					"start":      map[string]any{"type": "integer", "minimum": 1},
+					"start_line": map[string]any{"type": "integer", "minimum": 1},
+					"end":        map[string]any{"type": "integer", "minimum": 1},
+					"end_line":   map[string]any{"type": "integer", "minimum": 1},
+					"line":       map[string]any{"type": "integer", "minimum": 1},
+					"lines":      map[string]any{"type": "string"},
+					"format":     map[string]any{"type": "string"},
+					"preview":    map[string]any{"type": "boolean"},
+					"target": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
+							"value": map[string]any{"type": "string"},
+						},
+					},
+				},
+				"required": []string{"file"},
+			},
 		},
 		{
 			Name:        "be-batch",
@@ -188,22 +248,61 @@ func (s *Server) listTools() []Tool {
 		{
 			Name:        "be-write",
 			Description: localizedDescription(s.lang, "be-write"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file":    map[string]any{"type": "string"},
+					"content": map[string]any{"type": "string"},
+					"files": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"file":    map[string]any{"type": "string"},
+								"content": map[string]any{"type": "string"},
+							},
+							"required": []string{"file", "content"},
+						},
+					},
+					"preview": map[string]any{"type": "boolean"},
+				},
+			},
 		},
 		{
 			Name:        "be-func-range",
 			Description: localizedDescription(s.lang, "be-func-range"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string"},
+					"line": map[string]any{"type": "integer", "minimum": 1},
+				},
+				"required": []string{"file", "line"},
+			},
 		},
 		{
 			Name:        "be-tag-range",
 			Description: localizedDescription(s.lang, "be-tag-range"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string"},
+					"line": map[string]any{"type": "integer", "minimum": 1},
+				},
+				"required": []string{"file", "line"},
+			},
 		},
 		{
 			Name:        "be-balance",
 			Description: localizedDescription(s.lang, "be-balance"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file": map[string]any{"type": "string"},
+					"mode": map[string]any{"type": "string", "enum": []string{"aggregate", "unbalanced", "tree"}},
+				},
+				"required": []string{"file"},
+			},
 		},
 	}
 	return specs
@@ -281,6 +380,8 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			File    string         `json:"file"`
 			Start   int            `json:"start"`
 			End     int            `json:"end"`
+			Old     *string        `json:"old"`
+			OldText *string        `json:"old_text"`
 			Content string         `json:"content"`
 			Raw     bool           `json:"raw"`
 			Format  string         `json:"format"`
@@ -298,7 +399,11 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			start, end = span.Start, span.End
 		}
-		res, err := edit.Replace(p.File, start, end, p.Content, p.Raw, defaultFormat(p.Format), p.Preview)
+		old := p.Old
+		if old == nil {
+			old = p.OldText
+		}
+		res, err := edit.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview)
 		if err != nil {
 			return "", err
 		}
@@ -307,6 +412,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		var p struct {
 			File    string         `json:"file"`
 			Line    int            `json:"line"`
+			After   *int           `json:"after_line"`
 			Content string         `json:"content"`
 			Raw     bool           `json:"raw"`
 			Format  string         `json:"format"`
@@ -317,6 +423,9 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		after := p.Line
+		if p.After != nil {
+			after = *p.After
+		}
 		if p.Target != nil {
 			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
 			if err != nil {
@@ -334,6 +443,8 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			File    string         `json:"file"`
 			Start   *int           `json:"start"`
 			End     *int           `json:"end"`
+			StartLn *int           `json:"start_line"`
+			EndLn   *int           `json:"end_line"`
 			Line    *int           `json:"line"`
 			Lines   *string        `json:"lines"`
 			Format  string         `json:"format"`
@@ -347,8 +458,14 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if p.Start != nil {
 			start = *p.Start
 		}
+		if p.StartLn != nil {
+			start = *p.StartLn
+		}
 		if p.End != nil {
 			end = *p.End
+		}
+		if p.EndLn != nil {
+			end = *p.EndLn
 		}
 		if p.Line != nil {
 			line = *p.Line
@@ -380,13 +497,35 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		return mustJSON(res), nil
 	case "be-write":
 		var p struct {
-			Spec    string `json:"spec"`
-			Preview bool   `json:"preview"`
+			File    string `json:"file"`
+			Content string `json:"content"`
+			Files   []struct {
+				File    string `json:"file"`
+				Content string `json:"content"`
+			} `json:"files"`
+			Preview bool `json:"preview"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := edit.Write(p.Spec, p.Preview)
+		var spec string
+		switch {
+		case p.File != "" || p.Content != "":
+			spec = mustJSON(map[string]any{
+				"file":    p.File,
+				"content": p.Content,
+			})
+		case len(p.Files) > 0:
+			files := make([]map[string]any, 0, len(p.Files))
+			for _, item := range p.Files {
+				files = append(files, map[string]any{
+					"file":    item.File,
+					"content": item.Content,
+				})
+			}
+			spec = mustJSON(map[string]any{"files": files})
+		}
+		res, err := edit.Write(spec, p.Preview)
 		if err != nil {
 			return "", err
 		}
