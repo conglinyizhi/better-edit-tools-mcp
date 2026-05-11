@@ -7,7 +7,7 @@ import (
 
 const (
 	Name    = "better-edit-tools"
-	Version = "0.2+chip"
+	Version = "0.2.1"
 )
 
 func NormalizeLang(tag string) string {
