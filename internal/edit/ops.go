@@ -15,10 +15,10 @@ func Show(path string, start int, end *ShowEnd) (ShowResult, error) {
 	}
 	total := len(lines)
 	if total == 0 {
-		return ShowResult{}, InvalidArg("show: 文件为空")
+		return ShowResult{}, InvalidArg("show: empty file")
 	}
 	if start < 1 || start > total {
-		return ShowResult{}, InvalidArg(fmt.Sprintf("show: start 超出范围 (1..%d)", total))
+		return ShowResult{}, InvalidArg(fmt.Sprintf("show: start out of range (1..%d)", total))
 	}
 
 	s := start
@@ -44,7 +44,7 @@ func Show(path string, start int, end *ShowEnd) (ShowResult, error) {
 		e = end.Line
 	}
 	if e < s {
-		return ShowResult{}, InvalidArg(fmt.Sprintf("show: end 不能小于 start (%d..%d)", s, total))
+		return ShowResult{}, InvalidArg(fmt.Sprintf("show: end must not be less than start (%d..%d)", s, total))
 	}
 	if e > total {
 		e = total
@@ -74,16 +74,16 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 	}
 	total := len(lines)
 	if start < 1 || start > total {
-		return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: start 超出范围 (1..%d)", total))
+		return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: start out of range (1..%d)", total))
 	}
 	if end < start || end > total {
-		return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: end 超出范围 (%d..%d)", start, total))
+		return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: end out of range (%d..%d)", start, total))
 	}
 	if old != nil {
 		current := normalizeLineBlock(strings.Join(lines[start-1:end], ""))
 		expected := normalizeLineBlock(*old)
 		if current != expected {
-			return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: old 内容不匹配 (line %d-%d)", start, end))
+			return ReplaceResult{}, InvalidArg(fmt.Sprintf("replace: old content does not match (line %d-%d)", start, end))
 		}
 	}
 	beforeStart := max(1, start-5)
@@ -130,7 +130,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	}
 	total := len(lines)
 	if after > total {
-		return InsertResult{}, InvalidArg(fmt.Sprintf("insert: line (%d) 超出范围 (0..%d)", after, total))
+		return InsertResult{}, InvalidArg(fmt.Sprintf("insert: line (%d) out of range (0..%d)", after, total))
 	}
 	beforeStart := max(1, after-5+1)
 	beforeEnd := min(total, after+5)
@@ -186,7 +186,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 			}
 		}
 		if len(valid) == 0 {
-			return DeleteResult{}, InvalidArg(fmt.Sprintf("delete: 所有行号均超出文件范围 (1..%d)", total))
+			return DeleteResult{}, InvalidArg(fmt.Sprintf("delete: all line numbers out of range (1..%d)", total))
 		}
 		minDel, maxDel := valid[0], valid[0]
 		for _, n := range valid[1:] {
@@ -248,10 +248,10 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 		e = s
 	}
 	if s < 1 || s > total {
-		return DeleteResult{}, InvalidArg(fmt.Sprintf("delete: start (%d) 超出范围 (1..%d)", s, total))
+		return DeleteResult{}, InvalidArg(fmt.Sprintf("delete: start (%d) out of range (1..%d)", s, total))
 	}
 	if e < s || e > total {
-		return DeleteResult{}, InvalidArg(fmt.Sprintf("delete: end (%d) 超出范围 (%d..%d)", e, s, total))
+		return DeleteResult{}, InvalidArg(fmt.Sprintf("delete: end (%d) out of range (%d..%d)", e, s, total))
 	}
 	beforeStart := max(1, s-5)
 	beforeEnd := min(total, e+5)
@@ -304,16 +304,16 @@ func Batch(spec string, preview bool) (BatchResult, error) {
 				s, ok1 := asInt(edit.Start)
 				e, ok2 := asInt(edit.End)
 				if !ok1 {
-					return BatchResult{}, InvalidArg("replace-lines: 缺少 start")
+					return BatchResult{}, InvalidArg("replace-lines: missing start")
 				}
 				if !ok2 {
-					return BatchResult{}, InvalidArg("replace-lines: 缺少 end")
+					return BatchResult{}, InvalidArg("replace-lines: missing end")
 				}
 				if s < 1 || s > len(lines) {
-					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/replace: start (%d) 超出范围 (1..%d)", s, len(lines)))
+					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/replace: start (%d) out of range (1..%d)", s, len(lines)))
 				}
 				if e < s || e > len(lines) {
-					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/replace: end (%d) 超出范围 (%d..%d)", e, s, len(lines)))
+					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/replace: end (%d) out of range (%d..%d)", e, s, len(lines)))
 				}
 				newLines := PrepareContentLines(edit.Content, le, true)
 				tmp := append([]string(nil), lines[:s-1]...)
@@ -323,10 +323,10 @@ func Batch(spec string, preview bool) (BatchResult, error) {
 			case "insert-after":
 				ln, ok := asInt(edit.Line)
 				if !ok {
-					return BatchResult{}, InvalidArg("insert-after: 缺少 line")
+					return BatchResult{}, InvalidArg("insert-after: missing line")
 				}
 				if ln > len(lines) {
-					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/insert: line (%d) 超出范围 (0..%d)", ln, len(lines)))
+					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/insert: line (%d) out of range (0..%d)", ln, len(lines)))
 				}
 				newLines := PrepareContentLines(edit.Content, le, true)
 				tmp := append([]string(nil), lines[:ln]...)
@@ -337,22 +337,22 @@ func Batch(spec string, preview bool) (BatchResult, error) {
 				s, ok1 := asInt(edit.Start)
 				e, ok2 := asInt(edit.End)
 				if !ok1 {
-					return BatchResult{}, InvalidArg("delete-lines: 缺少 start")
+					return BatchResult{}, InvalidArg("delete-lines: missing start")
 				}
 				if !ok2 {
-					return BatchResult{}, InvalidArg("delete-lines: 缺少 end")
+					return BatchResult{}, InvalidArg("delete-lines: missing end")
 				}
 				if s < 1 || s > len(lines) {
-					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/delete: start (%d) 超出范围 (1..%d)", s, len(lines)))
+					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/delete: start (%d) out of range (1..%d)", s, len(lines)))
 				}
 				if e < s || e > len(lines) {
-					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/delete: end (%d) 超出范围 (%d..%d)", e, s, len(lines)))
+					return BatchResult{}, InvalidArg(fmt.Sprintf("batch/delete: end (%d) out of range (%d..%d)", e, s, len(lines)))
 				}
 				tmp := append([]string(nil), lines[:s-1]...)
 				tmp = append(tmp, lines[e:]...)
 				lines = tmp
 			default:
-				return BatchResult{}, InvalidArg(fmt.Sprintf("batch: 未知操作 %q，支持: replace-lines, insert-after, delete-lines", edit.Action))
+				return BatchResult{}, InvalidArg(fmt.Sprintf("batch: unknown action %q, supported: replace-lines, insert-after, delete-lines", edit.Action))
 			}
 		}
 		newContent := strings.Join(lines, "")
@@ -396,22 +396,22 @@ func parseBatchSpec(raw any) ([]BatchFileSpec, error) {
 		}
 		return []BatchFileSpec{spec}, nil
 	default:
-		return nil, InvalidArg("batch: 不支持的 JSON 格式，需要数组或对象")
+		return nil, InvalidArg("batch: unsupported JSON format, expected array or object")
 	}
 }
 
 func parseBatchFileSpec(raw any) (BatchFileSpec, error) {
 	m, ok := raw.(map[string]any)
 	if !ok {
-		return BatchFileSpec{}, InvalidArg("batch: 缺少 \"file\" 字段")
+		return BatchFileSpec{}, InvalidArg("batch: missing \"file\" field")
 	}
 	file, _ := m["file"].(string)
 	if file == "" {
-		return BatchFileSpec{}, InvalidArg("batch: 缺少 \"file\" 字段")
+		return BatchFileSpec{}, InvalidArg("batch: missing \"file\" field")
 	}
 	rawEdits, ok := m["edits"].([]any)
 	if !ok {
-		return BatchFileSpec{}, InvalidArg(fmt.Sprintf("batch: 缺少 \"edits\" 数组字段 (file: %s)", file))
+		return BatchFileSpec{}, InvalidArg(fmt.Sprintf("batch: missing \"edits\" array field (file: %s)", file))
 	}
 	if len(rawEdits) == 0 {
 		return BatchFileSpec{}, InvalidArg("batch: edits 数组为空")
@@ -420,7 +420,7 @@ func parseBatchFileSpec(raw any) (BatchFileSpec, error) {
 	for _, item := range rawEdits {
 		em, ok := item.(map[string]any)
 		if !ok {
-			return BatchFileSpec{}, InvalidArg("batch: 缺少 action 字段")
+			return BatchFileSpec{}, InvalidArg("batch: missing action field")
 		}
 		edits = append(edits, BatchEditSpec{
 			Action:  asString(em["action"]),

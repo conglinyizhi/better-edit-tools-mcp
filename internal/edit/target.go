@@ -12,31 +12,31 @@ func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error) {
 		return TargetSpan{}, ReadPath(path, err)
 	}
 	if len(lines) == 0 {
-		return TargetSpan{}, InvalidArg("target: 文件为空")
+		return TargetSpan{}, InvalidArg("target: empty file")
 	}
 
 	switch target.Kind {
 	case "line":
 		line := parseTargetLine(target.Value)
 		if line < 1 || line > len(lines) {
-			return TargetSpan{}, InvalidArg(fmt.Sprintf("target line %d 超出文件范围 (1..%d)", line, len(lines)))
+			return TargetSpan{}, InvalidArg(fmt.Sprintf("target line %d out of range (1..%d)", line, len(lines)))
 		}
 		return TargetSpan{Start: line, End: line}, nil
 	case "marker":
 		needle := strings.TrimSpace(target.Value)
 		if needle == "" {
-			return TargetSpan{}, InvalidArg("marker 不能为空")
+			return TargetSpan{}, InvalidArg("marker must not be empty")
 		}
 		for idx, line := range lines {
 			if strings.Contains(line, needle) {
 				return TargetSpan{Start: idx + 1, End: idx + 1}, nil
 			}
 		}
-		return TargetSpan{}, InvalidArg("未找到 marker: " + needle)
+		return TargetSpan{}, InvalidArg("marker not found: " + needle)
 	case "function":
 		needle := strings.TrimSpace(target.Value)
 		if needle == "" {
-			return TargetSpan{}, InvalidArg("function 不能为空")
+			return TargetSpan{}, InvalidArg("function must not be empty")
 		}
 		found := 0
 		for idx, line := range lines {
@@ -46,7 +46,7 @@ func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error) {
 			}
 		}
 		if found == 0 {
-			return TargetSpan{}, InvalidArg("未找到 function: " + needle)
+			return TargetSpan{}, InvalidArg("function not found: " + needle)
 		}
 		start, end, err := FunctionRangeRaw(path, found)
 		if err != nil {
@@ -56,7 +56,7 @@ func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error) {
 	case "tag":
 		needle := strings.TrimSpace(target.Value)
 		if needle == "" {
-			return TargetSpan{}, InvalidArg("tag 不能为空")
+			return TargetSpan{}, InvalidArg("tag must not be empty")
 		}
 		found := 0
 		for idx, line := range lines {
@@ -66,7 +66,7 @@ func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error) {
 			}
 		}
 		if found == 0 {
-			return TargetSpan{}, InvalidArg("未找到 tag: " + needle)
+			return TargetSpan{}, InvalidArg("tag not found: " + needle)
 		}
 		tag, err := TagRange(path, found)
 		if err != nil {

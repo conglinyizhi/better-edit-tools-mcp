@@ -12,7 +12,7 @@ func FunctionRangeRaw(path string, targetLine int) (int, int, error) {
 	}
 	lines := strings.Split(content, "\n")
 	if targetLine < 1 || targetLine > len(lines) {
-		return 0, 0, InvalidArg(fmt.Sprintf("目标行 %d 超出文件范围 (1..%d)", targetLine, len(lines)))
+		return 0, 0, InvalidArg(fmt.Sprintf("target line %d out of range (1..%d)", targetLine, len(lines)))
 	}
 
 	type commentState int
@@ -120,7 +120,7 @@ func FunctionRangeRaw(path string, targetLine int) (int, int, error) {
 			return sigStart, rg[1], nil
 		}
 	}
-	return 0, 0, InvalidArg(fmt.Sprintf("第 %d 行不在任何函数/块范围内（基于花括号检测）", targetLine))
+	return 0, 0, InvalidArg(fmt.Sprintf("line %d is not inside any function/block (brace detection)", targetLine))
 }
 
 func FunctionRange(path string, line int) (FunctionRangeResult, error) {

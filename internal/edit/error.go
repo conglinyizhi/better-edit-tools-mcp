@@ -12,11 +12,11 @@ type Error struct {
 func (e *Error) Error() string {
 	switch e.Kind {
 	case "read":
-		return fmt.Sprintf("文件 %s 读取失败: %v", e.Path, e.Err)
+		return fmt.Sprintf("read %s: %v", e.Path, e.Err)
 	case "write":
-		return fmt.Sprintf("文件 %s 写入失败: %v", e.Path, e.Err)
+		return fmt.Sprintf("write %s: %v", e.Path, e.Err)
 	case "json":
-		return fmt.Sprintf("JSON 解析失败: %v", e.Err)
+		return fmt.Sprintf("parse JSON: %v", e.Err)
 	default:
 		return e.Msg
 	}

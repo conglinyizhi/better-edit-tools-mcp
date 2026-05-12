@@ -720,7 +720,7 @@ func defaultFormat(v string) string {
 func mustJSON(v any) string {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return fmt.Sprintf("JSON 序列化失败: %v", err)
+		return fmt.Sprintf("json.Marshal: %v", err)
 	}
 	return string(data)
 }

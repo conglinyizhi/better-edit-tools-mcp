@@ -18,7 +18,7 @@ type scanResult struct {
 
 func CheckStructureBalance(path, mode string) (string, error) {
 	if mode != "aggregate" && mode != "unbalanced" && mode != "tree" {
-		return "", InvalidArg(fmt.Sprintf("未知 mode: %q，支持: aggregate, unbalanced, tree", mode))
+		return "", InvalidArg(fmt.Sprintf("unknown mode: %q, supported: aggregate, unbalanced, tree", mode))
 	}
 	res, err := scanFile(path)
 	if err != nil {
@@ -88,7 +88,7 @@ func CheckStructureBalance(path, mode string) (string, error) {
 	}
 	data, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("JSON 序列化失败: %w", err)
+		return "", fmt.Errorf("json.Marshal: %w", err)
 	}
 	return string(data), nil
 }

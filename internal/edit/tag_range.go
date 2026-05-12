@@ -12,7 +12,7 @@ func TagRange(path string, line int) (TagRangeResult, error) {
 	}
 	lines := strings.Split(content, "\n")
 	if line < 1 || line > len(lines) {
-		return TagRangeResult{}, InvalidArg(fmt.Sprintf("目标行 %d 超出文件范围 (1..%d)", line, len(lines)))
+		return TagRangeResult{}, InvalidArg(fmt.Sprintf("target line %d out of range (1..%d)", line, len(lines)))
 	}
 
 	type tagEntry struct {
@@ -83,7 +83,7 @@ func TagRange(path string, line int) (TagRangeResult, error) {
 			return rg, nil
 		}
 	}
-	return TagRangeResult{}, InvalidArg(fmt.Sprintf("第 %d 行不在任何可配对 tag 范围内", line))
+	return TagRangeResult{}, InvalidArg(fmt.Sprintf("line %d is not inside any paired tag", line))
 }
 
 func readTagName(chars []byte, idx *int) string {

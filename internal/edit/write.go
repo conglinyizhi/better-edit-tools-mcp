@@ -87,11 +87,11 @@ func parseWriteValue(raw any) ([]WriteSpecItem, error) {
 func parseOneWriteItem(raw any) (WriteSpecItem, error) {
 	m, ok := raw.(map[string]any)
 	if !ok {
-		return WriteSpecItem{}, InvalidArg("缺少 file 字段")
+		return WriteSpecItem{}, InvalidArg("missing file field")
 	}
 	file, _ := m["file"].(string)
 	if file == "" {
-		return WriteSpecItem{}, InvalidArg("缺少 file 字段")
+		return WriteSpecItem{}, InvalidArg("missing file field")
 	}
 	content := ""
 	switch cv := m["content"].(type) {
