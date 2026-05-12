@@ -6,7 +6,7 @@
 go build -o better-edit-tools ./cmd/better-edit-tools
 ```
 
-Go 版本要求：Go 1.23+。
+Go 版本要求：Go 1.26+。
 
 ## 发布
 

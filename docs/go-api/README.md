@@ -8,7 +8,7 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 
 `betools` is the core editing library extracted from better-edit-tools, designed to be embedded directly in Go agent frameworks. It provides read, replace, insert, delete, batch, write, function-range detection, and tag-range detection primitives — all write operations are protected by atomic file writes (temp file + rename).
 
-**Minimum Go version**: Go 1.23+
+**Minimum Go version**: Go 1.26+
 
 ---
 
@@ -22,11 +22,11 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 func Show(path string, start int, endLine int) (ShowResult, string, error)
 ```
 
-Reads a line range from a file. Returns the content and a `session_id` (second return value) that can be passed to `Replace` for line-number validation.
+Reads a line range from a file. Returns the content and a `viewed_code_id` (second return value) that can be passed to `Replace` for line-number validation.
 
 - `start`: starting line number (>= 1)
 - `endLine`: ending line number. Pass `0` or negative to auto-expand to the enclosing function scope (via `FuncRange`)
-- Returns a `session_id`: UUID v4 for later `Replace` session validation
+- Returns a `viewed_code_id`: UUID v4 for later `Replace` session validation
 
 #### `Replace`
 
@@ -42,7 +42,7 @@ Precise line-range substitution.
 - `raw`: write verbatim without formatting adjustments
 - `format`: output format (`"trim"` or `""`)
 - `preview`: if true, returns diff without writing to disk
-- `sessionID`: optional — validates line count consistency against a prior `be-show` session
+- `viewed_code_id`: optional — validates line count consistency against a prior `be-show` session
 
 #### `Insert`
 

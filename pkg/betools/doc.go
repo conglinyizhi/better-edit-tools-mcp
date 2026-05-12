@@ -11,7 +11,7 @@
 //
 // # Session Bridge
 //
-// Show returns a session_id (UUID v4). Later Replace calls can pass that ID to
+// Show returns a viewed_code_id (UUID v4). Later Replace calls can pass that ID to
 // detect whether the file has been modified since the read. A non-fatal warning
 // is returned with sample lines to help the agent re-synchronise.
 //
@@ -29,5 +29,5 @@
 //
 // Use errors.Is to match against these sentinels.
 //
-// Minimum Go version: Go 1.23+
+// Minimum Go version: Go 1.26+
 package betools

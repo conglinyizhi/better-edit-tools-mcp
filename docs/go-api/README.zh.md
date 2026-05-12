@@ -8,7 +8,7 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 
 `betools` 是 better-edit-tools 的核心编辑库，可直接嵌入 Go Agent 框架使用。它提供文件读取、内容替换、插入、删除、批量操作、全局写入、函数范围检测等原语，所有写操作都经过原子写入（临时文件 + rename）保护。
 
-**版本要求**：Go 1.23+
+**版本要求**：Go 1.26+
 
 ---
 
@@ -22,11 +22,11 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 func Show(path string, start int, endLine int) (ShowResult, string, error)
 ```
 
-读取指定文件的行范围。返回内容包括完整内容和 `session_id`（第二个返回值）。`session_id` 可传给 `Replace` 进行行数校验。
+读取指定文件的行范围。返回内容包括完整内容和 `viewed_code_id`（第二个返回值）。`viewed_code_id` 可传给 `Replace` 进行行数校验。
 
 - `start`：起始行号（>= 1）
 - `endLine`：结束行号。传 `0` 或负数时自动扩展到所在函数范围（基于 `FuncRange`）
-- 返回 `session_id`：UUID v4，用于后续 `Replace` 的 session 校验
+- 返回 `viewed_code_id`：UUID v4，用于后续 `Replace` 的 session 校验
 
 #### `Replace`
 
@@ -42,7 +42,7 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 - `raw`：是否原样写入，不与格式化逻辑冲突
 - `format`：写入后的格式（"trim" 或 ""）
 - `preview`：如果为 true，只返回 diff 不写入文件
-- `sessionID`：可选，传 `be-show` 返回的 `session_id` 时校验行数一致性
+- `viewed_code_id`：可选，传 `be-show` 返回的 `viewed_code_id` 时校验行数一致性
 
 #### `Insert`
 
