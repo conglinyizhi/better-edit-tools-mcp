@@ -118,6 +118,7 @@ type TagRangeResult struct {
 	Start int    `json:"start"`
 	End   int    `json:"end"`
 	Kind  string `json:"kind"`
+	Tag   string `json:"tag,omitempty"`
 }
 
 type MatchedPair struct {

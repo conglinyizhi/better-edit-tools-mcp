@@ -137,6 +137,17 @@ func (s *Server) handleToolCall(req rpcRequest) rpcResponse {
 			}},
 		})
 	}
+	// Parse the JSON string back into a map for structured response
+	var structured map[string]any
+	if json.Unmarshal([]byte(out), &structured) == nil {
+		return s.ok(req.ID, map[string]any{
+			"content": []map[string]any{{
+				"type":  "text",
+				"text":  out,
+				"_data": structured,
+			}},
+		})
+	}
 	return s.ok(req.ID, map[string]any{
 		"content": []map[string]any{{
 			"type": "text",
@@ -246,7 +257,17 @@ func (s *Server) listTools() []Tool {
 		{
 			Name:        "be-batch",
 			Description: localizedDescription(s.lang, "be-batch"),
-			InputSchema: map[string]any{"type": "object"},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"spec": map[string]any{
+						"type":        "string",
+						"description": "JSON spec describing edits. Format: [{\"file\": \"path\", \"edits\": [{\"action\": \"replace-lines|insert-after|delete-lines\", \"start\": N, \"end\": N, \"content\": \"...\"}]}]",
+					},
+					"preview": map[string]any{"type": "boolean"},
+				},
+				"required": []string{"spec"},
+			},
 		},
 		{
 			Name:        "be-write",
@@ -374,6 +395,9 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		start := p.Start
+		if start < 1 {
+			start = 1
+		}
 		var end *edit.ShowEnd
 		if p.Target != nil {
 			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
@@ -402,6 +426,8 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			File    string         `json:"file"`
 			Start   int            `json:"start"`
 			End     int            `json:"end"`
+			StartLn int            `json:"start_line"`
+			EndLn   int            `json:"end_line"`
 			Old     *string        `json:"old"`
 			OldText *string        `json:"old_text"`
 			Content string         `json:"content"`
@@ -414,6 +440,12 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		start, end := p.Start, p.End
+		if p.StartLn != 0 {
+			start = p.StartLn
+		}
+		if p.EndLn != 0 {
+			end = p.EndLn
+		}
 		if p.Target != nil {
 			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
 			if err != nil {
@@ -447,6 +479,9 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		after := p.Line
 		if p.After != nil {
 			after = *p.After
+		} else if p.Line > 0 {
+			// line=N inserts BEFORE line N (user-intuitive: "at line N")
+			after = p.Line - 1
 		}
 		if p.Target != nil {
 			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
@@ -521,6 +556,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		var p struct {
 			File    string `json:"file"`
 			Content string `json:"content"`
+			Spec    string `json:"spec"`
 			Files   []struct {
 				File    string `json:"file"`
 				Content string `json:"content"`
@@ -532,8 +568,9 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		}
 		var spec string
 		switch {
+		case p.Spec != "":
+			spec = p.Spec
 		case p.Content != "" && strings.HasPrefix(p.Content, "{"):
-			// LLM passed raw JSON spec as content — use it directly
 			spec = p.Content
 		case p.File != "" || p.Content != "":
 			spec = mustJSON(map[string]any{

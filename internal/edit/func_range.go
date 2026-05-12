@@ -101,7 +101,23 @@ func FunctionRangeRaw(path string, targetLine int) (int, int, error) {
 
 	for _, rg := range ranges {
 		if rg[0] <= targetLine && targetLine <= rg[1] {
-			return rg[0], rg[1], nil
+			// Walk backwards from the brace block start to find the signature line
+			sigStart := rg[0]
+			for i := rg[0] - 2; i >= 0; i-- {
+				l := strings.TrimSpace(lines[i])
+				if strings.HasPrefix(l, "func ") || strings.HasPrefix(l, "type ") ||
+					strings.HasPrefix(l, "func (") || strings.HasPrefix(l, "func[") ||
+					strings.HasPrefix(l, "} func ") || strings.HasPrefix(l, "} func (") {
+					sigStart = i + 1
+					break
+				}
+				// Heuristic: a line ending with "{" that's not just "{" is the signature
+				if strings.HasSuffix(l, "{") && l != "{" {
+					sigStart = i + 1
+					break
+				}
+			}
+			return sigStart, rg[1], nil
 		}
 	}
 	return 0, 0, InvalidArg(fmt.Sprintf("第 %d 行不在任何函数/块范围内（基于花括号检测）", targetLine))

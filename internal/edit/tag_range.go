@@ -51,7 +51,7 @@ func TagRange(path string, line int) (TagRangeResult, error) {
 					last := stack[len(stack)-1]
 					if last.name == tag {
 						stack = stack[:len(stack)-1]
-						openRanges = append(openRanges, TagRangeResult{Start: last.line, End: lineNo, Kind: last.name})
+						openRanges = append(openRanges, TagRangeResult{Start: last.line, End: lineNo, Kind: last.name, Tag: last.name})
 					}
 				}
 				cursor = j

@@ -77,7 +77,7 @@ func TestToolCallRunsEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read file: %v", err)
 	}
-	if string(data) != "a\nx\nb\n" {
+	if string(data) != "x\na\nb\n" {
 		t.Fatalf("unexpected file content: %q", string(data))
 	}
 }
