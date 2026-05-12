@@ -420,7 +420,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		resultMap := mustJSONToMap(res)
-		resultMap["session_id"] = sessionID
+		resultMap["viewed_code_id"] = sessionID
 		return mustJSON(resultMap), nil
 	case "be-replace":
 		var p struct {
@@ -436,7 +436,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			Format    string         `json:"format"`
 			Target    *editTargetArg `json:"target"`
 			Preview   bool           `json:"preview"`
-			SessionID string         `json:"session_id"`
+			ViewedCodeID string         `json:"viewed_code_id"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -459,7 +459,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if old == nil {
 			old = p.OldText
 		}
-		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.SessionID)
+		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.ViewedCodeID)
 		if err != nil {
 			return "", err
 		}

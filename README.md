@@ -23,13 +23,13 @@ Structural sanity check for brackets, braces, parentheses, HTML/XML tag closure,
 
 ### `be-show`
 
-Read-only source inspection tool. Prints file content with line numbers. Pass a positive `end` value for an explicit range, or `0` or negative to auto-expand to the enclosing function scope. Returns a `session_id` that can be passed to `be-replace` for line-number validation.
+Read-only source inspection tool. Prints file content with line numbers. Pass a positive `end` value for an explicit range, or `0` or negative to auto-expand to the enclosing function scope. Returns a `viewed_code_id` (v0.4+) that can be passed to `be-replace` for line-number validation.
 
 ——Read the exact slice you need without guessing the enclosing function range.
 
 ### `be-replace`
 
-Precise line-range substitution. Accepts a `session_id` parameter from a prior `be-show` to validate that line numbers still match. When `old` is provided, the tool verifies current content before writing and returns an error on mismatch. The server also accepts `old_text` as an alias.
+Precise line-range substitution. Accepts a `viewed_code_id` parameter from a prior `be-show` to validate that line numbers still match. When `old` is provided, the tool verifies current content before writing and returns an error on mismatch. The server also accepts `old_text` as an alias.
 
 ——Replace a known block with minimal movement and minimal surprise.
 
@@ -38,6 +38,12 @@ Precise line-range substitution. Accepts a `session_id` parameter from a prior `
 Adds content after a specified line. `line=0` inserts at the very beginning of the file. Also accepts `after_line` as an alias. The preferred primitive for incremental edits — avoids rewriting unrelated lines.
 
 ——Insert new content exactly where it belongs without touching the rest of the file.
+
+### `be-insert-chip`
+
+Inserts content from a file (`file:///absolute/path`) or a previously saved chip cache (`chip://{id}`). When `from` is omitted, lists all available chip IDs. This tool bridges the gap between failed operations and recovery: when `be-write` fails due to malformed JSON and saves its arguments as a chip, `be-insert-chip` can replay that content directly into the target file. See [Chip Recovery](#chip-recovery) for the full workflow.
+
+——Replay cached arguments from a prior failure, or inject file content at a precise line.
 
 ### `be-delete`
 
@@ -81,7 +87,7 @@ Finds the enclosing XML/HTML/Vue tag pair for a line. The markup-oriented counte
 - **isError signaling**: Errors properly report `isError: true` per the MCP spec.
 - **Go-native**: No runtime dependencies — a single binary with a small embedded editing library.
 - **Fault-tolerant JSON parsing**: AI-generated content often contains backticks, `${}`, or unescaped quotes; `be-write` automatically falls back to character-level extraction.
-- **Session state bridging**: `be-show` returns a `session_id` that `be-replace` can accept to validate consistent line numbering.
+- **Session state bridging**: `be-show` returns a `viewed_code_id` that `be-replace` can accept to validate consistent line numbering.
 - **Localized descriptions**: `--lang <zh|en>` switches tool description language; parameter names and behavior remain unchanged.
 
 ## Usage
