@@ -144,21 +144,21 @@ jobs:
         run: |
           find release-artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} . \;
 
+      - name: Combine checksums
+        run: |
+          cat *.sha256 > checksums.txt
+          rm -f *.sha256
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
             better-edit-tools-linux-amd64.tar.gz
-            better-edit-tools-linux-amd64.tar.gz.sha256
             better-edit-tools-linux-arm64.tar.gz
-            better-edit-tools-linux-arm64.tar.gz.sha256
             better-edit-tools-darwin-amd64.tar.gz
-            better-edit-tools-darwin-amd64.tar.gz.sha256
             better-edit-tools-darwin-arm64.tar.gz
-            better-edit-tools-darwin-arm64.tar.gz.sha256
             better-edit-tools-windows-amd64.zip
-            better-edit-tools-windows-amd64.zip.sha256
             better-edit-tools-windows-arm64.zip
-            better-edit-tools-windows-arm64.zip.sha256
+            checksums.txt
           body_path: .release/body.md
