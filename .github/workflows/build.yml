@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.23.x"
+          go-version: "1.26.x"
 
       - name: Format check
         run: |
@@ -72,7 +72,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.23.x"
+          go-version: "1.26.x"
 
       - name: Build helper
         run: go build -o .github/script/betools ./.github/script

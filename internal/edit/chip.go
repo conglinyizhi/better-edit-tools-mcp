@@ -9,15 +9,15 @@ import (
 )
 
 const (
-	maxChips    = 10
-	chipDir     = "/tmp/bet-chips"
+	maxChips = 10
+	chipDir  = "/tmp/bet-chips"
 )
 
 // ChipRecord stores the original arguments from a failed tool call.
 type ChipRecord struct {
-	ID     int                    `json:"id"`
-	Tool   string                 `json:"tool"`
-	Args   map[string]any         `json:"args"`
+	ID   int            `json:"id"`
+	Tool string         `json:"tool"`
+	Args map[string]any `json:"args"`
 }
 
 // chipStore is a global FIFO queue of chip records, protected by a mutex.
