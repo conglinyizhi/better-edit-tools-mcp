@@ -564,6 +564,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 				Content string `json:"content"`
 			} `json:"files"`
 			Preview bool `json:"preview"`
+			Raw     bool `json:"raw"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -589,7 +590,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			spec = mustJSON(map[string]any{"files": files})
 		}
-		res, err := betools.Write(spec, p.Preview)
+		res, err := betools.Write(spec, p.Preview, p.Raw)
 		if err != nil {
 			return "", err
 		}

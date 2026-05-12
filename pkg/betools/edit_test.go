@@ -115,7 +115,7 @@ func TestBatchSortsFromBottomUp(t *testing.T) {
 func TestWriteDegradedParser(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := `{"file":"` + path + `","content":"hello\nworld"}`
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestWriteRawFallback(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := `{"file":"` + path + `","content":"hello
 world"}`
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write fallback: %v", err)
 	}

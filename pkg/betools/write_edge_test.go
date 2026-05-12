@@ -10,7 +10,7 @@ import (
 func TestWriteDegraded_UnescapedTab(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"hello\tworld\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestWriteDegraded_UnescapedTab(t *testing.T) {
 func TestWriteDegraded_UnescapedCR(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"hello\rworld\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestWriteDegraded_UnescapedCR(t *testing.T) {
 func TestWriteDegraded_UnbalancedQuotes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"it's \"bad\" quote\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestWriteDegraded_UnbalancedQuotes(t *testing.T) {
 func TestWriteDegraded_EmbeddedBackticks(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"`code`\"}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestWriteDegraded_EmbeddedBackticks(t *testing.T) {
 func TestWriteDegraded_NestedUnescapedQuotes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"line with \"nested\" and \"more\" quotes\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestWriteDegraded_NewlineBetweenKeys(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	// standard JSON tolerates whitespace between keys — this is NOT degraded
 	spec := "{\"file\":\"" + path + "\",\n\"content\":\"hello\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestWriteDegraded_NewlineBetweenKeys(t *testing.T) {
 
 func TestWriteDegraded_NoFileField(t *testing.T) {
 	spec := "{\"content\":\"write to nowhere\"}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err == nil {
 		t.Fatal("expected error for missing file field")
 	}
@@ -114,7 +114,7 @@ func TestWriteDegraded_NoFileField(t *testing.T) {
 func TestWriteDegraded_EmptyStringContent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"\"}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestWriteDegraded_EmptyStringContent(t *testing.T) {
 func TestWriteDegraded_NullContent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":null}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestWriteDegraded_NullContent(t *testing.T) {
 func TestWriteDegraded_UnicodeInContent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"hello 世界 unicode ✓\"}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestWriteDegraded_UnicodeInContent(t *testing.T) {
 func TestWriteDegraded_UnicodeInContentUnescaped(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"hello\n世界\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestWriteDegraded_ExtractWithBlocks_Note(t *testing.T) {
 	// content with literal newlines => degraded mode.
 	// extract is NOT supported in degraded mode — this is a known limitation.
 	spec := "{\"file\":\"" + path + "\",\"content\":\"before\n```\ncode block\n```\nafter\",\"extract\":true}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write with extract: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestWriteDegraded_MultipleFiles_Degraded(t *testing.T) {
 	path1 := filepath.Join(dir, "a.txt")
 	path2 := filepath.Join(dir, "b.txt")
 	spec := "{\"files\":[{\"file\":\"" + path1 + "\",\"content\":\"hello1\"},{\"file\":\"" + path2 + "\",\"content\":\"hello\n2\"}]}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Skipf("multi-file degraded not supported: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestWriteDegraded_MultipleFiles_Degraded(t *testing.T) {
 func TestWriteDegraded_ContentStartsWithEscapedQuote(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"\\\"leading quote\\\"\"}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestWriteDegraded_ContentStartsWithEscapedQuote(t *testing.T) {
 func TestWriteDegraded_MixedUnescapedControlChars(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"hello\tline2\r\nline3\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestWriteDegraded_MixedUnescapedControlChars(t *testing.T) {
 func TestWriteDegraded_WriteAndVerifyAtomic(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"" + strings.Repeat("line\n", 100) + "\"}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestWriteDegraded_ContentStartsWithJSONObject(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	content := "{\"nested\": true}"
 	spec := "{\"file\":\"" + path + "\",\"content\":" + content + "}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestWriteDegraded_ContentStartsWithJSONObject(t *testing.T) {
 func TestWriteDegraded_ContentEndsWithUnescapedBackslash(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"path\\\"}"
-	res, err := Write(spec, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Skipf("write rejected trailing backslash: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestWriteDegraded_ContentEndsWithUnescapedBackslash(t *testing.T) {
 func TestWriteDegraded_ContentGoRawLiteralStyle(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := "{\"file\":\"" + path + "\",\"content\":\"raw\\\\nstring\\\\nliteral\"}"
-	_, err := Write(spec, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Skipf("write: %v", err)
 	}

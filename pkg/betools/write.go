@@ -6,14 +6,14 @@ import (
 	"strings"
 )
 
-func Write(spec string, preview bool) (WriteResult, error) {
+func Write(spec string, preview bool, raw bool) (WriteResult, error) {
 	var result WriteResult
 	var writeSpecs []WriteSpecItem
 	degraded := false
 
-	var raw any
-	if err := json.Unmarshal([]byte(spec), &raw); err == nil {
-		ws, err := parseWriteValue(raw)
+	var rawVal any
+	if err := json.Unmarshal([]byte(spec), &rawVal); err == nil {
+		ws, err := parseWriteValue(rawVal)
 		if err != nil {
 			return WriteResult{}, err
 		}
@@ -25,6 +25,11 @@ func Write(spec string, preview bool) (WriteResult, error) {
 		}
 		writeSpecs = ws
 		degraded = true
+	}
+	if raw {
+		for i := range writeSpecs {
+			writeSpecs[i].Content = strings.ReplaceAll(writeSpecs[i].Content, "\\n", "\n")
+		}
 	}
 
 	if !preview {
