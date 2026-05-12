@@ -322,10 +322,9 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file": map[string]any{"type": "string"},
-					"mode": map[string]any{"type": "string", "enum": []string{"aggregate", "unbalanced", "tree"}},
+					"file":    map[string]any{"type": "string"},
+					"verbose": map[string]any{"type": "boolean", "description": "false: show only unbalanced items; true: full report including matched pairs"},
 				},
-				"required": []string{"file"},
 			},
 		},
 		{
@@ -632,17 +631,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		return mustJSON(res), nil
 	case "be-balance":
 		var p struct {
-			File string `json:"file"`
-			Mode string `json:"mode"`
+			File    string `json:"file"`
+			Verbose bool   `json:"verbose"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		mode := p.Mode
-		if mode == "" {
-			mode = "unbalanced"
-		}
-		return betools.CheckStructureBalance(p.File, mode)
+		return betools.CheckStructureBalance(p.File, p.Verbose)
 	case "be-insert-chip":
 		var p struct {
 			From string `json:"from"`

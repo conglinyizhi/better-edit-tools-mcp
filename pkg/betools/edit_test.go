@@ -145,7 +145,7 @@ world"}`
 
 func TestBalanceSimple(t *testing.T) {
 	path := writeTempFile(t, "a.js", "function demo() { return [1, 2]; }\n")
-	out, err := CheckStructureBalance(path, "unbalanced")
+	out, err := CheckStructureBalance(path, false)
 	if err != nil {
 		t.Fatalf("balance: %v", err)
 	}

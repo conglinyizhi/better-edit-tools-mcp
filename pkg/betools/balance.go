@@ -16,18 +16,15 @@ type scanResult struct {
 	TagMatched    []MatchedPair
 }
 
-func CheckStructureBalance(path, mode string) (string, error) {
-	if mode != "aggregate" && mode != "unbalanced" && mode != "tree" {
-		return "", invalidArg(fmt.Sprintf("unknown mode: %q, supported: aggregate, unbalanced, tree", mode))
-	}
+func CheckStructureBalance(path string, verbose bool) (string, error) {
 	res, err := scanFile(path)
 	if err != nil {
 		return "", err
 	}
-	var out any
-	switch mode {
-	case "aggregate":
-		tagInfo := "(无标签)"
+	var out map[string]any
+
+	if verbose {
+		tagInfo := "(none)"
 		if len(res.TagMatched) > 0 {
 			parts := make([]string, 0, len(res.TagMatched))
 			for _, t := range res.TagMatched {
@@ -35,56 +32,32 @@ func CheckStructureBalance(path, mode string) (string, error) {
 			}
 			tagInfo = strings.Join(parts, "\n")
 		}
-		quoteInfo := "(引号成对)"
-		if len(res.QuoteWarnings) > 0 {
-			parts := make([]string, 0, len(res.QuoteWarnings))
-			for _, q := range res.QuoteWarnings {
-				var lineStrs []string
-				for _, n := range q.Lines {
-					lineStrs = append(lineStrs, fmt.Sprint(n))
-				}
-				parts = append(parts, fmt.Sprintf("%s 奇数个（共 %d 个）位于行 %s", q.Symbol, q.Count, strings.Join(lineStrs, ", ")))
-			}
-			quoteInfo = strings.Join(parts, "\n")
-		}
-		out = map[string]any{
-			"mode":           "aggregate",
-			"symbols":        formatAggregate(res.SymbolLines),
-			"tags":           tagInfo,
-			"quote_warnings": quoteInfo,
-		}
-	case "tree":
 		var tagTree any = nil
 		if len(res.TagMatched) > 0 {
 			tagTree = formatTagTree(res.TagMatched)
 		}
-		var unbalanced any = nil
-		if len(res.Unbalanced) > 0 {
-			unbalanced = res.Unbalanced
-		}
-		var quoteWarnings any = nil
-		if len(res.QuoteWarnings) > 0 {
-			quoteWarnings = res.QuoteWarnings
-		}
 		out = map[string]any{
-			"mode":           "tree",
-			"tree":           formatTree(res.Matched),
+			"mode":           "verbose",
+			"symbols":        formatAggregate(res.SymbolLines),
+			"tags":           tagInfo,
 			"tag_tree":       tagTree,
-			"unbalanced":     unbalanced,
-			"quote_warnings": quoteWarnings,
+			"matched":        res.Matched,
+			"unbalanced":     res.Unbalanced,
+			"quote_warnings": res.QuoteWarnings,
 		}
-	default:
-		obj := map[string]any{"mode": "unbalanced"}
-		if len(res.Unbalanced) > 0 {
-			obj["unbalanced"] = res.Unbalanced
+	} else {
+		if len(res.Unbalanced) > 0 || len(res.QuoteWarnings) > 0 {
+			out = map[string]any{
+				"mode":           "unbalanced",
+				"unbalanced":     res.Unbalanced,
+				"quote_warnings": res.QuoteWarnings,
+			}
+		} else {
+			out = map[string]any{
+				"mode":   "unbalanced",
+				"status": "all balanced",
+			}
 		}
-		if len(res.QuoteWarnings) > 0 {
-			obj["quote_warnings"] = res.QuoteWarnings
-		}
-		if len(res.Unbalanced) == 0 && len(res.QuoteWarnings) == 0 {
-			obj["status"] = "all balanced"
-		}
-		out = obj
 	}
 	data, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
