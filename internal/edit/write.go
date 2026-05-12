@@ -54,7 +54,7 @@ func Write(spec string, preview bool) (WriteResult, error) {
 	if degraded {
 		v := true
 		result.Degraded = &v
-		result.Warning = "JSON 格式有误（如未转义的引号/换行符等），已启用状态机降级方案提取内容，写入内容可能不完整或不准确，请立即重新读取源文件确认后继续修改"
+		result.Warning = "JSON contains unescaped control characters (tab/newline). Content extracted via degraded parser — may be incomplete. Re-read source file and verify before continuing"
 	}
 	return result, nil
 }
@@ -62,7 +62,7 @@ func Write(spec string, preview bool) (WriteResult, error) {
 func parseWriteValue(raw any) ([]WriteSpecItem, error) {
 	m, ok := raw.(map[string]any)
 	if !ok {
-		return nil, InvalidArg("write: JSON 格式需要对象或 files 数组")
+		return nil, InvalidArg("write: JSON must be an object or contain a files array")
 	}
 
 	if files, ok := m["files"].([]any); ok {
@@ -115,12 +115,12 @@ func parseSpecRaw(spec string) ([]WriteSpecItem, error) {
 		afterFiles := spec[idx+8:]
 		bracket := strings.Index(afterFiles, "[")
 		if bracket < 0 {
-			return nil, InvalidArg("files 字段后找不到 [")
+			return nil, InvalidArg("files field not found after files key")
 		}
 		arrayStart := idx + 8 + bracket
 		arrayEnd, ok := findMatching(spec, arrayStart, '[', ']')
 		if !ok {
-			return nil, InvalidArg("找不到数组结束的 ]")
+			return nil, InvalidArg("no matching ] for files array")
 		}
 		arrayBody := spec[arrayStart+1 : arrayEnd]
 		var results []WriteSpecItem
@@ -142,7 +142,7 @@ func parseSpecRaw(spec string) ([]WriteSpecItem, error) {
 			searchPos = elemEnd + 1
 		}
 		if len(results) == 0 {
-			return nil, InvalidArg("从 files 数组中解析出 0 个有效元素")
+			return nil, InvalidArg("parsed 0 valid items from files array")
 		}
 		return results, nil
 	}
@@ -150,7 +150,7 @@ func parseSpecRaw(spec string) ([]WriteSpecItem, error) {
 	fp := extractFileRaw(spec)
 	ct, ok := extractContentRawMaybe(spec)
 	if !ok {
-		return nil, InvalidArg("找不到 content 字段")
+		return nil, InvalidArg("content field not found in write spec")
 	}
 	// degraded mode: scan for extract flag after content
 	if strings.Contains(spec, `"extract":true`) || strings.Contains(spec, `"extract": true`) {
