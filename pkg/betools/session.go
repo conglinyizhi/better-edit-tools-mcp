@@ -80,6 +80,9 @@ func SessionFromCache(id string) (s *ReadSession, warning string) {
 		return s, fmt.Sprintf("session %q: can't read file — %v", id, err)
 	}
 
+	if s.StartLine-1 < 0 || s.EndLine > len(lines) {
+		return s, fmt.Sprintf("session %q: file has changed — previously %d lines (L%d–%d), now %d lines", id, s.LineCount, s.StartLine, s.EndLine, len(lines))
+	}
 	actualSlice := lines[s.StartLine-1 : s.EndLine]
 	currentCount := len(actualSlice)
 
