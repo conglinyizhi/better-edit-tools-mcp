@@ -1,4 +1,4 @@
-package edit
+package betools
 
 import (
 	"encoding/json"
@@ -28,12 +28,12 @@ func Write(spec string, preview bool) (WriteResult, error) {
 	}
 
 	if !preview {
-		if err := WriteFilesAtomic(writeSpecs); err != nil {
+		if err := writeFilesAtomic(writeSpecs); err != nil {
 			path := spec
 			if len(writeSpecs) > 0 {
 				path = writeSpecs[0].File
 			}
-			return WriteResult{}, WritePath(path, err)
+			return WriteResult{}, writePath(path, err)
 		}
 	}
 
@@ -49,11 +49,10 @@ func Write(spec string, preview bool) (WriteResult, error) {
 		Status:  "ok",
 		Files:   len(results),
 		Results: results,
-		Preview: boolPtr(preview),
+		Preview: preview,
 	}
 	if degraded {
-		v := true
-		result.Degraded = &v
+		result.Degraded = true
 		result.Warning = "JSON contains unescaped control characters (tab/newline). Content extracted via degraded parser — may be incomplete. Re-read source file and verify before continuing"
 	}
 	return result, nil
@@ -62,7 +61,7 @@ func Write(spec string, preview bool) (WriteResult, error) {
 func parseWriteValue(raw any) ([]WriteSpecItem, error) {
 	m, ok := raw.(map[string]any)
 	if !ok {
-		return nil, InvalidArg("write: JSON must be an object or contain a files array")
+		return nil, invalidArg("write: JSON must be an object or contain a files array")
 	}
 
 	if files, ok := m["files"].([]any); ok {
@@ -87,11 +86,11 @@ func parseWriteValue(raw any) ([]WriteSpecItem, error) {
 func parseOneWriteItem(raw any) (WriteSpecItem, error) {
 	m, ok := raw.(map[string]any)
 	if !ok {
-		return WriteSpecItem{}, InvalidArg("missing file field")
+		return WriteSpecItem{}, invalidArg("missing file field")
 	}
 	file, _ := m["file"].(string)
 	if file == "" {
-		return WriteSpecItem{}, InvalidArg("missing file field")
+		return WriteSpecItem{}, invalidArg("missing file field")
 	}
 	content := ""
 	switch cv := m["content"].(type) {
@@ -115,12 +114,12 @@ func parseSpecRaw(spec string) ([]WriteSpecItem, error) {
 		afterFiles := spec[idx+8:]
 		bracket := strings.Index(afterFiles, "[")
 		if bracket < 0 {
-			return nil, InvalidArg("files field not found after files key")
+			return nil, invalidArg("files field not found after files key")
 		}
 		arrayStart := idx + 8 + bracket
 		arrayEnd, ok := findMatching(spec, arrayStart, '[', ']')
 		if !ok {
-			return nil, InvalidArg("no matching ] for files array")
+			return nil, invalidArg("no matching ] for files array")
 		}
 		arrayBody := spec[arrayStart+1 : arrayEnd]
 		var results []WriteSpecItem
@@ -142,7 +141,7 @@ func parseSpecRaw(spec string) ([]WriteSpecItem, error) {
 			searchPos = elemEnd + 1
 		}
 		if len(results) == 0 {
-			return nil, InvalidArg("parsed 0 valid items from files array")
+			return nil, invalidArg("parsed 0 valid items from files array")
 		}
 		return results, nil
 	}
@@ -150,7 +149,7 @@ func parseSpecRaw(spec string) ([]WriteSpecItem, error) {
 	fp := extractFileRaw(spec)
 	ct, ok := extractContentRawMaybe(spec)
 	if !ok {
-		return nil, InvalidArg("content field not found in write spec")
+		return nil, invalidArg("content field not found in write spec")
 	}
 	// degraded mode: scan for extract flag after content
 	if strings.Contains(spec, `"extract":true`) || strings.Contains(spec, `"extract": true`) {
@@ -321,12 +320,4 @@ func isSpace(b byte) bool {
 
 func countRustLines(content string) int {
 	return rustLineCount(content)
-}
-
-func boolPtr(v bool) *bool {
-	if !v {
-		return nil
-	}
-	b := true
-	return &b
 }

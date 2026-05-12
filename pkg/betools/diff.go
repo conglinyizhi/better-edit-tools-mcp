@@ -1,11 +1,11 @@
-package edit
+package betools
 
 import (
 	"fmt"
 	"strings"
 )
 
-func QuickBalanceCheck(content string) string {
+func quickBalanceCheck(content string) string {
 	var curly, square, paren int
 	inString := false
 	var stringChar byte
@@ -97,7 +97,7 @@ func QuickBalanceCheck(content string) string {
 	return "符号闭合快速检查：Error (" + strings.Join(errs, "; ") + ")"
 }
 
-func BuildDiff(before, after []string, baseLine int, format string) string {
+func buildDiff(before, after []string, baseLine int, format string) string {
 	if format == "diff" {
 		var b strings.Builder
 		fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", baseLine, len(before), baseLine, len(after))

@@ -1,4 +1,4 @@
-package edit
+package betools
 
 import (
 	"os"
@@ -14,7 +14,7 @@ func TestWriteDegraded_UnescapedTab(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 	got := readFile(t, path)
@@ -30,7 +30,7 @@ func TestWriteDegraded_UnescapedCR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 	got := readFile(t, path)
@@ -46,7 +46,7 @@ func TestWriteDegraded_UnbalancedQuotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 	got := readFile(t, path)
@@ -76,7 +76,7 @@ func TestWriteDegraded_NestedUnescapedQuotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 	got := readFile(t, path)
@@ -94,7 +94,7 @@ func TestWriteDegraded_NewlineBetweenKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded != nil && *res.Degraded {
+	if res.Degraded {
 		t.Fatalf("standard JSON with whitespace should not be degraded: %+v", res)
 	}
 	got := readFile(t, path)
@@ -157,7 +157,7 @@ func TestWriteDegraded_UnicodeInContentUnescaped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 	got := readFile(t, path)
@@ -176,7 +176,7 @@ func TestWriteDegraded_ExtractWithBlocks_Note(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write with extract: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded mode")
 	}
 	got := readFile(t, path)
@@ -196,7 +196,7 @@ func TestWriteDegraded_MultipleFiles_Degraded(t *testing.T) {
 	if err != nil {
 		t.Skipf("multi-file degraded not supported: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 }
@@ -221,7 +221,7 @@ func TestWriteDegraded_MixedUnescapedControlChars(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 	got := readFile(t, path)
@@ -269,7 +269,7 @@ func TestWriteDegraded_ContentEndsWithUnescapedBackslash(t *testing.T) {
 	if err != nil {
 		t.Skipf("write rejected trailing backslash: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag")
 	}
 }

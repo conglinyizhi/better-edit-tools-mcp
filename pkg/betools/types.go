@@ -1,4 +1,4 @@
-package edit
+package betools
 
 type ContentTarget struct {
 	Kind  string
@@ -8,11 +8,6 @@ type ContentTarget struct {
 type TargetSpan struct {
 	Start int `json:"start"`
 	End   int `json:"end"`
-}
-
-type CommonEditParams struct {
-	Preview bool
-	Target  *ContentTarget
 }
 
 type BatchEditSpec struct {
@@ -26,11 +21,6 @@ type BatchEditSpec struct {
 type BatchFileSpec struct {
 	File  string          `json:"file"`
 	Edits []BatchEditSpec `json:"edits"`
-}
-
-type ShowEnd struct {
-	Auto bool
-	Line int
 }
 
 type ShowResult struct {
@@ -51,7 +41,8 @@ type ReplaceResult struct {
 	Diff     string `json:"diff"`
 	Balance  string `json:"balance"`
 	Affected string `json:"affected"`
-	Preview  *bool  `json:"preview,omitempty"`
+	Preview  bool   `json:"preview,omitempty"`
+	Warning  string `json:"warning,omitempty"`
 }
 
 type InsertResult struct {
@@ -63,7 +54,7 @@ type InsertResult struct {
 	Diff     string `json:"diff"`
 	Balance  string `json:"balance"`
 	Affected string `json:"affected"`
-	Preview  *bool  `json:"preview,omitempty"`
+	Preview  bool   `json:"preview,omitempty"`
 }
 
 type DeleteResult struct {
@@ -73,7 +64,7 @@ type DeleteResult struct {
 	Diff     string `json:"diff"`
 	Balance  string `json:"balance"`
 	Affected string `json:"affected"`
-	Preview  *bool  `json:"preview,omitempty"`
+	Preview  bool   `json:"preview,omitempty"`
 }
 
 type BatchFileResult struct {
@@ -86,7 +77,7 @@ type BatchResult struct {
 	Status  string            `json:"status"`
 	Files   int               `json:"files"`
 	Results []BatchFileResult `json:"results"`
-	Preview *bool             `json:"preview,omitempty"`
+	Preview bool              `json:"preview,omitempty"`
 }
 
 type WriteSpecItem struct {
@@ -104,9 +95,9 @@ type WriteResult struct {
 	Status   string            `json:"status"`
 	Files    int               `json:"files"`
 	Results  []WriteFileResult `json:"results"`
-	Degraded *bool             `json:"degraded,omitempty"`
+	Degraded bool              `json:"degraded,omitempty"`
 	Warning  string            `json:"warning,omitempty"`
-	Preview  *bool             `json:"preview,omitempty"`
+	Preview  bool              `json:"preview,omitempty"`
 }
 
 type FunctionRangeResult struct {

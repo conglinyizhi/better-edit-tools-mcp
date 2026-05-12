@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/conglinyizhi/better-edit-tools-mcp/internal/app"
-	"github.com/conglinyizhi/better-edit-tools-mcp/internal/edit"
+	betools "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 )
 
 type Tool struct {
@@ -128,7 +128,7 @@ func (s *Server) handleToolCall(req rpcRequest) rpcResponse {
 	out, err := s.callTool(params.Name, args)
 	if err != nil {
 		// Save a chip on error if the args were substantial
-		edit.SaveChip(params.Name, args)
+		betools.SaveChip(params.Name, args)
 		return s.ok(req.ID, map[string]any{
 			"isError": true,
 			"content": []map[string]any{{
@@ -398,43 +398,46 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if start < 1 {
 			start = 1
 		}
-		var end *edit.ShowEnd
+		var endLine int
 		if p.Target != nil {
-			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
 			if err != nil {
 				return "", err
 			}
 			start = span.Start
-			end = &edit.ShowEnd{Line: span.End}
+			endLine = span.End
 		} else {
 			switch v := p.End.(type) {
 			case string:
 				if v == "auto" {
-					end = &edit.ShowEnd{Auto: true}
+					endLine = -1
 				}
 			case float64:
-				end = &edit.ShowEnd{Line: int(v)}
+				endLine = int(v)
 			}
 		}
-		res, err := edit.Show(p.File, start, end)
+		res, sessionID, err := betools.Show(p.File, start, endLine)
 		if err != nil {
 			return "", err
 		}
-		return mustJSON(res), nil
+		resultMap := mustJSONToMap(res)
+		resultMap["session_id"] = sessionID
+		return mustJSON(resultMap), nil
 	case "be-replace":
 		var p struct {
-			File    string         `json:"file"`
-			Start   int            `json:"start"`
-			End     int            `json:"end"`
-			StartLn int            `json:"start_line"`
-			EndLn   int            `json:"end_line"`
-			Old     *string        `json:"old"`
-			OldText *string        `json:"old_text"`
-			Content string         `json:"content"`
-			Raw     bool           `json:"raw"`
-			Format  string         `json:"format"`
-			Target  *editTargetArg `json:"target"`
-			Preview bool           `json:"preview"`
+			File      string         `json:"file"`
+			Start     int            `json:"start"`
+			End       int            `json:"end"`
+			StartLn   int            `json:"start_line"`
+			EndLn     int            `json:"end_line"`
+			Old       *string        `json:"old"`
+			OldText   *string        `json:"old_text"`
+			Content   string         `json:"content"`
+			Raw       bool           `json:"raw"`
+			Format    string         `json:"format"`
+			Target    *editTargetArg `json:"target"`
+			Preview   bool           `json:"preview"`
+			SessionID string         `json:"session_id"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -447,7 +450,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			end = p.EndLn
 		}
 		if p.Target != nil {
-			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
 			if err != nil {
 				return "", err
 			}
@@ -457,7 +460,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if old == nil {
 			old = p.OldText
 		}
-		res, err := edit.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview)
+		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.SessionID)
 		if err != nil {
 			return "", err
 		}
@@ -484,13 +487,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			after = p.Line - 1
 		}
 		if p.Target != nil {
-			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
 			if err != nil {
 				return "", err
 			}
 			after = span.End
 		}
-		res, err := edit.Insert(p.File, after, p.Content, p.Raw, defaultFormat(p.Format), p.Preview)
+		res, err := betools.Insert(p.File, after, p.Content, p.Raw, defaultFormat(p.Format), p.Preview)
 		if err != nil {
 			return "", err
 		}
@@ -528,13 +531,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			line = *p.Line
 		}
 		if p.Target != nil {
-			span, err := edit.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
 			if err != nil {
 				return "", err
 			}
 			start, end = span.Start, span.End
 		}
-		res, err := edit.Delete(p.File, start, end, line, p.Lines, defaultFormat(p.Format), p.Preview)
+		res, err := betools.Delete(p.File, start, end, line, p.Lines, defaultFormat(p.Format), p.Preview)
 		if err != nil {
 			return "", err
 		}
@@ -547,7 +550,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := edit.Batch(p.Spec, p.Preview)
+		res, err := betools.Batch(p.Spec, p.Preview)
 		if err != nil {
 			return "", err
 		}
@@ -587,18 +590,18 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			spec = mustJSON(map[string]any{"files": files})
 		}
-		res, err := edit.Write(spec, p.Preview)
+		res, err := betools.Write(spec, p.Preview)
 		if err != nil {
 			return "", err
 		}
 		// degraded writes auto-save to chip — content is incomplete/unreliable
-		if res.Degraded != nil && *res.Degraded {
+		if res.Degraded {
 			args := map[string]any{
 				"tool":    "be-write",
 				"spec":    spec,
 				"preview": p.Preview,
 			}
-			edit.SaveChip("be-write", args)
+			betools.SaveChip("be-write", args)
 		}
 		return mustJSON(res), nil
 	case "be-func-range":
@@ -609,7 +612,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := edit.FuncRange(p.File, p.Line)
+		res, err := betools.FuncRange(p.File, p.Line)
 		if err != nil {
 			return "", err
 		}
@@ -622,7 +625,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := edit.TagRange(p.File, p.Line)
+		res, err := betools.TagRange(p.File, p.Line)
 		if err != nil {
 			return "", err
 		}
@@ -639,7 +642,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if mode == "" {
 			mode = "unbalanced"
 		}
-		return edit.CheckStructureBalance(p.File, mode)
+		return betools.CheckStructureBalance(p.File, mode)
 	case "be-insert-chip":
 		var p struct {
 			From string `json:"from"`
@@ -651,7 +654,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 
 		// If no from/to provided, list chips
 		if p.From == "" && p.To == "" {
-			ids := edit.ListChips()
+			ids := betools.ListChips()
 			if len(ids) == 0 {
 				return mustJSON(map[string]any{"status": "ok", "chips": []int{}, "message": "no chips recorded"}), nil
 			}
@@ -661,19 +664,21 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		// Resolve from: file:// or chip://
 		var content string
 		var readErr error
+		var fileBytes []byte
 		switch {
 		case strings.HasPrefix(p.From, "file://"):
-			content, readErr = edit.ReadFileContent(strings.TrimPrefix(p.From, "file://"))
+			fileBytes, readErr = os.ReadFile(strings.TrimPrefix(p.From, "file://"))
 			if readErr != nil {
 				return "", readErr
 			}
+			content = string(fileBytes)
 		case strings.HasPrefix(p.From, "chip://"):
 			idStr := strings.TrimPrefix(p.From, "chip://")
 			id, convErr := strconv.Atoi(idStr)
 			if convErr != nil {
 				return "", fmt.Errorf("invalid chip ID: %s", idStr)
 			}
-			rec, err := edit.GetChip(id)
+			rec, err := betools.GetChip(id)
 			if err != nil {
 				return "", err
 			}
@@ -699,8 +704,8 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", fmt.Errorf("invalid line number: %s", lineStr)
 		}
 
-		// Use the core edit.Insert with resolved content
-		res, err := edit.Insert(targetFile, lineNum, content, true, "plain", false)
+		// Use the core betools.Insert with resolved content
+		res, err := betools.Insert(targetFile, lineNum, content, true, "plain", false)
 		if err != nil {
 			return "", err
 		}
@@ -725,6 +730,18 @@ func mustJSON(v any) string {
 	return string(data)
 }
 
+func mustJSONToMap(v any) map[string]any {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return map[string]any{"__error": err.Error()}
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return map[string]any{"__error": err.Error()}
+	}
+	return m
+}
+
 func (s *Server) ok(id json.RawMessage, result any) rpcResponse {
 	return rpcResponse{JSONRPC: "2.0", ID: id, Result: result}
 }
@@ -738,9 +755,9 @@ type editTargetArg struct {
 	Value string `json:"value"`
 }
 
-func (t *editTargetArg) toContentTarget() edit.ContentTarget {
+func (t *editTargetArg) toContentTarget() betools.ContentTarget {
 	if t == nil {
-		return edit.ContentTarget{}
+		return betools.ContentTarget{}
 	}
-	return edit.ContentTarget{Kind: t.Kind, Value: t.Value}
+	return betools.ContentTarget{Kind: t.Kind, Value: t.Value}
 }

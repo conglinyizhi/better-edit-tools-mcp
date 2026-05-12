@@ -1,4 +1,4 @@
-package edit
+package betools
 
 import (
 	"errors"
@@ -11,18 +11,18 @@ import (
 
 var tmpCounter uint64
 
-func ReadLines(path string) ([]string, string, error) {
+func readLines(path string) ([]string, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", err
 	}
 	content := string(data)
-	le := DetectLineEnding(content)
+	le := detectLineEnding(content)
 	lines := splitKeepLineEnding(content, le)
 	return lines, le, nil
 }
 
-func DetectLineEnding(content string) string {
+func detectLineEnding(content string) string {
 	lineCount := rustLineCount(content)
 	if lineCount == 0 {
 		return "\n"
@@ -49,7 +49,7 @@ func splitKeepLineEnding(content, le string) []string {
 	return lines
 }
 
-func WriteFileAtomic(path, content string) error {
+func writeFileAtomic(path, content string) error {
 	abs := path
 	parent := filepath.Dir(abs)
 	stem := strings.TrimSuffix(filepath.Base(abs), filepath.Ext(abs))
@@ -69,7 +69,7 @@ func WriteFileAtomic(path, content string) error {
 	return nil
 }
 
-func WriteFilesAtomic(writes []WriteSpecItem) error {
+func writeFilesAtomic(writes []WriteSpecItem) error {
 	if len(writes) == 0 {
 		return nil
 	}
@@ -165,7 +165,7 @@ func copyFile(src, dst string) error {
 	return out.Close()
 }
 
-func ParseContent(text string) string {
+func parseContent(text string) string {
 	var b strings.Builder
 	b.Grow(len(text))
 	for i := 0; i < len(text); i++ {
@@ -190,10 +190,10 @@ func ParseContent(text string) string {
 	return b.String()
 }
 
-func PrepareContentLines(content, lineEnding string, raw bool) []string {
+func prepareContentLines(content, lineEnding string, raw bool) []string {
 	parsed := content
 	if !raw {
-		parsed = ParseContent(content)
+		parsed = parseContent(content)
 	}
 	if parsed == "" {
 		return nil

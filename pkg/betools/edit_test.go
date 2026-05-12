@@ -1,4 +1,4 @@
-package edit
+package betools
 
 import (
 	"encoding/json"
@@ -29,7 +29,7 @@ func readFile(t *testing.T, path string) string {
 
 func TestShowAutoUsesFunctionRange(t *testing.T) {
 	path := writeTempFile(t, "main.go", "package main\n\nfunc demo() {\n\tprintln(\"x\")\n}\n")
-	res, err := Show(path, 3, &ShowEnd{Auto: true})
+	res, _, err := Show(path, 3, -1)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestShowAutoUsesFunctionRange(t *testing.T) {
 
 func TestShowExplicitRange(t *testing.T) {
 	path := writeTempFile(t, "main.go", "one\ntwo\nthree\n")
-	res, err := Show(path, 2, &ShowEnd{Line: 3})
+	res, _, err := Show(path, 2, 3)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
@@ -58,11 +58,11 @@ func TestShowExplicitRange(t *testing.T) {
 func TestReplacePreviewDoesNotWrite(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
 	old := "b\n"
-	res, err := Replace(path, 2, 2, &old, "x", true, "plain", true)
+	res, err := Replace(path, 2, 2, &old, "x", true, "plain", true, "")
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
-	if res.Preview == nil || !*res.Preview {
+	if !res.Preview {
 		t.Fatalf("preview flag missing: %+v", res)
 	}
 	if got := readFile(t, path); got != "a\nb\nc\n" {
@@ -73,7 +73,7 @@ func TestReplacePreviewDoesNotWrite(t *testing.T) {
 func TestReplaceRejectsOldMismatch(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
 	old := "x\n"
-	if _, err := Replace(path, 2, 2, &old, "y", true, "plain", true); err == nil {
+	if _, err := Replace(path, 2, 2, &old, "y", true, "plain", true, ""); err == nil {
 		t.Fatalf("expected mismatch error")
 	}
 	if got := readFile(t, path); got != "a\nb\nc\n" {
@@ -119,7 +119,7 @@ func TestWriteDegradedParser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if res.Degraded != nil && *res.Degraded {
+	if res.Degraded {
 		t.Fatalf("unexpected degraded for valid json: %+v", res)
 	}
 	if got := readFile(t, path); got != "hello\nworld" {
@@ -135,7 +135,7 @@ world"}`
 	if err != nil {
 		t.Fatalf("write fallback: %v", err)
 	}
-	if res.Degraded == nil || !*res.Degraded {
+	if !res.Degraded {
 		t.Fatalf("expected degraded flag: %+v", res)
 	}
 	if got := readFile(t, path); !strings.Contains(got, "hello") {

@@ -1,18 +1,18 @@
-package edit
+package betools
 
 import (
 	"fmt"
 	"strings"
 )
 
-func FunctionRangeRaw(path string, targetLine int) (int, int, error) {
-	content, err := ReadText(path)
+func functionRangeRaw(path string, targetLine int) (int, int, error) {
+	content, err := readText(path)
 	if err != nil {
-		return 0, 0, ReadPath(path, err)
+		return 0, 0, readPath(path, err)
 	}
 	lines := strings.Split(content, "\n")
 	if targetLine < 1 || targetLine > len(lines) {
-		return 0, 0, InvalidArg(fmt.Sprintf("target line %d out of range (1..%d)", targetLine, len(lines)))
+		return 0, 0, invalidArg(fmt.Sprintf("target line %d out of range (1..%d)", targetLine, len(lines)))
 	}
 
 	type commentState int
@@ -120,17 +120,13 @@ func FunctionRangeRaw(path string, targetLine int) (int, int, error) {
 			return sigStart, rg[1], nil
 		}
 	}
-	return 0, 0, InvalidArg(fmt.Sprintf("line %d is not inside any function/block (brace detection)", targetLine))
+	return 0, 0, invalidArg(fmt.Sprintf("line %d is not inside any function/block (brace detection)", targetLine))
 }
 
-func FunctionRange(path string, line int) (FunctionRangeResult, error) {
-	start, end, err := FunctionRangeRaw(path, line)
+func FuncRange(path string, line int) (FunctionRangeResult, error) {
+	start, end, err := functionRangeRaw(path, line)
 	if err != nil {
 		return FunctionRangeResult{}, err
 	}
 	return FunctionRangeResult{Start: start, End: end}, nil
-}
-
-func FuncRange(path string, line int) (FunctionRangeResult, error) {
-	return FunctionRange(path, line)
 }

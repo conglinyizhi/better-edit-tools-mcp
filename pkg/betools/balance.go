@@ -1,4 +1,4 @@
-package edit
+package betools
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ type scanResult struct {
 
 func CheckStructureBalance(path, mode string) (string, error) {
 	if mode != "aggregate" && mode != "unbalanced" && mode != "tree" {
-		return "", InvalidArg(fmt.Sprintf("unknown mode: %q, supported: aggregate, unbalanced, tree", mode))
+		return "", invalidArg(fmt.Sprintf("unknown mode: %q, supported: aggregate, unbalanced, tree", mode))
 	}
 	res, err := scanFile(path)
 	if err != nil {
@@ -96,7 +96,7 @@ func CheckStructureBalance(path, mode string) (string, error) {
 func scanFile(path string) (scanResult, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return scanResult{}, ReadPath(path, err)
+		return scanResult{}, readPath(path, err)
 	}
 	content := string(data)
 	lines := strings.Split(content, "\n")

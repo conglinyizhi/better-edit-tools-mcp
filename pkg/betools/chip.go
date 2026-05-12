@@ -1,4 +1,4 @@
-package edit
+package betools
 
 import (
 	"encoding/json"
@@ -108,19 +108,6 @@ func ListChips() []int {
 		ids[i] = c.ID
 	}
 	return ids
-}
-
-// ReadFileContent reads a text file and returns its full content as a string.
-// Returns an error if the file is binary (detected by null bytes in first 8KB).
-func ReadFileContent(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("read file %s: %v", path, err)
-	}
-	if isBinary(data) {
-		return "", fmt.Errorf("file %s appears to be binary, refusing to read", path)
-	}
-	return string(data), nil
 }
 
 func isBinary(data []byte) bool {

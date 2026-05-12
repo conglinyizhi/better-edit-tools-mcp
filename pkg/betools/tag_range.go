@@ -1,4 +1,4 @@
-package edit
+package betools
 
 import (
 	"fmt"
@@ -6,13 +6,13 @@ import (
 )
 
 func TagRange(path string, line int) (TagRangeResult, error) {
-	content, err := ReadText(path)
+	content, err := readText(path)
 	if err != nil {
-		return TagRangeResult{}, ReadPath(path, err)
+		return TagRangeResult{}, readPath(path, err)
 	}
 	lines := strings.Split(content, "\n")
 	if line < 1 || line > len(lines) {
-		return TagRangeResult{}, InvalidArg(fmt.Sprintf("target line %d out of range (1..%d)", line, len(lines)))
+		return TagRangeResult{}, invalidArg(fmt.Sprintf("target line %d out of range (1..%d)", line, len(lines)))
 	}
 
 	type tagEntry struct {
@@ -83,7 +83,7 @@ func TagRange(path string, line int) (TagRangeResult, error) {
 			return rg, nil
 		}
 	}
-	return TagRangeResult{}, InvalidArg(fmt.Sprintf("line %d is not inside any paired tag", line))
+	return TagRangeResult{}, invalidArg(fmt.Sprintf("line %d is not inside any paired tag", line))
 }
 
 func readTagName(chars []byte, idx *int) string {
