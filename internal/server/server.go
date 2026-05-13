@@ -429,18 +429,18 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		return mustJSON(resultMap), nil
 	case "be-replace":
 		var p struct {
-			File      string         `json:"file"`
-			Start     int            `json:"start"`
-			End       int            `json:"end"`
-			StartLn   int            `json:"start_line"`
-			EndLn     int            `json:"end_line"`
-			Old       *string        `json:"old"`
-			OldText   *string        `json:"old_text"`
-			Content   string         `json:"content"`
-			Raw       bool           `json:"raw"`
-			Format    string         `json:"format"`
-			Target    *editTargetArg `json:"target"`
-			Preview   bool           `json:"preview"`
+			File         string         `json:"file"`
+			Start        int            `json:"start"`
+			End          int            `json:"end"`
+			StartLn      int            `json:"start_line"`
+			EndLn        int            `json:"end_line"`
+			Old          *string        `json:"old"`
+			OldText      *string        `json:"old_text"`
+			Content      string         `json:"content"`
+			Raw          bool           `json:"raw"`
+			Format       string         `json:"format"`
+			Target       *editTargetArg `json:"target"`
+			Preview      bool           `json:"preview"`
 			ViewedCodeID string         `json:"viewed_code_id"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
