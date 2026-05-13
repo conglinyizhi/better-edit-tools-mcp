@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-func functionRangeRaw(path string, targetLine int) (int, int, error) {
-	content, err := readText(path)
+func functionRangeRaw(path string, targetLine int, opts ...Option) (int, int, error) {
+	content, err := readText(path, opts...)
 	if err != nil {
 		return 0, 0, readPath(path, err)
 	}
@@ -123,8 +123,8 @@ func functionRangeRaw(path string, targetLine int) (int, int, error) {
 	return 0, 0, invalidArg(fmt.Sprintf("line %d is not inside any function/block (brace detection)", targetLine))
 }
 
-func FuncRange(path string, line int) (FunctionRangeResult, error) {
-	start, end, err := functionRangeRaw(path, line)
+func FuncRange(path string, line int, opts ...Option) (FunctionRangeResult, error) {
+	start, end, err := functionRangeRaw(path, line, opts...)
 	if err != nil {
 		return FunctionRangeResult{}, err
 	}

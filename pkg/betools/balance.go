@@ -3,7 +3,6 @@ package betools
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 )
@@ -16,8 +15,8 @@ type scanResult struct {
 	TagMatched    []MatchedPair
 }
 
-func CheckStructureBalance(path string, verbose bool) (string, error) {
-	res, err := scanFile(path)
+func CheckStructureBalance(path string, verbose bool, opts ...Option) (string, error) {
+	res, err := scanFile(path, opts...)
 	if err != nil {
 		return "", err
 	}
@@ -66,12 +65,12 @@ func CheckStructureBalance(path string, verbose bool) (string, error) {
 	return string(data), nil
 }
 
-func scanFile(path string) (scanResult, error) {
-	data, err := os.ReadFile(path)
+func scanFile(path string, opts ...Option) (scanResult, error) {
+	data, err := readText(path, opts...)
 	if err != nil {
 		return scanResult{}, readPath(path, err)
 	}
-	content := string(data)
+	content := data
 	lines := strings.Split(content, "\n")
 
 	symbolLines := map[string][]int{"{": {}, "}": {}, "[": {}, "]": {}, "(": {}, ")": {}}

@@ -2,12 +2,11 @@ package betools
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
-func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error) {
-	lines, _, err := readLines(path)
+func ResolveTargetSpan(path string, target ContentTarget, opts ...Option) (TargetSpan, error) {
+	lines, _, err := readLines(path, opts...)
 	if err != nil {
 		return TargetSpan{}, readPath(path, err)
 	}
@@ -48,7 +47,7 @@ func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error) {
 		if found == 0 {
 			return TargetSpan{}, invalidArg("function not found: " + needle)
 		}
-		start, end, err := functionRangeRaw(path, found)
+		start, end, err := functionRangeRaw(path, found, opts...)
 		if err != nil {
 			return TargetSpan{}, err
 		}
@@ -68,7 +67,7 @@ func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error) {
 		if found == 0 {
 			return TargetSpan{}, invalidArg("tag not found: " + needle)
 		}
-		tag, err := TagRange(path, found)
+		tag, err := TagRange(path, found, opts...)
 		if err != nil {
 			return TargetSpan{}, err
 		}
@@ -87,10 +86,10 @@ func parseTargetLine(value string) int {
 	return n
 }
 
-func readText(path string) (string, error) {
-	data, err := os.ReadFile(path)
+func readText(path string, opts ...Option) (string, error) {
+	lines, _, err := readLines(path, opts...)
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+	return strings.Join(lines, ""), nil
 }

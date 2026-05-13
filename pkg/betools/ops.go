@@ -25,7 +25,7 @@ func Show(path string, start int, endLine int) (ShowResult, string, error) {
 	var e int
 	if endLine <= 0 {
 		// auto mode: detect function range or show context
-		if rs, re, err := functionRangeRaw(path, s); err == nil {
+		if rs, re, err := functionRangeRaw(path, s, opts...); err == nil {
 			s = rs
 			e = re
 		} else {
@@ -59,7 +59,7 @@ func Show(path string, start int, endLine int) (ShowResult, string, error) {
 		}
 	}
 
-	sessionID := CreateSession(path, s, e)
+	sessionID := CreateSession(path, s, e, opts...)
 	return ShowResult{
 		Status:  "ok",
 		File:    filepath.Clean(path),
@@ -70,8 +70,12 @@ func Show(path string, start int, endLine int) (ShowResult, string, error) {
 	}, sessionID, nil
 }
 
-func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string) (ReplaceResult, error) {
-	lines, le, err := readLines(path)
+func Read(path string, start int, endLine int, opts ...Option) (ShowResult, string, error) {
+	return Show(path, start, endLine, opts...)
+}
+
+func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, opts ...Option) (ReplaceResult, error) {
+	lines, le, err := readLines(path, opts...)
 	if err != nil {
 		return ReplaceResult{}, readPath(path, err)
 	}
@@ -86,7 +90,7 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 	// Validate session if provided.
 	var sessionWarning string
 	if sessionID != "" {
-		if _, warn := SessionFromCache(sessionID); warn != "" {
+		if _, warn := SessionFromCache(sessionID, opts...); warn != "" {
 			sessionWarning = warn
 		}
 	}
@@ -107,7 +111,7 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 	out = append(out, lines[end:]...)
 	newContent := strings.Join(out, "")
 	if !preview {
-		if err := writeFileAtomic(path, newContent); err != nil {
+		if err := writeFileAtomic(path, newContent, opts...); err != nil {
 			return ReplaceResult{}, writePath(path, err)
 		}
 	}
@@ -135,8 +139,8 @@ func normalizeLineBlock(content string) string {
 	return strings.TrimRight(strings.ReplaceAll(content, "\r\n", "\n"), "\r\n")
 }
 
-func Insert(path string, after int, content string, raw bool, format string, preview bool) (InsertResult, error) {
-	lines, le, err := readLines(path)
+func Insert(path string, after int, content string, raw bool, format string, preview bool, opts ...Option) (InsertResult, error) {
+	lines, le, err := readLines(path, opts...)
 	if err != nil {
 		return InsertResult{}, readPath(path, err)
 	}
@@ -176,8 +180,8 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	}, nil
 }
 
-func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool) (DeleteResult, error) {
-	fileLines, _, err := readLines(path)
+func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool, opts ...Option) (DeleteResult, error) {
+	fileLines, _, err := readLines(path, opts...)
 	if err != nil {
 		return DeleteResult{}, readPath(path, err)
 	}
@@ -225,7 +229,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 		}
 		newContent := strings.Join(filtered, "")
 		if !preview {
-			if err := writeFileAtomic(path, newContent); err != nil {
+			if err := writeFileAtomic(path, newContent, opts...); err != nil {
 				return DeleteResult{}, writePath(path, err)
 			}
 		}
@@ -273,7 +277,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 	result = append(result, fileLines[e:]...)
 	newContent := strings.Join(result, "")
 	if !preview {
-		if err := writeFileAtomic(path, newContent); err != nil {
+		if err := writeFileAtomic(path, newContent, opts...); err != nil {
 			return DeleteResult{}, writePath(path, err)
 		}
 	}
@@ -304,7 +308,7 @@ func Batch(spec string, preview bool) (BatchResult, error) {
 	}
 	results := make([]BatchFileResult, 0, len(fileSpecs))
 	for _, fileSpec := range fileSpecs {
-		lines, le, err := readLines(fileSpec.File)
+		lines, le, err := readLines(fileSpec.File, opts...)
 		if err != nil {
 			return BatchResult{}, readPath(fileSpec.File, err)
 		}

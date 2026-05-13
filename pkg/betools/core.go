@@ -3,16 +3,19 @@ package betools
 import (
 	"errors"
 	"fmt"
-	"os"
+	"io"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"unicode/utf8"
 )
 
 var tmpCounter uint64
 
-func readLines(path string) ([]string, string, error) {
-	data, err := os.ReadFile(path)
+func readLines(path string, opts ...Option) ([]string, string, error) {
+	cfg := withCallConfig(opts...)
+	data, err := cfg.fs.ReadFile(path)
 	if err != nil {
 		return nil, "", err
 	}
@@ -49,7 +52,8 @@ func splitKeepLineEnding(content, le string) []string {
 	return lines
 }
 
-func writeFileAtomic(path, content string) error {
+func writeFileAtomic(path, content string, opts ...Option) error {
+	cfg := withCallConfig(opts...)
 	abs := path
 	parent := filepath.Dir(abs)
 	stem := strings.TrimSuffix(filepath.Base(abs), filepath.Ext(abs))
@@ -59,20 +63,21 @@ func writeFileAtomic(path, content string) error {
 	counter := atomic.AddUint64(&tmpCounter, 1) - 1
 	tmpName := fmt.Sprintf(".fe-%s-%d.tmp", stem, counter)
 	tmpPath := filepath.Join(parent, tmpName)
-	if err := os.WriteFile(tmpPath, []byte(content), 0o644); err != nil {
+	if err := cfg.fs.WriteFile(tmpPath, []byte(content), 0o644); err != nil {
 		return err
 	}
-	if err := os.Rename(tmpPath, abs); err != nil {
-		_ = os.Remove(tmpPath)
+	if err := cfg.fs.Rename(tmpPath, abs); err != nil {
+		_ = cfg.fs.Remove(tmpPath)
 		return err
 	}
 	return nil
 }
 
-func writeFilesAtomic(writes []WriteSpecItem) error {
+func writeFilesAtomic(writes []WriteSpecItem, opts ...Option) error {
 	if len(writes) == 0 {
 		return nil
 	}
+	cfg := withCallConfig(opts...)
 	type tmpItem struct {
 		file string
 		tmp  string
@@ -94,18 +99,18 @@ func writeFilesAtomic(writes []WriteSpecItem) error {
 		counter := atomic.AddUint64(&tmpCounter, 1) - 1
 		tmpName := fmt.Sprintf(".fe-%s-%d.tmp", stem, counter)
 		tmpPath := filepath.Join(parent, tmpName)
-		if err := os.WriteFile(tmpPath, []byte(w.Content), 0o644); err != nil {
+		if err := cfg.fs.WriteFile(tmpPath, []byte(w.Content), 0o644); err != nil {
 			return err
 		}
 		tmps = append(tmps, tmpItem{file: w.File, tmp: tmpPath})
 
-		if _, err := os.Stat(w.File); err == nil {
+		if _, err := cfg.fs.Stat(w.File); err == nil {
 			backupPath := filepath.Join(parent, fmt.Sprintf(".fe-%s-%d.bak", stem, counter))
-			if err := copyFile(w.File, backupPath); err != nil {
+			if err := copyFile(w.File, backupPath, WithFileSystem(cfg.fs)); err != nil {
 				return err
 			}
 			backups = append(backups, backupItem{file: w.File, backup: backupPath, exists: true})
-		} else if errors.Is(err, os.ErrNotExist) {
+		} else if errors.Is(err, fs.ErrNotExist) {
 			backups = append(backups, backupItem{file: w.File, exists: false})
 		} else {
 			return err
@@ -114,25 +119,25 @@ func writeFilesAtomic(writes []WriteSpecItem) error {
 
 	var committed []string
 	for _, item := range tmps {
-		if err := os.Rename(item.tmp, item.file); err != nil {
+		if err := cfg.fs.Rename(item.tmp, item.file); err != nil {
 			for i := len(committed) - 1; i >= 0; i-- {
 				target := committed[i]
 				for _, bk := range backups {
 					if bk.file == target {
 						if bk.exists {
-							_ = os.Rename(bk.backup, bk.file)
+							_ = cfg.fs.Rename(bk.backup, bk.file)
 						} else {
-							_ = os.Remove(bk.file)
+							_ = cfg.fs.Remove(bk.file)
 						}
 					}
 				}
 			}
 			for _, it := range tmps {
-				_ = os.Remove(it.tmp)
+				_ = cfg.fs.Remove(it.tmp)
 			}
 			for _, bk := range backups {
 				if bk.exists {
-					_ = os.Remove(bk.backup)
+					_ = cfg.fs.Remove(bk.backup)
 				}
 			}
 			return err
@@ -142,27 +147,76 @@ func writeFilesAtomic(writes []WriteSpecItem) error {
 
 	for _, bk := range backups {
 		if bk.exists {
-			_ = os.Remove(bk.backup)
+			_ = cfg.fs.Remove(bk.backup)
 		}
 	}
 	return nil
 }
 
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+func copyFile(src, dst string, opts ...Option) error {
+	cfg := withCallConfig(opts...)
+	in, err := cfg.fs.Open(src)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+	out, err := cfg.fs.Create(dst)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	if _, err := out.ReadFrom(in); err != nil {
+	if _, err := io.Copy(out, in); err != nil {
 		return err
 	}
 	return out.Close()
+}
+
+func rejectBinary(path string, fsys FileSystem) error {
+	const sampleSize = 512
+	f, err := fsys.Open(path)
+	if err != nil {
+		return readPath(path, err)
+	}
+	defer f.Close()
+
+	buf := make([]byte, sampleSize)
+	n, readErr := io.ReadFull(f, buf)
+	if readErr != nil && !errors.Is(readErr, io.EOF) && !errors.Is(readErr, io.ErrUnexpectedEOF) {
+		return readPath(path, readErr)
+	}
+	buf = buf[:n]
+	if len(buf) == 0 {
+		return nil
+	}
+	if isBinarySample(buf) {
+		return invalidArg(fmt.Sprintf("show: %s appears to be a binary file; use a text file or a dedicated binary inspection tool", filepath.Clean(path)))
+	}
+	return nil
+}
+
+func isBinarySample(data []byte) bool {
+	if isBinary(data) {
+		return true
+	}
+	if !utf8.Valid(data) {
+		return true
+	}
+	sample := data
+	if len(sample) > 512 {
+		sample = sample[:512]
+	}
+	var control int
+	for _, b := range sample {
+		switch b {
+		case 0, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0b, 0x0c, 0x0e, 0x0f:
+			control++
+		default:
+			if b < 0x20 && b != '\n' && b != '\r' && b != '\t' {
+				control++
+			}
+		}
+	}
+	return control > len(sample)/6
 }
 
 func parseContent(text string) string {

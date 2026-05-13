@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-func TagRange(path string, line int) (TagRangeResult, error) {
-	content, err := readText(path)
+func TagRange(path string, line int, opts ...Option) (TagRangeResult, error) {
+	content, err := readText(path, opts...)
 	if err != nil {
 		return TagRangeResult{}, readPath(path, err)
 	}

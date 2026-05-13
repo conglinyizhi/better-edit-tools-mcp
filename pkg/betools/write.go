@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func Write(spec string, preview bool, raw bool) (WriteResult, error) {
+func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, error) {
 	var result WriteResult
 	var writeSpecs []WriteSpecItem
 	degraded := false
@@ -33,7 +33,7 @@ func Write(spec string, preview bool, raw bool) (WriteResult, error) {
 	}
 
 	if !preview {
-		if err := writeFilesAtomic(writeSpecs); err != nil {
+		if err := writeFilesAtomic(writeSpecs, opts...); err != nil {
 			path := spec
 			if len(writeSpecs) > 0 {
 				path = writeSpecs[0].File

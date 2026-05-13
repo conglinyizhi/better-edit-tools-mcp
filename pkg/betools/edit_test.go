@@ -2,11 +2,57 @@ package betools
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+type sandboxFS struct {
+	root  string
+	block map[string]bool
+}
+
+func (s sandboxFS) abs(name string) string {
+	if filepath.IsAbs(name) {
+		return name
+	}
+	return filepath.Join(s.root, name)
+}
+
+func (s sandboxFS) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(s.abs(name))
+}
+
+func (s sandboxFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
+	return os.WriteFile(s.abs(name), data, perm)
+}
+
+func (s sandboxFS) Stat(name string) (fs.FileInfo, error) {
+	return os.Stat(s.abs(name))
+}
+
+func (s sandboxFS) Rename(oldpath, newpath string) error {
+	return os.Rename(s.abs(oldpath), s.abs(newpath))
+}
+
+func (s sandboxFS) Remove(name string) error {
+	return os.Remove(s.abs(name))
+}
+
+func (s sandboxFS) Open(name string) (io.ReadCloser, error) {
+	if s.block != nil && s.block[name] {
+		return nil, os.ErrPermission
+	}
+	return os.Open(s.abs(name))
+}
+
+func (s sandboxFS) Create(name string) (io.WriteCloser, error) {
+	return os.Create(s.abs(name))
+}
 
 func writeTempFile(t *testing.T, name, content string) string {
 	t.Helper()
@@ -52,6 +98,24 @@ func TestShowExplicitRange(t *testing.T) {
 	}
 	if !strings.Contains(res.Content, "2\ttwo") || !strings.Contains(res.Content, "3\tthree") {
 		t.Fatalf("unexpected content: %q", res.Content)
+	}
+}
+
+func TestReadAlias(t *testing.T) {
+	path := writeTempFile(t, "alias.txt", "a\nb\n")
+	showRes, showID, err := Show(path, 1, 1)
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	readRes, readID, err := Read(path, 1, 1)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if showRes.Content != readRes.Content || showRes.Start != readRes.Start || showRes.End != readRes.End {
+		t.Fatalf("read alias mismatch: show=%+v read=%+v", showRes, readRes)
+	}
+	if showID == "" || readID == "" {
+		t.Fatalf("expected session ids from read-like calls")
 	}
 }
 

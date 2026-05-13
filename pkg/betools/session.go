@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// ReadSession records what was shown in a be-show call.
+// ReadSession records what was shown in a be-read call.
 type ReadSession struct {
 	File      string `json:"file"`
 	StartLine int    `json:"start_line"`
@@ -35,7 +35,7 @@ func newUUID() string {
 }
 
 // CreateSession stores a read session and returns its UUID.
-func CreateSession(file string, start, end int) string {
+func CreateSession(file string, start, end int, opts ...Option) string {
 	cleanupOnce.Do(startCleanupRoutine)
 
 	s := &ReadSession{
@@ -62,20 +62,20 @@ func GetSession(id string) *ReadSession {
 }
 
 // SessionFromCache is a convenience wrapper: looks up the session, and if
-// the file content has changed (line count mismatch), lines, sample from
+// the file content has changed (line count mismatch), lines sampled from
 // head/tail of the original range are collected to help the LLM re-sync.
 // Returns the session, a warning string (empty if clean), and any error.
 //
 // The warning is non-fatal — the session is still returned so the caller can
 // proceed with the edit if they choose.
-func SessionFromCache(id string) (s *ReadSession, warning string) {
+func SessionFromCache(id string, opts ...Option) (s *ReadSession, warning string) {
 	s = GetSession(id)
 	if s == nil {
 		return nil, "session not found or expired (re-read the file)"
 	}
 
 	// Verify line count.
-	lines, _, err := readLines(s.File)
+	lines, _, err := readLines(s.File, opts...)
 	if err != nil {
 		return s, fmt.Sprintf("session %q: can't read file — %v", id, err)
 	}
@@ -97,7 +97,7 @@ func SessionFromCache(id string) (s *ReadSession, warning string) {
 		"⚠️  Content verification: read session %q expected %d lines (L%d–%d) but found %d lines. "+
 			"The file may have been modified since reading.\n"+
 			"First line of range: %s\nLast line of range: %s\n"+
-			"You can proceed if the target is still correct, or re-read with be-show first.",
+			"You can proceed if the target is still correct, or re-read with be-read first.",
 		id, s.LineCount, s.StartLine, s.EndLine, currentCount,
 		trimForWarning(head), trimForWarning(tail),
 	)
