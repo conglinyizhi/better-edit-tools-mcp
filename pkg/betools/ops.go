@@ -8,8 +8,12 @@ import (
 	"strings"
 )
 
-func Show(path string, start int, endLine int) (ShowResult, string, error) {
-	lines, _, err := readLines(path)
+func Show(path string, start int, endLine int, opts ...Option) (ShowResult, string, error) {
+	cfg := withCallConfig(opts...)
+	if err := rejectBinary(path, cfg.fs); err != nil {
+		return ShowResult{}, "", err
+	}
+	lines, _, err := readLines(path, opts...)
 	if err != nil {
 		return ShowResult{}, "", readPath(path, err)
 	}
@@ -158,7 +162,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	result = append(result, lines[after:]...)
 	newContent := strings.Join(result, "")
 	if !preview {
-		if err := writeFileAtomic(path, newContent); err != nil {
+		if err := writeFileAtomic(path, newContent, opts...); err != nil {
 			return InsertResult{}, writePath(path, err)
 		}
 	}
@@ -297,7 +301,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 	}, nil
 }
 
-func Batch(spec string, preview bool) (BatchResult, error) {
+func Batch(spec string, preview bool, opts ...Option) (BatchResult, error) {
 	var raw any
 	if err := jsonUnmarshal(spec, &raw); err != nil {
 		return BatchResult{}, jsonParse(err)
@@ -373,7 +377,7 @@ func Batch(spec string, preview bool) (BatchResult, error) {
 		}
 		newContent := strings.Join(lines, "")
 		if !preview {
-			if err := writeFileAtomic(fileSpec.File, newContent); err != nil {
+			if err := writeFileAtomic(fileSpec.File, newContent, opts...); err != nil {
 				return BatchResult{}, writePath(fileSpec.File, err)
 			}
 		}

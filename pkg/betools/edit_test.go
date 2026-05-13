@@ -207,6 +207,39 @@ world"}`
 	}
 }
 
+func TestShowRejectsBinaryFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bin.dat")
+	if err := os.WriteFile(path, []byte{0x00, 0x01, 0x02, 0x7f, 0xff}, 0o644); err != nil {
+		t.Fatalf("write binary: %v", err)
+	}
+	_, _, err := Show(path, 1, 1)
+	if err == nil {
+		t.Fatal("expected binary rejection")
+	}
+	if !errors.Is(err, ErrInvalid) {
+		t.Fatalf("expected invalid error, got %v", err)
+	}
+}
+
+func TestInjectedFileSystemIsUsed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sandbox.txt")
+	fsys := sandboxFS{root: dir}
+	if _, _, err := Show(path, 1, 1, WithFileSystem(fsys)); err == nil {
+		t.Fatal("expected error for missing file inside injected fs")
+	}
+	if _, err := Write(`{"file":"sandbox.txt","content":"hello"}`, false, false, WithFileSystem(fsys)); err != nil {
+		t.Fatalf("write with injected fs: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read sandbox file: %v", err)
+	}
+	if string(got) != "hello" {
+		t.Fatalf("unexpected sandbox content: %q", string(got))
+	}
+}
+
 func TestBalanceSimple(t *testing.T) {
 	path := writeTempFile(t, "a.js", "function demo() { return [1, 2]; }\n")
 	out, err := CheckStructureBalance(path, false)
