@@ -85,7 +85,6 @@ internal/
 9 个 MCP tools：
 - `be-balance`
 - `be-read`
-- `be-show`（兼容别名）
 - `be-replace`
 - `be-insert`
 - `be-delete`

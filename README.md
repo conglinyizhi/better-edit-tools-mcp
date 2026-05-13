@@ -25,8 +25,7 @@ Structural sanity check for brackets, braces, parentheses, HTML/XML tag closure,
 
 Read-only source inspection tool. Prints file content with line numbers. Pass a positive `end` value for an explicit range, or `0` or negative to auto-expand to the enclosing function scope. Returns a `viewed_code_id` (v0.4+) that can be passed to `be-replace` for line-number validation.
 
-When embedding the Go library directly, prefer the `Read` API name. `Show` remains available as a compatibility alias.
-Compatibility alias: `be-show`.
+When embedding the Go library directly, prefer the `Read` API name.
 
 ——Read the exact slice you need without guessing the enclosing function range.
 
@@ -90,7 +89,7 @@ Finds the enclosing XML/HTML/Vue tag pair for a line. The markup-oriented counte
 - **isError signaling**: Errors properly report `isError: true` per the MCP spec.
 - **Go-native**: No runtime dependencies — a single binary with a small embedded editing library.
 - **Fault-tolerant JSON parsing**: AI-generated content often contains backticks, `${}`, or unescaped quotes; `be-write` automatically falls back to character-level extraction.
-- **Session state bridging**: `be-read` returns a `viewed_code_id` that `be-replace` can accept to validate consistent line numbering. `be-show` remains a compatibility alias.
+- **Session state bridging**: `be-read` returns a `viewed_code_id` that `be-replace` can accept to validate consistent line numbering.
 - **Localized descriptions**: `--lang <zh|en>` switches tool description language; parameter names and behavior remain unchanged.
 
 ## Usage

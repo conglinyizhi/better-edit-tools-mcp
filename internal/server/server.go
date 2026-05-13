@@ -387,7 +387,7 @@ func localizedDescription(lang, name string) string {
 func (s *Server) callTool(name string, args map[string]any) (string, error) {
 	b, _ := json.Marshal(args)
 	switch name {
-	case "be-read", "be-show":
+	case "be-read":
 		var p struct {
 			File    string         `json:"file"`
 			Start   int            `json:"start"`

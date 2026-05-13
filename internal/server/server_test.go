@@ -132,7 +132,7 @@ func TestToolCallSupportsShowCompatibilityAlias(t *testing.T) {
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-show","arguments":{"file":"` + path + `","start":1,"end":"auto"}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `","start":1,"end":"auto"}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve show: %v", err)
