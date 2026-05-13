@@ -16,10 +16,10 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 
 ### File Operations
 
-#### `Show`
+#### `Read`
 
 ```go
-func Show(path string, start int, endLine int) (ShowResult, string, error)
+func Read(path string, start int, endLine int, opts ...Option) (ShowResult, string, error)
 ```
 
 Reads a line range from a file. Returns the content and a `viewed_code_id` (second return value) that can be passed to `Replace` for line-number validation.
@@ -27,11 +27,14 @@ Reads a line range from a file. Returns the content and a `viewed_code_id` (seco
 - `start`: starting line number (>= 1)
 - `endLine`: ending line number. Pass `0` or negative to auto-expand to the enclosing function scope (via `FuncRange`)
 - Returns a `viewed_code_id`: UUID v4 for later `Replace` session validation
+- `opts`: optional `WithFileSystem(...)` injection for sandboxed environments
+
+`Show` remains available as a compatibility alias.
 
 #### `Replace`
 
 ```go
-func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string) (ReplaceResult, error)
+func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, opts ...Option) (ReplaceResult, error)
 ```
 
 Precise line-range substitution.
@@ -42,12 +45,12 @@ Precise line-range substitution.
 - `raw`: write verbatim without formatting adjustments
 - `format`: output format (`"trim"` or `""`)
 - `preview`: if true, returns diff without writing to disk
-- `viewed_code_id`: optional — validates line count consistency against a prior `be-show` session
+- `viewed_code_id`: optional — validates line count consistency against a prior `be-read` session
 
 #### `Insert`
 
 ```go
-func Insert(path string, after int, content string, raw bool, format string, preview bool) (InsertResult, error)
+func Insert(path string, after int, content string, raw bool, format string, preview bool, opts ...Option) (InsertResult, error)
 ```
 
 Inserts content after a specified line.
@@ -58,7 +61,7 @@ Inserts content after a specified line.
 #### `Delete`
 
 ```go
-func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool) (DeleteResult, error)
+func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool, opts ...Option) (DeleteResult, error)
 ```
 
 Deletes lines. Three modes:
@@ -70,7 +73,7 @@ Deletes lines. Three modes:
 #### `Batch`
 
 ```go
-func Batch(spec string, preview bool) (BatchResult, error)
+func Batch(spec string, preview bool, opts ...Option) (BatchResult, error)
 ```
 
 Multi-operation editing entry point. Accepts a JSON string:
@@ -95,7 +98,7 @@ Edits are automatically sorted bottom-to-top to prevent line-number drift.
 #### `Write`
 
 ```go
-func Write(spec string, preview bool, raw bool) (WriteResult, error)
+func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, error)
 ```
 
 Raw file write tool for full-content replacement. Supports single-file and multi-file payloads.
@@ -111,7 +114,7 @@ Raw file write tool for full-content replacement. Supports single-file and multi
 #### `FuncRange`
 
 ```go
-func FuncRange(path string, line int) (FunctionRangeResult, error)
+func FuncRange(path string, line int, opts ...Option) (FunctionRangeResult, error)
 ```
 
 Detects the enclosing `{}` block or function range for a line. Backtracks through func/type/method keywords.
@@ -119,7 +122,7 @@ Detects the enclosing `{}` block or function range for a line. Backtracks throug
 #### `TagRange`
 
 ```go
-func TagRange(path string, line int) (TagRangeResult, error)
+func TagRange(path string, line int, opts ...Option) (TagRangeResult, error)
 ```
 
 Finds the enclosing XML/HTML/Vue tag pair for a line.
@@ -127,7 +130,7 @@ Finds the enclosing XML/HTML/Vue tag pair for a line.
 #### `ResolveTargetSpan`
 
 ```go
-func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error)
+func ResolveTargetSpan(path string, target ContentTarget, opts ...Option) (TargetSpan, error)
 ```
 
 Resolves a `ContentTarget` to a line range. `ContentTarget.Kind` supports `"line"`, `"function"`, `"marker"`, `"tag"`.
@@ -137,7 +140,7 @@ Resolves a `ContentTarget` to a line range. `ContentTarget.Kind` supports `"line
 #### `CheckStructureBalance`
 
 ```go
-func CheckStructureBalance(path string, verbose bool) (string, error)
+func CheckStructureBalance(path string, verbose bool, opts ...Option) (string, error)
 ```
 
 Checks brackets, braces, parentheses, HTML/XML tag closure, and quote parity.
@@ -150,7 +153,7 @@ Checks brackets, braces, parentheses, HTML/XML tag closure, and quote parity.
 #### `CreateSession`
 
 ```go
-func CreateSession(file string, start, end int) string
+func CreateSession(file string, start, end int, opts ...Option) string
 ```
 
 Creates a read session and returns its UUID. Core building block for `SessionFromCache`.
@@ -166,7 +169,7 @@ Looks up a session by UUID. Returns nil if expired (>24h) or not found.
 #### `SessionFromCache`
 
 ```go
-func SessionFromCache(id string) (s *ReadSession, warning string)
+func SessionFromCache(id string, opts ...Option) (s *ReadSession, warning string)
 ```
 
 Looks up and validates a session. If the file has changed (line count mismatch), returns a non-fatal warning with head/tail sample lines to help re-sync.
@@ -178,6 +181,14 @@ func CleanupSession(id string)
 ```
 
 Manually removes a session. Expired sessions are auto-cleaned by a background goroutine every 30 minutes.
+
+### File System Injection
+
+```go
+func WithFileSystem(fsys FileSystem) Option
+```
+
+Pass this option to constrain betools to a custom file system, such as a workspace wrapper or sandboxed view of the repository.
 
 ### Chip Storage
 

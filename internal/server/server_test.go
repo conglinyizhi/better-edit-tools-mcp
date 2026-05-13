@@ -33,6 +33,20 @@ func TestToolsListAndCall(t *testing.T) {
 	if !ok || len(result["tools"].([]any)) == 0 {
 		t.Fatalf("tools missing: %#v", resp["result"])
 	}
+	seenRead := false
+	for _, item := range result["tools"].([]any) {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch m["name"] {
+		case "be-read":
+			seenRead = true
+		}
+	}
+	if !seenRead {
+		t.Fatalf("expected read tool, got: %#v", result["tools"])
+	}
 }
 
 func TestInitializedNotificationNoResponse(t *testing.T) {
@@ -79,6 +93,64 @@ func TestToolCallRunsEdit(t *testing.T) {
 	}
 	if string(data) != "x\na\nb\n" {
 		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
+
+func TestToolCallSupportsReadAlias(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	path := dir + "/read.txt"
+	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `","start":1,"end":"auto"}}}`
+	var out bytes.Buffer
+	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
+		t.Fatalf("serve read: %v", err)
+	}
+	scanner := bufio.NewScanner(&out)
+	if !scanner.Scan() {
+		t.Fatalf("no read response")
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+		t.Fatalf("read json: %v", err)
+	}
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing read result: %#v", resp)
+	}
+	if isError, _ := result["isError"].(bool); isError {
+		t.Fatalf("unexpected read error response: %#v", result)
+	}
+}
+
+func TestToolCallSupportsShowCompatibilityAlias(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	path := dir + "/show.txt"
+	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-show","arguments":{"file":"` + path + `","start":1,"end":"auto"}}}`
+	var out bytes.Buffer
+	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
+		t.Fatalf("serve show: %v", err)
+	}
+	scanner := bufio.NewScanner(&out)
+	if !scanner.Scan() {
+		t.Fatalf("no show response")
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+		t.Fatalf("show json: %v", err)
+	}
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing show result: %#v", resp)
+	}
+	if isError, _ := result["isError"].(bool); isError {
+		t.Fatalf("unexpected show error response: %#v", result)
 	}
 }
 

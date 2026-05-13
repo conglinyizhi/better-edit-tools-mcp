@@ -16,10 +16,10 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 
 ### 文件操作
 
-#### `Show`
+#### `Read`
 
 ```go
-func Show(path string, start int, endLine int) (ShowResult, string, error)
+func Read(path string, start int, endLine int, opts ...Option) (ShowResult, string, error)
 ```
 
 读取指定文件的行范围。返回内容包括完整内容和 `viewed_code_id`（第二个返回值）。`viewed_code_id` 可传给 `Replace` 进行行数校验。
@@ -27,11 +27,14 @@ func Show(path string, start int, endLine int) (ShowResult, string, error)
 - `start`：起始行号（>= 1）
 - `endLine`：结束行号。传 `0` 或负数时自动扩展到所在函数范围（基于 `FuncRange`）
 - 返回 `viewed_code_id`：UUID v4，用于后续 `Replace` 的 session 校验
+- `opts`：可选的 `WithFileSystem(...)` 注入，用于沙箱或 workspace 受限场景
+
+`Show` 仍然保留为兼容别名。
 
 #### `Replace`
 
 ```go
-func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string) (ReplaceResult, error)
+func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, opts ...Option) (ReplaceResult, error)
 ```
 
 精确替换指定行范围的内容。
@@ -42,12 +45,12 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 - `raw`：是否原样写入，不与格式化逻辑冲突
 - `format`：写入后的格式（"trim" 或 ""）
 - `preview`：如果为 true，只返回 diff 不写入文件
-- `viewed_code_id`：可选，传 `be-show` 返回的 `viewed_code_id` 时校验行数一致性
+- `viewed_code_id`：可选，传 `be-read` 返回的 `viewed_code_id` 时校验行数一致性
 
 #### `Insert`
 
 ```go
-func Insert(path string, after int, content string, raw bool, format string, preview bool) (InsertResult, error)
+func Insert(path string, after int, content string, raw bool, format string, preview bool, opts ...Option) (InsertResult, error)
 ```
 
 在指定行后插入内容。
@@ -59,7 +62,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 #### `Delete`
 
 ```go
-func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool) (DeleteResult, error)
+func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool, opts ...Option) (DeleteResult, error)
 ```
 
 删除行。支持三种模式：
@@ -71,7 +74,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 #### `Batch`
 
 ```go
-func Batch(spec string, preview bool) (BatchResult, error)
+func Batch(spec string, preview bool, opts ...Option) (BatchResult, error)
 ```
 
 多步编辑入口。传入 JSON 字符串，格式如下：
@@ -96,7 +99,7 @@ func Batch(spec string, preview bool) (BatchResult, error)
 #### `Write`
 
 ```go
-func Write(spec string, preview bool, raw bool) (WriteResult, error)
+func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, error)
 ```
 
 原始写入工具，直接覆盖文件内容。支持单文件和批量文件写入。
@@ -112,7 +115,7 @@ func Write(spec string, preview bool, raw bool) (WriteResult, error)
 #### `FuncRange`
 
 ```go
-func FuncRange(path string, line int) (FunctionRangeResult, error)
+func FuncRange(path string, line int, opts ...Option) (FunctionRangeResult, error)
 ```
 
 检测某一行所在的 `{}` 块或函数范围。支持 func、type、method 关键字回溯。
@@ -120,7 +123,7 @@ func FuncRange(path string, line int) (FunctionRangeResult, error)
 #### `TagRange`
 
 ```go
-func TagRange(path string, line int) (TagRangeResult, error)
+func TagRange(path string, line int, opts ...Option) (TagRangeResult, error)
 ```
 
 检测某一行所在的 XML/HTML/Vue 标签配对范围。
@@ -128,7 +131,7 @@ func TagRange(path string, line int) (TagRangeResult, error)
 #### `ResolveTargetSpan`
 
 ```go
-func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error)
+func ResolveTargetSpan(path string, target ContentTarget, opts ...Option) (TargetSpan, error)
 ```
 
 根据 `ContentTarget` 解析目标范围。`ContentTarget.Kind` 支持 `"line"`、`"function"`、`"marker"`、`"tag"`。
@@ -138,7 +141,7 @@ func ResolveTargetSpan(path string, target ContentTarget) (TargetSpan, error)
 #### `CheckStructureBalance`
 
 ```go
-func CheckStructureBalance(path string, verbose bool) (string, error)
+func CheckStructureBalance(path string, verbose bool, opts ...Option) (string, error)
 ```
 
 检查文件中括号、花括号、方括号、HTML/XML 标签闭合和引号成对情况。
@@ -151,7 +154,7 @@ func CheckStructureBalance(path string, verbose bool) (string, error)
 #### `CreateSession`
 
 ```go
-func CreateSession(file string, start, end int) string
+func CreateSession(file string, start, end int, opts ...Option) string
 ```
 
 创建一个读会话，返回 UUID。`SessionFromCache` 的核心调用方。
@@ -167,7 +170,7 @@ func GetSession(id string) *ReadSession
 #### `SessionFromCache`
 
 ```go
-func SessionFromCache(id string) (s *ReadSession, warning string)
+func SessionFromCache(id string, opts ...Option) (s *ReadSession, warning string)
 ```
 
 查询会话并校验文件是否变更（行数对比）。文件变更时返回非空 `warning` 但不会阻塞操作，包含头尾样本行帮助 LLM 重新定位。
@@ -179,6 +182,14 @@ func CleanupSession(id string)
 ```
 
 手动删除一个读会话记录。过期会话由后台 goroutine 每 30 分钟自动清理。
+
+### 文件系统注入
+
+```go
+func WithFileSystem(fsys FileSystem) Option
+```
+
+通过该选项把 betools 限制到自定义文件系统，例如 workspace 包装器或沙箱视图。
 
 ### Chip 存储
 

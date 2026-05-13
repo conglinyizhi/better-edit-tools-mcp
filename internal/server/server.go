@@ -21,14 +21,15 @@ type Tool struct {
 
 type Server struct {
 	lang string
+	opts []betools.Option
 }
 
 func Run(cfg app.Config) error {
 	return New(cfg.Lang).Serve(os.Stdin, os.Stdout)
 }
 
-func New(lang string) *Server {
-	return &Server{lang: lang}
+func New(lang string, opts ...betools.Option) *Server {
+	return &Server{lang: lang, opts: opts}
 }
 
 func (s *Server) Serve(r io.Reader, w io.Writer) error {
@@ -158,27 +159,7 @@ func (s *Server) handleToolCall(req rpcRequest) rpcResponse {
 
 func (s *Server) listTools() []Tool {
 	specs := []Tool{
-		{
-			Name:        "be-show",
-			Description: localizedDescription(s.lang, "be-show"),
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"file":    map[string]any{"type": "string"},
-					"start":   map[string]any{"type": "integer", "minimum": 1},
-					"end":     map[string]any{"oneOf": []any{map[string]any{"type": "integer"}, map[string]any{"type": "string", "enum": []string{"auto"}}}},
-					"preview": map[string]any{"type": "boolean"},
-					"target": map[string]any{
-						"type": "object",
-						"properties": map[string]any{
-							"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
-							"value": map[string]any{"type": "string"},
-						},
-					},
-				},
-				"required": []string{"file", "start"},
-			},
-		},
+		s.readTool("be-read", localizedDescription(s.lang, "be-read")),
 		{
 			Name:        "be-replace",
 			Description: localizedDescription(s.lang, "be-replace"),
@@ -348,9 +329,33 @@ func (s *Server) listTools() []Tool {
 	return specs
 }
 
+func (s *Server) readTool(name, description string) Tool {
+	return Tool{
+		Name:        name,
+		Description: description,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"file":    map[string]any{"type": "string"},
+				"start":   map[string]any{"type": "integer", "minimum": 1},
+				"end":     map[string]any{"oneOf": []any{map[string]any{"type": "integer"}, map[string]any{"type": "string", "enum": []string{"auto"}}}},
+				"preview": map[string]any{"type": "boolean"},
+				"target": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
+						"value": map[string]any{"type": "string"},
+					},
+				},
+			},
+			"required": []string{"file", "start"},
+		},
+	}
+}
+
 func localizedDescription(lang, name string) string {
 	zh := map[string]string{
-		"be-show":        "按行号展示文件内容。",
+		"be-read":        "按行号读取文件内容。",
 		"be-replace":     "替换文件中的指定行范围。",
 		"be-insert":      "在指定行后插入内容。",
 		"be-delete":      "删除单行、范围或批量指定的行号。",
@@ -362,7 +367,7 @@ func localizedDescription(lang, name string) string {
 		"be-insert-chip": "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
 	}
 	en := map[string]string{
-		"be-show":        "Display file content with line numbers.",
+		"be-read":        "Read file content with line numbers.",
 		"be-replace":     "Replace a precise line range in a file.",
 		"be-insert":      "Insert content after a specific line.",
 		"be-delete":      "Delete one line, a line range, or a batch of line numbers.",
@@ -382,7 +387,7 @@ func localizedDescription(lang, name string) string {
 func (s *Server) callTool(name string, args map[string]any) (string, error) {
 	b, _ := json.Marshal(args)
 	switch name {
-	case "be-show":
+	case "be-read", "be-show":
 		var p struct {
 			File    string         `json:"file"`
 			Start   int            `json:"start"`
@@ -399,7 +404,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		}
 		var endLine int
 		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
 			if err != nil {
 				return "", err
 			}
@@ -415,7 +420,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 				endLine = int(v)
 			}
 		}
-		res, sessionID, err := betools.Show(p.File, start, endLine)
+		res, sessionID, err := betools.Read(p.File, start, endLine, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -449,7 +454,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			end = p.EndLn
 		}
 		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
 			if err != nil {
 				return "", err
 			}
@@ -459,7 +464,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if old == nil {
 			old = p.OldText
 		}
-		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.ViewedCodeID)
+		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.ViewedCodeID, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -486,13 +491,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			after = p.Line - 1
 		}
 		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
 			if err != nil {
 				return "", err
 			}
 			after = span.End
 		}
-		res, err := betools.Insert(p.File, after, p.Content, p.Raw, defaultFormat(p.Format), p.Preview)
+		res, err := betools.Insert(p.File, after, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -530,13 +535,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			line = *p.Line
 		}
 		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget())
+			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
 			if err != nil {
 				return "", err
 			}
 			start, end = span.Start, span.End
 		}
-		res, err := betools.Delete(p.File, start, end, line, p.Lines, defaultFormat(p.Format), p.Preview)
+		res, err := betools.Delete(p.File, start, end, line, p.Lines, defaultFormat(p.Format), p.Preview, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -549,7 +554,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := betools.Batch(p.Spec, p.Preview)
+		res, err := betools.Batch(p.Spec, p.Preview, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -590,7 +595,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			spec = mustJSON(map[string]any{"files": files})
 		}
-		res, err := betools.Write(spec, p.Preview, p.Raw)
+		res, err := betools.Write(spec, p.Preview, p.Raw, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -612,7 +617,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := betools.FuncRange(p.File, p.Line)
+		res, err := betools.FuncRange(p.File, p.Line, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -625,7 +630,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := betools.TagRange(p.File, p.Line)
+		res, err := betools.TagRange(p.File, p.Line, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -638,7 +643,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		return betools.CheckStructureBalance(p.File, p.Verbose)
+		return betools.CheckStructureBalance(p.File, p.Verbose, s.opts...)
 	case "be-insert-chip":
 		var p struct {
 			From string `json:"from"`
@@ -701,7 +706,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		}
 
 		// Use the core betools.Insert with resolved content
-		res, err := betools.Insert(targetFile, lineNum, content, true, "plain", false)
+		res, err := betools.Insert(targetFile, lineNum, content, true, "plain", false, s.opts...)
 		if err != nil {
 			return "", err
 		}
