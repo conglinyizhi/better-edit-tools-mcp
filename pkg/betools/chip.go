@@ -6,59 +6,80 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 const (
-	maxChips = 10
+	maxChips = 30
 	chipDir  = "/tmp/bet-chips"
 )
 
 // ChipRecord stores the original arguments from a failed tool call.
 type ChipRecord struct {
-	ID   int            `json:"id"`
-	Tool string         `json:"tool"`
-	Args map[string]any `json:"args"`
+	ID        string         `json:"id"`
+	Tool      string         `json:"tool"`
+	Args      map[string]any `json:"args"`
+	ErrMsg    string         `json:"err_msg,omitempty"`
+	CreatedAt int64          `json:"created_at"`
 }
 
 // chipStore is a global FIFO queue of chip records, protected by a mutex.
 var (
-	chipMu    sync.Mutex
-	chipStore []ChipRecord
-	chipSeq   int // monotonic ID counter
+	chipMu     sync.Mutex
+	chipStore  []ChipRecord
+	chipIDSet  map[string]struct{}
+	chipDirInit sync.Once
 )
 
 func init() {
-	os.MkdirAll(chipDir, 0755)
+	chipDirInit.Do(ensureChipDir)
+}
+
+func ensureChipDir() {
+	_ = os.MkdirAll(chipDir, 0755)
+}
+
+// chipIDExists checks whether an ID is already in use.
+func chipIDExists(id string) bool {
+	_, ok := chipIDSet[id]
+	return ok
 }
 
 // SaveChip stores the tool arguments as a chip record.
 // Called automatically when a tool errors and the args JSON length > 50.
-// Returns the chip ID, or 0 if args were too short to record.
-func SaveChip(tool string, args map[string]any) int {
+// Returns the chip ID, or "" if args were too short to record.
+func SaveChip(tool string, args map[string]any, errMsg string) string {
 	b, _ := json.Marshal(args)
 	if len(b) <= 50 {
-		return 0
+		return ""
 	}
 
 	chipMu.Lock()
 	defer chipMu.Unlock()
 
-	chipSeq++
-	id := chipSeq
+	if chipIDSet == nil {
+		chipIDSet = make(map[string]struct{}, maxChips)
+	}
+
+	id := newShortID(chipIDExists)
 
 	record := ChipRecord{
-		ID:   id,
-		Tool: tool,
-		Args: args,
+		ID:        id,
+		Tool:      tool,
+		Args:      args,
+		ErrMsg:    errMsg,
+		CreatedAt: time.Now().Unix(),
 	}
 
-	// FIFO: append, pop oldest if over limit
+	chipIDSet[id] = struct{}{}
 	chipStore = append(chipStore, record)
 	if len(chipStore) > maxChips {
+		removed := chipStore[0]
+		delete(chipIDSet, removed.ID)
 		chipStore = chipStore[1:]
+		removeChipFile(removed.ID)
 	}
 
-	// Also persist to /tmp/bet-chips/
 	persistChip(record)
 
 	return id
@@ -69,14 +90,19 @@ func persistChip(record ChipRecord) {
 	if err != nil {
 		return
 	}
-	path := filepath.Join(chipDir, fmt.Sprintf("chip-%d.json", record.ID))
+	path := filepath.Join(chipDir, fmt.Sprintf("chip-%s.json", record.ID))
 	// Ignore write errors — chip storage is best-effort
 	_ = os.WriteFile(path, data, 0644)
 }
 
+func removeChipFile(id string) {
+	path := filepath.Join(chipDir, fmt.Sprintf("chip-%s.json", id))
+	_ = os.Remove(path)
+}
+
 // GetChip retrieves a chip record by ID from the in-memory store.
 // Falls back to reading from disk if not in memory (process restart).
-func GetChip(id int) (*ChipRecord, error) {
+func GetChip(id string) (*ChipRecord, error) {
 	chipMu.Lock()
 	for _, c := range chipStore {
 		if c.ID == id {
@@ -86,24 +112,23 @@ func GetChip(id int) (*ChipRecord, error) {
 	}
 	chipMu.Unlock()
 
-	// Fallback: try reading from disk
-	path := filepath.Join(chipDir, fmt.Sprintf("chip-%d.json", id))
+	path := filepath.Join(chipDir, fmt.Sprintf("chip-%s.json", id))
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("chip %d not found", id)
+		return nil, fmt.Errorf("chip %s not found", id)
 	}
 	var rec ChipRecord
 	if err := json.Unmarshal(data, &rec); err != nil {
-		return nil, fmt.Errorf("chip %d corrupt: %v", id, err)
+		return nil, fmt.Errorf("chip %s corrupt: %v", id, err)
 	}
 	return &rec, nil
 }
 
 // ListChips returns all chip IDs currently in memory, in order (oldest first).
-func ListChips() []int {
+func ListChips() []string {
 	chipMu.Lock()
 	defer chipMu.Unlock()
-	ids := make([]int, len(chipStore))
+	ids := make([]string, len(chipStore))
 	for i, c := range chipStore {
 		ids[i] = c.ID
 	}
