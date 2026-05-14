@@ -260,8 +260,13 @@ func prepareContentLines(content, lineEnding string, raw bool) []string {
 	for _, part := range parts {
 		lines = append(lines, strings.TrimSuffix(part, "\r")+lineEnding)
 	}
-	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
-		lines = lines[:len(lines)-1]
+	for len(lines) > 0 {
+		trimmed := strings.TrimRight(lines[len(lines)-1], "\n\r")
+		if len(trimmed) == 0 {
+			lines = lines[:len(lines)-1]
+		} else {
+			break
+		}
 	}
 	return lines
 }
@@ -275,4 +280,34 @@ func rustLineCount(content string) int {
 		parts = parts[:len(parts)-1]
 	}
 	return len(parts)
+}
+
+func scanContentWarnings(content string) []string {
+	var warnings []string
+
+	tabCount := strings.Count(content, "	")
+	if tabCount > 0 {
+		warnings = append(warnings, fmt.Sprintf("content contains %d tab characters — verify indentation was preserved", tabCount))
+	}
+
+		lines := strings.Split(content, "\n")
+	hasTrailing := false
+	for _, line := range lines {
+		if len(line) > 0 {
+			last := line[len(line)-1]
+			if last == ' ' || last == '	' {
+				hasTrailing = true
+				break
+			}
+		}
+	}
+	if hasTrailing {
+		warnings = append(warnings, "content contains trailing whitespace on one or more lines")
+	}
+
+		if !strings.HasSuffix(content, "\n") {
+		warnings = append(warnings, "file does not end with a newline")
+	}
+
+	return warnings
 }

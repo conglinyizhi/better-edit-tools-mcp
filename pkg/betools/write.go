@@ -3,10 +3,11 @@ package betools
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
-func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, error) {
+func Write(spec string, preview bool, raw bool, brief bool, opts ...Option) (WriteResult, error) {
 	var result WriteResult
 	var writeSpecs []WriteSpecItem
 	degraded := false
@@ -32,6 +33,29 @@ func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, er
 		}
 	}
 
+	// Capture before content for snapshot
+	type writeBeforeData struct {
+		content []string
+		start   int
+		end     int
+	}
+	writeBefore := make([]writeBeforeData, len(writeSpecs))
+	for i, ws := range writeSpecs {
+		existing, _, err := readLines(ws.File, opts...)
+		if err == nil {
+			writeBefore[i] = writeBeforeData{
+				content: append([]string(nil), existing...),
+				start:   1,
+				end:     len(existing),
+			}
+		} else {
+			writeBefore[i] = writeBeforeData{
+				start: 1,
+				end:   0,
+			}
+		}
+	}
+
 	if !preview {
 		if err := writeFilesAtomic(writeSpecs, opts...); err != nil {
 			path := spec
@@ -43,18 +67,58 @@ func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, er
 	}
 
 	results := make([]WriteFileResult, 0, len(writeSpecs))
-	for _, item := range writeSpecs {
+	var lastEventID string
+	var anyQueueFull bool
+	for i, item := range writeSpecs {
+		warnings := scanContentWarnings(item.Content)
 		results = append(results, WriteFileResult{
-			File:  item.File,
-			Lines: countRustLines(item.Content),
-			Bytes: len(item.Content),
+			File:     item.File,
+			Lines:    countRustLines(item.Content),
+			Bytes:    len(item.Content),
+			Warnings: warnings,
 		})
+		if !preview {
+			content := item.Content
+			le := detectLineEnding(content)
+			afterLines := splitKeepLineEnding(content, le)
+			if afterLines == nil {
+				afterLines = []string{}
+			}
+			afterTotal := len(afterLines)
+			id, wasFull := PushSnapshot(SnapshotRecord{
+				Tool: "be-write",
+				File: filepath.Clean(item.File),
+				Before: SnapshotRange{
+					Start: writeBefore[i].start,
+					End:   writeBefore[i].end,
+					Lines: writeBefore[i].content,
+				},
+				After: SnapshotRange{
+					Start: 1,
+					End:   afterTotal,
+					Lines: afterLines,
+				},
+				Args: map[string]any{
+					"file": item.File,
+				},
+				Summary: fmt.Sprintf("be-write on %s", filepath.Base(item.File)),
+			})
+			lastEventID = id
+			if wasFull {
+				anyQueueFull = true
+			}
+		}
 	}
 	result = WriteResult{
 		Status:  "ok",
 		Files:   len(results),
 		Results: results,
 		Preview: preview,
+		Brief:   brief,
+	}
+	if lastEventID != "" {
+		result.EventID = lastEventID
+		result.QueueFull = anyQueueFull
 	}
 	if degraded {
 		result.Degraded = true

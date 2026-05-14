@@ -129,7 +129,7 @@ func (s *Server) handleToolCall(req rpcRequest) rpcResponse {
 	out, err := s.callTool(params.Name, args)
 	if err != nil {
 		// Save a chip on error if the args were substantial
-		betools.SaveChip(params.Name, args)
+		betools.SaveChip(params.Name, args, err.Error())
 		return s.ok(req.ID, map[string]any{
 			"isError": true,
 			"content": []map[string]any{{
@@ -171,9 +171,10 @@ func (s *Server) listTools() []Tool {
 					"end":     map[string]any{"type": "integer", "minimum": 1},
 					"old":     map[string]any{"type": "string"},
 					"content": map[string]any{"type": "string"},
-					"raw":     map[string]any{"type": "boolean"},
+					"raw":     map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
 					"format":  map[string]any{"type": "string"},
 					"preview": map[string]any{"type": "boolean"},
+					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 					"target": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -195,9 +196,10 @@ func (s *Server) listTools() []Tool {
 					"line":       map[string]any{"type": "integer", "minimum": 0},
 					"after_line": map[string]any{"type": "integer", "minimum": 0},
 					"content":    map[string]any{"type": "string"},
-					"raw":        map[string]any{"type": "boolean"},
+					"raw":        map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
 					"format":     map[string]any{"type": "string"},
 					"preview":    map[string]any{"type": "boolean"},
+					"brief":    map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 					"target": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -224,6 +226,7 @@ func (s *Server) listTools() []Tool {
 					"lines":      map[string]any{"type": "string"},
 					"format":     map[string]any{"type": "string"},
 					"preview":    map[string]any{"type": "boolean"},
+					"brief":    map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 					"target": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -246,6 +249,7 @@ func (s *Server) listTools() []Tool {
 						"description": "JSON spec describing edits. Format: [{\"file\": \"path\", \"edits\": [{\"action\": \"replace-lines|insert-after|delete-lines\", \"start\": N, \"end\": N, \"content\": \"...\"}]}]",
 					},
 					"preview": map[string]any{"type": "boolean"},
+					"brief":   map[string]any{"type": "boolean", "description": "return minimal response"},
 				},
 				"required": []string{"spec"},
 			},
@@ -270,6 +274,8 @@ func (s *Server) listTools() []Tool {
 						},
 					},
 					"preview": map[string]any{"type": "boolean"},
+					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit per-file details)"},
+					"raw":     map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
 				},
 			},
 		},
@@ -325,6 +331,38 @@ func (s *Server) listTools() []Tool {
 				},
 			},
 		},
+	{
+		Name:        "be-trx-commit",
+		Description: localizedDescription(s.lang, "be-trx-commit"),
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+	},
+	{
+		Name:        "be-trx-rollback",
+		Description: localizedDescription(s.lang, "be-trx-rollback"),
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"step": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"default":     1,
+					"description": "number of snapshots to roll back from most recent",
+				},
+			},
+			"required": []string{"step"},
+		},
+	},
+	{
+		Name:        "be-trx-status",
+		Description: localizedDescription(s.lang, "be-trx-status"),
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+	},
 	}
 	return specs
 }
@@ -340,6 +378,7 @@ func (s *Server) readTool(name, description string) Tool {
 				"start":   map[string]any{"type": "integer", "minimum": 1},
 				"end":     map[string]any{"oneOf": []any{map[string]any{"type": "integer"}, map[string]any{"type": "string", "enum": []string{"auto"}}}},
 				"preview": map[string]any{"type": "boolean"},
+				"brief":   map[string]any{"type": "boolean", "description": "return only metadata, no content"},
 				"target": map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -365,6 +404,9 @@ func localizedDescription(lang, name string) string {
 		"be-tag-range":   "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
 		"be-balance":     "检查括号、标签和引号的配对情况。",
 		"be-insert-chip": "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
+		"be-trx-commit":   "提交所有待确认的编辑快照（清空队列）。",
+		"be-trx-rollback": "回滚最近 N 个编辑快照。step 从 1 开始，表示回滚最近几个操作。",
+		"be-trx-status":   "查看待处理的编辑快照及队列使用情况。",
 	}
 	en := map[string]string{
 		"be-read":        "Read file content with line numbers.",
@@ -377,6 +419,9 @@ func localizedDescription(lang, name string) string {
 		"be-tag-range":   "Find the enclosing XML/HTML/Vue tag pair for a given line.",
 		"be-balance":     "Check bracket, brace, parenthesis, tag, and quote balance.",
 		"be-insert-chip": "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
+		"be-trx-commit":   "Commit all pending edit snapshots (clear the queue).",
+		"be-trx-rollback": "Roll back the last N edit snapshots from the queue.",
+		"be-trx-status":   "Show pending edit snapshots and queue usage.",
 	}
 	if lang == "zh" {
 		return zh[name]
@@ -394,6 +439,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			End     any            `json:"end"`
 			Target  *editTargetArg `json:"target"`
 			Preview bool           `json:"preview"`
+			Brief   bool           `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -420,7 +466,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 				endLine = int(v)
 			}
 		}
-		res, sessionID, err := betools.Read(p.File, start, endLine, s.opts...)
+		res, sessionID, err := betools.Read(p.File, start, endLine, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -442,6 +488,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			Target       *editTargetArg `json:"target"`
 			Preview      bool           `json:"preview"`
 			ViewedCodeID string         `json:"viewed_code_id"`
+			Brief        bool           `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -464,7 +511,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if old == nil {
 			old = p.OldText
 		}
-		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.ViewedCodeID, s.opts...)
+		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.ViewedCodeID, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -479,6 +526,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			Format  string         `json:"format"`
 			Target  *editTargetArg `json:"target"`
 			Preview bool           `json:"preview"`
+			Brief   bool           `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -497,7 +545,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			after = span.End
 		}
-		res, err := betools.Insert(p.File, after, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, s.opts...)
+		res, err := betools.Insert(p.File, after, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -514,6 +562,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			Format  string         `json:"format"`
 			Target  *editTargetArg `json:"target"`
 			Preview bool           `json:"preview"`
+			Brief   bool           `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -541,7 +590,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			start, end = span.Start, span.End
 		}
-		res, err := betools.Delete(p.File, start, end, line, p.Lines, defaultFormat(p.Format), p.Preview, s.opts...)
+		res, err := betools.Delete(p.File, start, end, line, p.Lines, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -550,11 +599,12 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		var p struct {
 			Spec    string `json:"spec"`
 			Preview bool   `json:"preview"`
+			Brief   bool   `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		res, err := betools.Batch(p.Spec, p.Preview, s.opts...)
+		res, err := betools.Batch(p.Spec, p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -570,6 +620,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			} `json:"files"`
 			Preview bool `json:"preview"`
 			Raw     bool `json:"raw"`
+			Brief   bool `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
@@ -595,7 +646,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			spec = mustJSON(map[string]any{"files": files})
 		}
-		res, err := betools.Write(spec, p.Preview, p.Raw, s.opts...)
+		res, err := betools.Write(spec, p.Preview, p.Raw, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -606,7 +657,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 				"spec":    spec,
 				"preview": p.Preview,
 			}
-			betools.SaveChip("be-write", args)
+			betools.SaveChip("be-write", args, "")
 		}
 		return mustJSON(res), nil
 	case "be-func-range":
@@ -657,7 +708,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if p.From == "" && p.To == "" {
 			ids := betools.ListChips()
 			if len(ids) == 0 {
-				return mustJSON(map[string]any{"status": "ok", "chips": []int{}, "message": "no chips recorded"}), nil
+				return mustJSON(map[string]any{"status": "ok", "chips": []string{}, "message": "no chips recorded"}), nil
 			}
 			return mustJSON(map[string]any{"status": "ok", "chips": ids}), nil
 		}
@@ -674,17 +725,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			content = string(fileBytes)
 		case strings.HasPrefix(p.From, "chip://"):
-			idStr := strings.TrimPrefix(p.From, "chip://")
-			id, convErr := strconv.Atoi(idStr)
-			if convErr != nil {
-				return "", fmt.Errorf("invalid chip ID: %s", idStr)
-			}
+			id := strings.TrimPrefix(p.From, "chip://")
 			rec, err := betools.GetChip(id)
 			if err != nil {
 				return "", err
 			}
 			argsJSON, _ := json.MarshalIndent(rec.Args, "", "  ")
-			content = fmt.Sprintf("// Chip #%d from tool %q\n// Original arguments:\n%s", rec.ID, rec.Tool, string(argsJSON))
+			content = fmt.Sprintf("// Chip %s from tool %q\n// Original arguments:\n%s", rec.ID, rec.Tool, string(argsJSON))
 		default:
 			return "", fmt.Errorf("invalid from format: use file:///path or chip://{id}")
 		}
@@ -706,11 +753,55 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		}
 
 		// Use the core betools.Insert with resolved content
-		res, err := betools.Insert(targetFile, lineNum, content, true, "plain", false, s.opts...)
+		res, err := betools.Insert(targetFile, lineNum, content, true, "plain", false, false, s.opts...)
 		if err != nil {
 			return "", err
 		}
 		return mustJSON(res), nil
+	case "be-trx-commit":
+		n := betools.CommitSnapshots()
+		return mustJSON(map[string]any{
+			"status":    "ok",
+			"committed": n,
+		}), nil
+	case "be-trx-rollback":
+		var p struct {
+			Step int `json:"step"`
+		}
+		if err := json.Unmarshal(b, &p); err != nil {
+			return "", err
+		}
+		if p.Step < 1 {
+			p.Step = 1
+		}
+		count, errs := betools.RollbackSnapshots(p.Step)
+		if len(errs) > 0 {
+			errStrs := make([]string, len(errs))
+			for i, e := range errs {
+				errStrs[i] = e.Error()
+			}
+			status := "ok"
+			if count < p.Step {
+				status = "partial"
+			}
+			return mustJSON(map[string]any{
+				"status":      status,
+				"rolled_back": count,
+				"errors":      errStrs,
+			}), nil
+		}
+		return mustJSON(map[string]any{
+			"status":      "ok",
+			"rolled_back": count,
+		}), nil
+	case "be-trx-status":
+		stats := betools.SnapshotQueueStats()
+		pending := betools.ListSnapshots()
+		return mustJSON(map[string]any{
+			"status":    "ok",
+			"queue":     stats,
+			"snapshots": pending,
+		}), nil
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}

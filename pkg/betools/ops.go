@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func Show(path string, start int, endLine int, opts ...Option) (ShowResult, string, error) {
+func Show(path string, start int, endLine int, brief bool, opts ...Option) (ShowResult, string, error) {
 	cfg := withCallConfig(opts...)
 	if err := rejectBinary(path, cfg.fs); err != nil {
 		return ShowResult{}, "", err
@@ -55,30 +55,40 @@ func Show(path string, start int, endLine int, opts ...Option) (ShowResult, stri
 		e = total
 	}
 
-	var b strings.Builder
-	for i := s - 1; i < e; i++ {
-		fmt.Fprintf(&b, "%d\t%s", i+1, strings.TrimRight(lines[i], "\n\r"))
-		if i < e-1 {
-			b.WriteByte('\n')
+	var content string
+	if !brief {
+		var b strings.Builder
+		for i := s - 1; i < e; i++ {
+			fmt.Fprintf(&b, "%d\t%s", i+1, strings.TrimRight(lines[i], "\n\r"))
+			if i < e-1 {
+				b.WriteByte('\n')
+			}
 		}
+		content = b.String()
 	}
 
 	sessionID := CreateSession(path, s, e, opts...)
+	var warnings []string
+	if !brief {
+		warnings = scanContentWarnings(content)
+	}
 	return ShowResult{
-		Status:  "ok",
-		File:    filepath.Clean(path),
-		Start:   s,
-		End:     e,
-		Total:   total,
-		Content: b.String(),
+		Status:   "ok",
+		File:     filepath.Clean(path),
+		Start:    s,
+		End:      e,
+		Total:    total,
+		Content:  content,
+		Brief:    brief,
+		Warnings: warnings,
 	}, sessionID, nil
 }
 
-func Read(path string, start int, endLine int, opts ...Option) (ShowResult, string, error) {
-	return Show(path, start, endLine, opts...)
+func Read(path string, start int, endLine int, brief bool, opts ...Option) (ShowResult, string, error) {
+	return Show(path, start, endLine, brief, opts...)
 }
 
-func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, opts ...Option) (ReplaceResult, error) {
+func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, brief bool, opts ...Option) (ReplaceResult, error) {
 	lines, le, err := readLines(path, opts...)
 	if err != nil {
 		return ReplaceResult{}, readPath(path, err)
@@ -114,6 +124,7 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 	out = append(out, newLines...)
 	out = append(out, lines[end:]...)
 	newContent := strings.Join(out, "")
+	warnings := scanContentWarnings(newContent)
 	if !preview {
 		if err := writeFileAtomic(path, newContent, opts...); err != nil {
 			return ReplaceResult{}, writePath(path, err)
@@ -123,9 +134,13 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 	afterTotal := len(out)
 	afterEnd := min(afterTotal, beforeEnd+delta)
 	afterContent := append([]string(nil), out[beforeStart-1:afterEnd]...)
-	diff := buildDiff(beforeContent, afterContent, beforeStart, format)
-	balance := quickBalanceCheck(strings.Join(out, ""))
-	return ReplaceResult{
+	var diff string
+	var balance string
+	if !brief {
+		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+		balance = quickBalanceCheck(strings.Join(out, ""))
+	}
+	res := ReplaceResult{
 		Status:   "ok",
 		File:     filepath.Clean(path),
 		Removed:  end - start + 1,
@@ -136,14 +151,41 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
 		Preview:  preview,
 		Warning:  sessionWarning,
-	}, nil
+		Brief:    brief,
+		Warnings: warnings,
+	}
+	if !preview {
+		id, wasFull := PushSnapshot(SnapshotRecord{
+			Tool:  "be-replace",
+			File:  filepath.Clean(path),
+			Before: SnapshotRange{
+				Start: beforeStart,
+				End:   beforeEnd,
+				Lines: beforeContent,
+			},
+			After: SnapshotRange{
+				Start: beforeStart,
+				End:   afterEnd,
+				Lines: afterContent,
+			},
+			Args: map[string]any{
+				"file":  path,
+				"start": start,
+				"end":   end,
+			},
+			Summary: fmt.Sprintf("be-replace on %s lines %d-%d", filepath.Base(path), start, end),
+		})
+		res.EventID = id
+		res.QueueFull = wasFull
+	}
+	return res, nil
 }
 
 func normalizeLineBlock(content string) string {
 	return strings.TrimRight(strings.ReplaceAll(content, "\r\n", "\n"), "\r\n")
 }
 
-func Insert(path string, after int, content string, raw bool, format string, preview bool, opts ...Option) (InsertResult, error) {
+func Insert(path string, after int, content string, raw bool, format string, preview bool, brief bool, opts ...Option) (InsertResult, error) {
 	lines, le, err := readLines(path, opts...)
 	if err != nil {
 		return InsertResult{}, readPath(path, err)
@@ -152,7 +194,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	if after > total {
 		return InsertResult{}, invalidArg(fmt.Sprintf("insert: line (%d) out of range (0..%d)", after, total))
 	}
-	beforeStart := max(1, after-5+1)
+	beforeStart := max(1, after-5)
 	beforeEnd := min(total, after+5)
 	beforeContent := append([]string(nil), lines[beforeStart-1:beforeEnd]...)
 	newLines := prepareContentLines(content, le, raw)
@@ -161,6 +203,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	result = append(result, newLines...)
 	result = append(result, lines[after:]...)
 	newContent := strings.Join(result, "")
+	warnings := scanContentWarnings(newContent)
 	if !preview {
 		if err := writeFileAtomic(path, newContent, opts...); err != nil {
 			return InsertResult{}, writePath(path, err)
@@ -169,9 +212,13 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	afterTotal := len(result)
 	afterEnd := min(afterTotal, beforeEnd+len(newLines))
 	afterContent := append([]string(nil), result[beforeStart-1:afterEnd]...)
-	diff := buildDiff(beforeContent, afterContent, beforeStart, format)
-	balance := quickBalanceCheck(strings.Join(result, ""))
-	return InsertResult{
+	var diff string
+	var balance string
+	if !brief {
+		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+		balance = quickBalanceCheck(strings.Join(result, ""))
+	}
+	res := InsertResult{
 		Status:   "ok",
 		File:     filepath.Clean(path),
 		After:    after,
@@ -181,10 +228,36 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 		Balance:  balance,
 		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
 		Preview:  preview,
-	}, nil
+		Brief:    brief,
+		Warnings: warnings,
+	}
+	if !preview {
+		id, wasFull := PushSnapshot(SnapshotRecord{
+			Tool:  "be-insert",
+			File:  filepath.Clean(path),
+			Before: SnapshotRange{
+				Start: beforeStart,
+				End:   beforeEnd,
+				Lines: beforeContent,
+			},
+			After: SnapshotRange{
+				Start: beforeStart,
+				End:   afterEnd,
+				Lines: afterContent,
+			},
+			Args: map[string]any{
+				"file":  path,
+				"after": after,
+			},
+			Summary: fmt.Sprintf("be-insert on %s after line %d", filepath.Base(path), after),
+		})
+		res.EventID = id
+		res.QueueFull = wasFull
+	}
+	return res, nil
 }
 
-func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool, opts ...Option) (DeleteResult, error) {
+func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool, brief bool, opts ...Option) (DeleteResult, error) {
 	fileLines, _, err := readLines(path, opts...)
 	if err != nil {
 		return DeleteResult{}, readPath(path, err)
@@ -231,26 +304,57 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 			}
 			filtered = append(filtered, line)
 		}
-		newContent := strings.Join(filtered, "")
-		if !preview {
-			if err := writeFileAtomic(path, newContent, opts...); err != nil {
-				return DeleteResult{}, writePath(path, err)
-			}
+	newContent := strings.Join(filtered, "")
+	warnings := scanContentWarnings(newContent)
+	if !preview {
+		if err := writeFileAtomic(path, newContent, opts...); err != nil {
+			return DeleteResult{}, writePath(path, err)
 		}
-		afterTotal := len(filtered)
-		afterEnd := min(afterTotal, max(0, beforeEnd-len(valid)))
-		afterContent := append([]string(nil), filtered[beforeStart-1:afterEnd]...)
-		diff := buildDiff(beforeContent, afterContent, beforeStart, format)
-		balance := quickBalanceCheck(newContent)
-		return DeleteResult{
-			Status:   "ok",
-			File:     filepath.Clean(path),
-			Total:    afterTotal,
-			Diff:     diff,
-			Balance:  balance,
-			Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
-			Preview:  preview,
-		}, nil
+	}
+	afterTotal := len(filtered)
+	afterEnd := min(afterTotal, max(0, beforeEnd-len(valid)))
+	afterContent := append([]string(nil), filtered[beforeStart-1:afterEnd]...)
+	var diff string
+	var balance string
+	if !brief {
+		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+		balance = quickBalanceCheck(newContent)
+	}
+	res := DeleteResult{
+		Status:   "ok",
+		File:     filepath.Clean(path),
+		Total:    afterTotal,
+		Diff:     diff,
+		Balance:  balance,
+		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
+		Preview:  preview,
+		Brief:    brief,
+		Warnings: warnings,
+	}
+	if !preview {
+		id, wasFull := PushSnapshot(SnapshotRecord{
+			Tool:  "be-delete",
+			File:  filepath.Clean(path),
+			Before: SnapshotRange{
+				Start: beforeStart,
+				End:   beforeEnd,
+				Lines: beforeContent,
+			},
+			After: SnapshotRange{
+				Start: beforeStart,
+				End:   afterEnd,
+				Lines: afterContent,
+			},
+			Args: map[string]any{
+				"file":  path,
+				"lines": len(valid),
+			},
+			Summary: fmt.Sprintf("be-delete on %s (%d lines)", filepath.Base(path), len(valid)),
+		})
+		res.EventID = id
+		res.QueueFull = wasFull
+	}
+	return res, nil
 	}
 
 	s := start
@@ -280,6 +384,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 	result := append([]string(nil), fileLines[:s-1]...)
 	result = append(result, fileLines[e:]...)
 	newContent := strings.Join(result, "")
+	warnings := scanContentWarnings(newContent)
 	if !preview {
 		if err := writeFileAtomic(path, newContent, opts...); err != nil {
 			return DeleteResult{}, writePath(path, err)
@@ -288,9 +393,13 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 	afterTotal := len(result)
 	afterEnd := min(afterTotal, max(0, beforeEnd-deleted))
 	afterContent := append([]string(nil), result[beforeStart-1:afterEnd]...)
-	diff := buildDiff(beforeContent, afterContent, beforeStart, format)
-	balance := quickBalanceCheck(strings.Join(result, ""))
-	return DeleteResult{
+	var diff string
+	var balance string
+	if !brief {
+		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+		balance = quickBalanceCheck(strings.Join(result, ""))
+	}
+	res := DeleteResult{
 		Status:   "ok",
 		File:     filepath.Clean(path),
 		Total:    afterTotal,
@@ -298,10 +407,37 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 		Balance:  balance,
 		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
 		Preview:  preview,
-	}, nil
+		Brief:    brief,
+		Warnings: warnings,
+	}
+	if !preview {
+		id, wasFull := PushSnapshot(SnapshotRecord{
+			Tool:  "be-delete",
+			File:  filepath.Clean(path),
+			Before: SnapshotRange{
+				Start: beforeStart,
+				End:   beforeEnd,
+				Lines: beforeContent,
+			},
+			After: SnapshotRange{
+				Start: beforeStart,
+				End:   afterEnd,
+				Lines: afterContent,
+			},
+			Args: map[string]any{
+				"file":  path,
+				"start": s,
+				"end":   e,
+			},
+			Summary: fmt.Sprintf("be-delete on %s lines %d-%d", filepath.Base(path), s, e),
+		})
+		res.EventID = id
+		res.QueueFull = wasFull
+	}
+	return res, nil
 }
 
-func Batch(spec string, preview bool, opts ...Option) (BatchResult, error) {
+func Batch(spec string, preview bool, brief bool, opts ...Option) (BatchResult, error) {
 	var raw any
 	if err := jsonUnmarshal(spec, &raw); err != nil {
 		return BatchResult{}, jsonParse(err)
@@ -310,14 +446,59 @@ func Batch(spec string, preview bool, opts ...Option) (BatchResult, error) {
 	if err != nil {
 		return BatchResult{}, err
 	}
+	var lastEventID string
+	var anyQueueFull bool
 	results := make([]BatchFileResult, 0, len(fileSpecs))
 	for _, fileSpec := range fileSpecs {
 		lines, le, err := readLines(fileSpec.File, opts...)
 		if err != nil {
 			return BatchResult{}, readPath(fileSpec.File, err)
 		}
+		initialLines := make([]string, len(lines))
+		copy(initialLines, lines)
+		totalBefore := len(lines)
+
 		edits := fileSpec.Edits
 		sortEditsDesc(edits)
+
+		// Compute affected range for snapshot window
+		var editMinStart, editMaxEnd int
+		for _, edit := range edits {
+			switch edit.Action {
+			case "replace-lines", "delete-lines":
+				if s, ok := asInt(edit.Start); ok {
+					if editMinStart == 0 || s < editMinStart {
+						editMinStart = s
+					}
+				}
+				if e, ok := asInt(edit.End); ok {
+					if editMaxEnd == 0 || e > editMaxEnd {
+						editMaxEnd = e
+					}
+				}
+			case "insert-after":
+				if ln, ok := asInt(edit.Line); ok {
+					ins := ln + 1
+					if editMinStart == 0 || ins < editMinStart {
+						editMinStart = ins
+					}
+					if editMaxEnd == 0 || ins > editMaxEnd {
+						editMaxEnd = ins
+					}
+				}
+			}
+		}
+		if editMinStart == 0 {
+			editMinStart = 1
+		}
+		if editMaxEnd == 0 || editMaxEnd < editMinStart {
+			editMaxEnd = editMinStart
+		}
+
+		bStart := max(1, editMinStart-5)
+		bEnd := min(totalBefore, editMaxEnd+5)
+		beforeContent := append([]string(nil), initialLines[bStart-1:bEnd]...)
+
 		for _, edit := range edits {
 			switch edit.Action {
 			case "replace-lines":
@@ -376,14 +557,50 @@ func Batch(spec string, preview bool, opts ...Option) (BatchResult, error) {
 			}
 		}
 		newContent := strings.Join(lines, "")
+		warnings := scanContentWarnings(newContent)
 		if !preview {
 			if err := writeFileAtomic(fileSpec.File, newContent, opts...); err != nil {
 				return BatchResult{}, writePath(fileSpec.File, err)
 			}
 		}
-		results = append(results, BatchFileResult{File: fileSpec.File, Edits: len(edits), Total: len(lines)})
+		if !preview {
+			afterTotal := len(lines)
+			deltaLines := afterTotal - totalBefore
+			aStart := bStart
+			aEnd := min(afterTotal, bEnd+deltaLines)
+			afterContent := append([]string(nil), lines[aStart-1:aEnd]...)
+			id, wasFull := PushSnapshot(SnapshotRecord{
+				Tool: "be-batch",
+				File: filepath.Clean(fileSpec.File),
+				Before: SnapshotRange{
+					Start: bStart,
+					End:   bEnd,
+					Lines: beforeContent,
+				},
+				After: SnapshotRange{
+					Start: aStart,
+					End:   aEnd,
+					Lines: afterContent,
+				},
+				Args: map[string]any{
+					"file":  fileSpec.File,
+					"edits": len(edits),
+				},
+				Summary: fmt.Sprintf("be-batch on %s (%d edits)", filepath.Base(fileSpec.File), len(edits)),
+			})
+			lastEventID = id
+			if wasFull {
+				anyQueueFull = true
+			}
+		}
+		results = append(results, BatchFileResult{File: fileSpec.File, Edits: len(edits), Total: len(lines), Warnings: warnings})
 	}
-	return BatchResult{Status: "ok", Files: len(results), Results: results, Preview: preview}, nil
+	res := BatchResult{Status: "ok", Files: len(results), Results: results, Preview: preview, Brief: brief}
+	if lastEventID != "" {
+		res.EventID = lastEventID
+		res.QueueFull = anyQueueFull
+	}
+	return res, nil
 }
 
 func parseBatchSpec(raw any) ([]BatchFileSpec, error) {

@@ -75,7 +75,7 @@ func readFile(t *testing.T, path string) string {
 
 func TestShowAutoUsesFunctionRange(t *testing.T) {
 	path := writeTempFile(t, "main.go", "package main\n\nfunc demo() {\n\tprintln(\"x\")\n}\n")
-	res, _, err := Show(path, 3, -1)
+	res, _, err := Show(path, 3, -1, false)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestShowAutoUsesFunctionRange(t *testing.T) {
 
 func TestShowExplicitRange(t *testing.T) {
 	path := writeTempFile(t, "main.go", "one\ntwo\nthree\n")
-	res, _, err := Show(path, 2, 3)
+	res, _, err := Show(path, 2, 3, false)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
@@ -103,11 +103,11 @@ func TestShowExplicitRange(t *testing.T) {
 
 func TestReadAlias(t *testing.T) {
 	path := writeTempFile(t, "alias.txt", "a\nb\n")
-	showRes, showID, err := Show(path, 1, 1)
+	showRes, showID, err := Show(path, 1, 1, false)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
-	readRes, readID, err := Read(path, 1, 1)
+	readRes, readID, err := Read(path, 1, 1, false)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestReadAlias(t *testing.T) {
 func TestReplacePreviewDoesNotWrite(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
 	old := "b\n"
-	res, err := Replace(path, 2, 2, &old, "x", true, "plain", true, "")
+	res, err := Replace(path, 2, 2, &old, "x", true, "plain", true, "", false)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestReplacePreviewDoesNotWrite(t *testing.T) {
 func TestReplaceRejectsOldMismatch(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
 	old := "x\n"
-	if _, err := Replace(path, 2, 2, &old, "y", true, "plain", true, ""); err == nil {
+	if _, err := Replace(path, 2, 2, &old, "y", true, "plain", true, "", false); err == nil {
 		t.Fatalf("expected mismatch error")
 	}
 	if got := readFile(t, path); got != "a\nb\nc\n" {
@@ -147,13 +147,13 @@ func TestReplaceRejectsOldMismatch(t *testing.T) {
 
 func TestInsertAndDeleteWriteFile(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\n")
-	if _, err := Insert(path, 1, "x", true, "plain", false); err != nil {
+	if _, err := Insert(path, 1, "x", true, "plain", false, false); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 	if got := readFile(t, path); got != "a\nx\nb\n" {
 		t.Fatalf("unexpected after insert: %q", got)
 	}
-	if _, err := Delete(path, 2, 2, 0, nil, "plain", false); err != nil {
+	if _, err := Delete(path, 2, 2, 0, nil, "plain", false, false); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 	if got := readFile(t, path); got != "a\nb\n" {
@@ -164,7 +164,7 @@ func TestInsertAndDeleteWriteFile(t *testing.T) {
 func TestBatchSortsFromBottomUp(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\nd\n")
 	spec := `{"file":"` + path + `","edits":[{"action":"delete-lines","start":2,"end":2},{"action":"insert-after","line":1,"content":"x"},{"action":"replace-lines","start":4,"end":4,"content":"z"}]}`
-	res, err := Batch(spec, false)
+	res, err := Batch(spec, false, false)
 	if err != nil {
 		t.Fatalf("batch: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestBatchSortsFromBottomUp(t *testing.T) {
 func TestWriteDegradedParser(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := `{"file":"` + path + `","content":"hello\nworld"}`
-	res, err := Write(spec, false, false)
+	res, err := Write(spec, false, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestWriteRawFallback(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := `{"file":"` + path + `","content":"hello
 world"}`
-	res, err := Write(spec, false, false)
+	res, err := Write(spec, false, false, false)
 	if err != nil {
 		t.Fatalf("write fallback: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestShowRejectsBinaryFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte{0x00, 0x01, 0x02, 0x7f, 0xff}, 0o644); err != nil {
 		t.Fatalf("write binary: %v", err)
 	}
-	_, _, err := Show(path, 1, 1)
+	_, _, err := Show(path, 1, 1, false)
 	if err == nil {
 		t.Fatal("expected binary rejection")
 	}
@@ -225,10 +225,10 @@ func TestInjectedFileSystemIsUsed(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sandbox.txt")
 	fsys := sandboxFS{root: dir}
-	if _, _, err := Show(path, 1, 1, WithFileSystem(fsys)); err == nil {
+	if _, _, err := Show(path, 1, 1, false, WithFileSystem(fsys)); err == nil {
 		t.Fatal("expected error for missing file inside injected fs")
 	}
-	if _, err := Write(`{"file":"sandbox.txt","content":"hello"}`, false, false, WithFileSystem(fsys)); err != nil {
+	if _, err := Write(`{"file":"sandbox.txt","content":"hello"}`, false, false, false, WithFileSystem(fsys)); err != nil {
 		t.Fatalf("write with injected fs: %v", err)
 	}
 	got, err := os.ReadFile(path)
