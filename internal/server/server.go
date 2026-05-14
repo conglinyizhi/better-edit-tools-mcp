@@ -199,7 +199,7 @@ func (s *Server) listTools() []Tool {
 					"raw":        map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
 					"format":     map[string]any{"type": "string"},
 					"preview":    map[string]any{"type": "boolean"},
-					"brief":    map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
+					"brief":      map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 					"target": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -226,7 +226,7 @@ func (s *Server) listTools() []Tool {
 					"lines":      map[string]any{"type": "string"},
 					"format":     map[string]any{"type": "string"},
 					"preview":    map[string]any{"type": "boolean"},
-					"brief":    map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
+					"brief":      map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 					"target": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -331,38 +331,38 @@ func (s *Server) listTools() []Tool {
 				},
 			},
 		},
-	{
-		Name:        "be-trx-commit",
-		Description: localizedDescription(s.lang, "be-trx-commit"),
-		InputSchema: map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
-		},
-	},
-	{
-		Name:        "be-trx-rollback",
-		Description: localizedDescription(s.lang, "be-trx-rollback"),
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"step": map[string]any{
-					"type":        "integer",
-					"minimum":     1,
-					"default":     1,
-					"description": "number of snapshots to roll back from most recent",
-				},
+		{
+			Name:        "be-trx-commit",
+			Description: localizedDescription(s.lang, "be-trx-commit"),
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
 			},
-			"required": []string{"step"},
 		},
-	},
-	{
-		Name:        "be-trx-status",
-		Description: localizedDescription(s.lang, "be-trx-status"),
-		InputSchema: map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
+		{
+			Name:        "be-trx-rollback",
+			Description: localizedDescription(s.lang, "be-trx-rollback"),
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"step": map[string]any{
+						"type":        "integer",
+						"minimum":     1,
+						"default":     1,
+						"description": "number of snapshots to roll back from most recent",
+					},
+				},
+				"required": []string{"step"},
+			},
 		},
-	},
+		{
+			Name:        "be-trx-status",
+			Description: localizedDescription(s.lang, "be-trx-status"),
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
 	}
 	return specs
 }
@@ -394,31 +394,31 @@ func (s *Server) readTool(name, description string) Tool {
 
 func localizedDescription(lang, name string) string {
 	zh := map[string]string{
-		"be-read":        "按行号读取文件内容。",
-		"be-replace":     "替换文件中的指定行范围。",
-		"be-insert":      "在指定行后插入内容。",
-		"be-delete":      "删除单行、范围或批量指定的行号。",
-		"be-batch":       "一次执行多处编辑，支持多文件。",
-		"be-write":       "直接写入文件内容，JSON 失败时会尽量降级解析。",
-		"be-func-range":  "定位某一行所在的函数或花括号范围。",
-		"be-tag-range":   "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
-		"be-balance":     "检查括号、标签和引号的配对情况。",
-		"be-insert-chip": "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
+		"be-read":         "按行号读取文件内容。",
+		"be-replace":      "替换文件中的指定行范围。",
+		"be-insert":       "在指定行后插入内容。",
+		"be-delete":       "删除单行、范围或批量指定的行号。",
+		"be-batch":        "一次执行多处编辑，支持多文件。",
+		"be-write":        "直接写入文件内容，JSON 失败时会尽量降级解析。",
+		"be-func-range":   "定位某一行所在的函数或花括号范围。",
+		"be-tag-range":    "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
+		"be-balance":      "检查括号、标签和引号的配对情况。",
+		"be-insert-chip":  "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
 		"be-trx-commit":   "提交所有待确认的编辑快照（清空队列）。",
 		"be-trx-rollback": "回滚最近 N 个编辑快照。step 从 1 开始，表示回滚最近几个操作。",
 		"be-trx-status":   "查看待处理的编辑快照及队列使用情况。",
 	}
 	en := map[string]string{
-		"be-read":        "Read file content with line numbers.",
-		"be-replace":     "Replace a precise line range in a file.",
-		"be-insert":      "Insert content after a specific line.",
-		"be-delete":      "Delete one line, a line range, or a batch of line numbers.",
-		"be-batch":       "Apply multiple edits in one call, including multi-file edits.",
-		"be-write":       "Write raw content to file(s), with a degraded parser for malformed JSON payloads.",
-		"be-func-range":  "Find the enclosing function or brace block for a given line.",
-		"be-tag-range":   "Find the enclosing XML/HTML/Vue tag pair for a given line.",
-		"be-balance":     "Check bracket, brace, parenthesis, tag, and quote balance.",
-		"be-insert-chip": "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
+		"be-read":         "Read file content with line numbers.",
+		"be-replace":      "Replace a precise line range in a file.",
+		"be-insert":       "Insert content after a specific line.",
+		"be-delete":       "Delete one line, a line range, or a batch of line numbers.",
+		"be-batch":        "Apply multiple edits in one call, including multi-file edits.",
+		"be-write":        "Write raw content to file(s), with a degraded parser for malformed JSON payloads.",
+		"be-func-range":   "Find the enclosing function or brace block for a given line.",
+		"be-tag-range":    "Find the enclosing XML/HTML/Vue tag pair for a given line.",
+		"be-balance":      "Check bracket, brace, parenthesis, tag, and quote balance.",
+		"be-insert-chip":  "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
 		"be-trx-commit":   "Commit all pending edit snapshots (clear the queue).",
 		"be-trx-rollback": "Roll back the last N edit snapshots from the queue.",
 		"be-trx-status":   "Show pending edit snapshots and queue usage.",
