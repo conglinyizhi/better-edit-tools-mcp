@@ -503,3 +503,34 @@ func TestDeleteWithTarget_PreservesAdjacentCode(t *testing.T) {
 	}
 	_ = res
 }
+
+func TestBalancePositionTrace(t *testing.T) {
+	// File with unbalanced '{' that has no matching '}'
+	path := writeTempFile(t, "a.js", "var x = {\n")
+	out, err := CheckStructureBalance(path, false)
+	if err != nil {
+		t.Fatalf("balance: %v", err)
+	}
+	var v map[string]any
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("json parse: %v", err)
+	}
+	unbalanced, ok := v["unbalanced"].([]any)
+	if !ok || len(unbalanced) == 0 {
+		t.Fatal("expected unbalanced items from bracket mismatch")
+	}
+	foundCol := false
+	for _, item := range unbalanced {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if col, has := m["col"]; has {
+			foundCol = true
+			t.Logf("unbalanced %v at line %v col %v", m["symbol"], m["line"], col)
+		}
+	}
+	if !foundCol {
+		t.Error("expected col field in unbalanced item output")
+	}
+}

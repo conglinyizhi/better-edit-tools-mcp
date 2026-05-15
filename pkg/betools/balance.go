@@ -170,7 +170,7 @@ lineLoop:
 				}
 				if ch == '$' && next == '{' {
 					symbolLines["{"] = append(symbolLines["{"], lineNum)
-					stack = append(stack, tagItem{name: "{", line: lineNum})
+					stack = append(stack, tagItem{name: "{", line: lineNum, col: col + 1})
 					modes = append(modes, frame{mode: modeTemplateExpr, braceDepth: 1})
 					regexCanStart = true
 					col++
@@ -277,7 +277,7 @@ lineLoop:
 				if _, ok := voidElts[strings.ToLower(tagName)]; ok {
 					continue
 				}
-				tagStack = append(tagStack, tagItem{name: strings.ToLower(tagName), line: lineNum})
+				tagStack = append(tagStack, tagItem{name: strings.ToLower(tagName), line: lineNum, col: col + 1})
 				continue
 			}
 
@@ -288,7 +288,7 @@ lineLoop:
 				symbolLines[chStr] = append(symbolLines[chStr], lineNum)
 			}
 			if ch == '{' || ch == '[' || ch == '(' {
-				stack = append(stack, tagItem{name: chStr, line: lineNum})
+				stack = append(stack, tagItem{name: chStr, line: lineNum, col: col + 1})
 				if inTemplateExpr && ch == '{' {
 					top.braceDepth++
 				}
@@ -299,7 +299,7 @@ lineLoop:
 					stack = stack[:len(stack)-1]
 					matched = append(matched, MatchedPair{Symbol: expectedOpen + chStr, OpenLine: last.line, CloseLine: lineNum, Depth: len(stack) + 1})
 				} else {
-					unbalanced = append(unbalanced, UnbalancedItem{Symbol: chStr, Line: lineNum, Expected: map[byte]string{'}': "{", ']': "[", ')': "("}[ch]})
+					unbalanced = append(unbalanced, UnbalancedItem{Symbol: chStr, Line: lineNum, Col: col + 1, Expected: map[byte]string{'}': "{", ']': "[", ')': "("}[ch]})
 				}
 				if inTemplateExpr && ch == '}' {
 					if top.braceDepth > 1 {
@@ -327,11 +327,11 @@ lineLoop:
 		}
 	}
 
-	for _, item := range stack {
-		unbalanced = append(unbalanced, UnbalancedItem{Symbol: item.name, Line: item.line, Expected: map[string]string{"{": "}", "[": "]", "(": ")"}[item.name]})
+for _, item := range stack {
+		unbalanced = append(unbalanced, UnbalancedItem{Symbol: item.name, Line: item.line, Col: item.col, Expected: map[string]string{"{": "}", "[": "]", "(": ")"}[item.name]})
 	}
-	for _, item := range tagStack {
-		unbalanced = append(unbalanced, UnbalancedItem{Symbol: "<" + item.name + ">", Line: item.line, Expected: "</" + item.name + ">"})
+for _, item := range tagStack {
+		unbalanced = append(unbalanced, UnbalancedItem{Symbol: "<" + item.name + ">", Line: item.line, Col: item.col, Expected: "</" + item.name + ">"})
 	}
 
 	var quoteWarnings []QuoteWarning
@@ -349,8 +349,8 @@ lineLoop:
 type tagItem struct {
 	name string
 	line int
+	col  int
 }
-
 func formatAggregate(symbolLines map[string][]int) string {
 	order := []string{"{", "}", "(", ")", "[", "]"}
 	var lines []string

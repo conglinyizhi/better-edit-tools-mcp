@@ -144,6 +144,7 @@ type MatchedPair struct {
 type UnbalancedItem struct {
 	Symbol   string `json:"symbol"`
 	Line     int    `json:"line"`
+	Col      int    `json:"col,omitempty"`
 	Expected string `json:"expected"`
 }
 
