@@ -327,10 +327,10 @@ lineLoop:
 		}
 	}
 
-for _, item := range stack {
+	for _, item := range stack {
 		unbalanced = append(unbalanced, UnbalancedItem{Symbol: item.name, Line: item.line, Col: item.col, Expected: map[string]string{"{": "}", "[": "]", "(": ")"}[item.name]})
 	}
-for _, item := range tagStack {
+	for _, item := range tagStack {
 		unbalanced = append(unbalanced, UnbalancedItem{Symbol: "<" + item.name + ">", Line: item.line, Col: item.col, Expected: "</" + item.name + ">"})
 	}
 
@@ -351,6 +351,7 @@ type tagItem struct {
 	line int
 	col  int
 }
+
 func formatAggregate(symbolLines map[string][]int) string {
 	order := []string{"{", "}", "(", ")", "[", "]"}
 	var lines []string

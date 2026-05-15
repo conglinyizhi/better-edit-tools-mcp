@@ -283,6 +283,7 @@ func prepareContentLines(content, lineEnding string, raw bool) []string {
 //   - If content already has real newlines → correctly transmitted, no-op.
 //   - If no real newlines but contains literal \\n → semantic degradation, fix.
 //   - Otherwise → no-op.
+//
 // This is idempotent: running it on already-correct content produces no change.
 func normalizeLineBreaks(s string) string {
 	if strings.Contains(s, "\n") {
@@ -313,7 +314,7 @@ func scanContentWarnings(content string) []string {
 		warnings = append(warnings, fmt.Sprintf("content contains %d tab characters — verify indentation was preserved", tabCount))
 	}
 
-		lines := strings.Split(content, "\n")
+	lines := strings.Split(content, "\n")
 	hasTrailing := false
 	for _, line := range lines {
 		if len(line) > 0 {
@@ -328,7 +329,7 @@ func scanContentWarnings(content string) []string {
 		warnings = append(warnings, "content contains trailing whitespace on one or more lines")
 	}
 
-		if !strings.HasSuffix(content, "\n") {
+	if !strings.HasSuffix(content, "\n") {
 		warnings = append(warnings, "file does not end with a newline")
 	}
 

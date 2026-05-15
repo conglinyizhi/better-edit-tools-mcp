@@ -308,7 +308,7 @@ func TestReplaceContentWithLiteralNewlines_FixedByNormalize(t *testing.T) {
 	// When raw=false, prepareContentLines calls normalizeLineBreaks then parseContent
 	// normalizeLineBreaks converts literal \\n to real newlines
 	// parseContent handles \\t etc.
-	content := "x\\ny"  // Go: backslash-n as two chars
+	content := "x\\ny" // Go: backslash-n as two chars
 	res, err := Replace(path, 2, 2, nil, content, false, "plain", false, "", false)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
@@ -417,8 +417,8 @@ func TestParseContent_Escapes(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"\\n", "\n"},               // \\n → newline
-		{"\\t", "\t"},               // \\t → tab
+		{"\\n", "\n"},                // \\n → newline
+		{"\\t", "\t"},                // \\t → tab
 		{"\\\"", "\""},               // \\" → double quote
 		{"\\\\", "\\"},               // \\\\ → backslash
 		{"plain text", "plain text"}, // no escapes

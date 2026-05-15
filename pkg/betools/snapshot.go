@@ -31,9 +31,9 @@ type SnapshotRange struct {
 const MaxSnapshots = 30
 
 var (
-	snapshotMu   sync.Mutex
-	snapshots    []SnapshotRecord
-	snapshotIDs  map[string]struct{}
+	snapshotMu  sync.Mutex
+	snapshots   []SnapshotRecord
+	snapshotIDs map[string]struct{}
 )
 
 // PushSnapshot pushes a record onto the queue. If full, evicts oldest.

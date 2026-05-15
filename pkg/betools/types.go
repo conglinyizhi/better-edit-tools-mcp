@@ -24,61 +24,61 @@ type BatchFileSpec struct {
 }
 
 type ShowResult struct {
-	Status  string `json:"status"`
-	File    string `json:"file"`
-	Start   int    `json:"start"`
-	End     int    `json:"end"`
-	Total   int    `json:"total"`
-	Content string `json:"content"`
+	Status   string   `json:"status"`
+	File     string   `json:"file"`
+	Start    int      `json:"start"`
+	End      int      `json:"end"`
+	Total    int      `json:"total"`
+	Content  string   `json:"content"`
 	Brief    bool     `json:"brief,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 }
 
 type ReplaceResult struct {
-	Status   string   `json:"status"`
-	File     string   `json:"file"`
-	Removed  int      `json:"removed"`
-	Added    int      `json:"added"`
-	Total    int      `json:"total"`
-	Diff     string   `json:"diff"`
-	Balance  string   `json:"balance"`
-	Affected string   `json:"affected"`
-	Preview  bool     `json:"preview,omitempty"`
-	Warning  string   `json:"warning,omitempty"`
-	Brief    bool     `json:"brief,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
-	EventID  string   `json:"event_id,omitempty"`
-	QueueFull string  `json:"queue_full,omitempty"`
+	Status    string   `json:"status"`
+	File      string   `json:"file"`
+	Removed   int      `json:"removed"`
+	Added     int      `json:"added"`
+	Total     int      `json:"total"`
+	Diff      string   `json:"diff"`
+	Balance   string   `json:"balance"`
+	Affected  string   `json:"affected"`
+	Preview   bool     `json:"preview,omitempty"`
+	Warning   string   `json:"warning,omitempty"`
+	Brief     bool     `json:"brief,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
+	EventID   string   `json:"event_id,omitempty"`
+	QueueFull string   `json:"queue_full,omitempty"`
 }
 
 type InsertResult struct {
-	Status   string   `json:"status"`
-	File     string   `json:"file"`
-	After    int      `json:"after"`
-	Added    int      `json:"added"`
-	Total    int      `json:"total"`
-	Diff     string   `json:"diff"`
-	Balance  string   `json:"balance"`
-	Affected string   `json:"affected"`
-	Preview  bool     `json:"preview,omitempty"`
-	Brief    bool     `json:"brief,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
-	EventID  string   `json:"event_id,omitempty"`
-	QueueFull string  `json:"queue_full,omitempty"`
+	Status    string   `json:"status"`
+	File      string   `json:"file"`
+	After     int      `json:"after"`
+	Added     int      `json:"added"`
+	Total     int      `json:"total"`
+	Diff      string   `json:"diff"`
+	Balance   string   `json:"balance"`
+	Affected  string   `json:"affected"`
+	Preview   bool     `json:"preview,omitempty"`
+	Brief     bool     `json:"brief,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
+	EventID   string   `json:"event_id,omitempty"`
+	QueueFull string   `json:"queue_full,omitempty"`
 }
 
 type DeleteResult struct {
-	Status   string   `json:"status"`
-	File     string   `json:"file"`
-	Total    int      `json:"total"`
-	Diff     string   `json:"diff"`
-	Balance  string   `json:"balance"`
-	Affected string   `json:"affected"`
-	Preview  bool     `json:"preview,omitempty"`
-	Brief    bool     `json:"brief,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
-	EventID  string   `json:"event_id,omitempty"`
-	QueueFull string  `json:"queue_full,omitempty"`
+	Status    string   `json:"status"`
+	File      string   `json:"file"`
+	Total     int      `json:"total"`
+	Diff      string   `json:"diff"`
+	Balance   string   `json:"balance"`
+	Affected  string   `json:"affected"`
+	Preview   bool     `json:"preview,omitempty"`
+	Brief     bool     `json:"brief,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
+	EventID   string   `json:"event_id,omitempty"`
+	QueueFull string   `json:"queue_full,omitempty"`
 }
 
 type BatchFileResult struct {
@@ -89,13 +89,13 @@ type BatchFileResult struct {
 }
 
 type BatchResult struct {
-	Status  string            `json:"status"`
-	Files   int               `json:"files"`
-	Results []BatchFileResult `json:"results"`
-	Preview bool              `json:"preview,omitempty"`
-	Brief   bool              `json:"brief,omitempty"`
-	EventID string            `json:"event_id,omitempty"`
-	QueueFull string           `json:"queue_full,omitempty"`
+	Status    string            `json:"status"`
+	Files     int               `json:"files"`
+	Results   []BatchFileResult `json:"results"`
+	Preview   bool              `json:"preview,omitempty"`
+	Brief     bool              `json:"brief,omitempty"`
+	EventID   string            `json:"event_id,omitempty"`
+	QueueFull string            `json:"queue_full,omitempty"`
 }
 
 type WriteSpecItem struct {
@@ -111,14 +111,14 @@ type WriteFileResult struct {
 }
 
 type WriteResult struct {
-	Status   string            `json:"status"`
-	Files    int               `json:"files"`
-	Results  []WriteFileResult `json:"results"`
-	Degraded bool              `json:"degraded,omitempty"`
-	Warning  string            `json:"warning,omitempty"`
-	Preview  bool              `json:"preview,omitempty"`
-	Brief    bool              `json:"brief,omitempty"`
-	EventID  string            `json:"event_id,omitempty"`
+	Status    string            `json:"status"`
+	Files     int               `json:"files"`
+	Results   []WriteFileResult `json:"results"`
+	Degraded  bool              `json:"degraded,omitempty"`
+	Warning   string            `json:"warning,omitempty"`
+	Preview   bool              `json:"preview,omitempty"`
+	Brief     bool              `json:"brief,omitempty"`
+	EventID   string            `json:"event_id,omitempty"`
 	QueueFull string            `json:"queue_full,omitempty"`
 }
 

@@ -157,8 +157,8 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 	}
 	if !preview {
 		id, queueFull := PushSnapshot(SnapshotRecord{
-			Tool:  "be-replace",
-			File:  filepath.Clean(path),
+			Tool: "be-replace",
+			File: filepath.Clean(path),
 			Before: SnapshotRange{
 				Start: beforeStart,
 				End:   beforeEnd,
@@ -234,8 +234,8 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	}
 	if !preview {
 		id, queueFull := PushSnapshot(SnapshotRecord{
-			Tool:  "be-insert",
-			File:  filepath.Clean(path),
+			Tool: "be-insert",
+			File: filepath.Clean(path),
 			Before: SnapshotRange{
 				Start: beforeStart,
 				End:   beforeEnd,
@@ -305,57 +305,57 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 			}
 			filtered = append(filtered, line)
 		}
-	newContent := strings.Join(filtered, "")
-	warnings := scanContentWarnings(newContent)
-	if !preview {
-		if err := writeFileAtomic(path, newContent, opts...); err != nil {
-			return DeleteResult{}, writePath(path, err)
+		newContent := strings.Join(filtered, "")
+		warnings := scanContentWarnings(newContent)
+		if !preview {
+			if err := writeFileAtomic(path, newContent, opts...); err != nil {
+				return DeleteResult{}, writePath(path, err)
+			}
 		}
-	}
-	afterTotal := len(filtered)
-	afterEnd := min(afterTotal, max(0, beforeEnd-len(valid)))
-	afterContent := append([]string(nil), filtered[beforeStart-1:afterEnd]...)
-	var diff string
-	var balance string
-	if !brief {
-		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
-		balance = quickBalanceCheck(newContent)
-	}
-	res := DeleteResult{
-		Status:   "ok",
-		File:     filepath.Clean(path),
-		Total:    afterTotal,
-		Diff:     diff,
-		Balance:  balance,
-		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
-		Preview:  preview,
-		Brief:    brief,
-		Warnings: warnings,
-	}
-	if !preview {
-		id, queueFull := PushSnapshot(SnapshotRecord{
-			Tool:  "be-delete",
-			File:  filepath.Clean(path),
-			Before: SnapshotRange{
-				Start: beforeStart,
-				End:   beforeEnd,
-				Lines: beforeContent,
-			},
-			After: SnapshotRange{
-				Start: beforeStart,
-				End:   afterEnd,
-				Lines: afterContent,
-			},
-			Args: map[string]any{
-				"file":  path,
-				"lines": len(valid),
-			},
-			Summary: fmt.Sprintf("be-delete on %s (%d lines)", filepath.Base(path), len(valid)),
-		})
-		res.EventID = id
-		res.QueueFull = queueFull
-	}
-	return res, nil
+		afterTotal := len(filtered)
+		afterEnd := min(afterTotal, max(0, beforeEnd-len(valid)))
+		afterContent := append([]string(nil), filtered[beforeStart-1:afterEnd]...)
+		var diff string
+		var balance string
+		if !brief {
+			diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+			balance = quickBalanceCheck(newContent)
+		}
+		res := DeleteResult{
+			Status:   "ok",
+			File:     filepath.Clean(path),
+			Total:    afterTotal,
+			Diff:     diff,
+			Balance:  balance,
+			Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
+			Preview:  preview,
+			Brief:    brief,
+			Warnings: warnings,
+		}
+		if !preview {
+			id, queueFull := PushSnapshot(SnapshotRecord{
+				Tool: "be-delete",
+				File: filepath.Clean(path),
+				Before: SnapshotRange{
+					Start: beforeStart,
+					End:   beforeEnd,
+					Lines: beforeContent,
+				},
+				After: SnapshotRange{
+					Start: beforeStart,
+					End:   afterEnd,
+					Lines: afterContent,
+				},
+				Args: map[string]any{
+					"file":  path,
+					"lines": len(valid),
+				},
+				Summary: fmt.Sprintf("be-delete on %s (%d lines)", filepath.Base(path), len(valid)),
+			})
+			res.EventID = id
+			res.QueueFull = queueFull
+		}
+		return res, nil
 	}
 
 	s := start
@@ -426,8 +426,8 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 	}
 	if !preview {
 		id, queueFull := PushSnapshot(SnapshotRecord{
-			Tool:  "be-delete",
-			File:  filepath.Clean(path),
+			Tool: "be-delete",
+			File: filepath.Clean(path),
 			Before: SnapshotRange{
 				Start: beforeStart,
 				End:   beforeEnd,

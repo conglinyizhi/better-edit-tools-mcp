@@ -25,9 +25,9 @@ type ChipRecord struct {
 
 // chipStore is a global FIFO queue of chip records, protected by a mutex.
 var (
-	chipMu     sync.Mutex
-	chipStore  []ChipRecord
-	chipIDSet  map[string]struct{}
+	chipMu      sync.Mutex
+	chipStore   []ChipRecord
+	chipIDSet   map[string]struct{}
 	chipDirInit sync.Once
 )
 
