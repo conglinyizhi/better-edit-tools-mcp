@@ -534,3 +534,16 @@ func TestBalancePositionTrace(t *testing.T) {
 		t.Error("expected col field in unbalanced item output")
 	}
 }
+func TestIsTabDominant(t *testing.T) {
+	// Tab-dominant content: >50% of non-empty lines start with tab
+	tabContent := "func main() {\n\tif true {\n\t\treturn 1\n\t}\n\treturn 2\n}\n"
+	if !isTabDominant(tabContent) {
+		t.Fatal("expected code with mostly tab-indented lines to be tab-dominant")
+	}
+
+	// Space-dominant content (Markdown or plain text)
+	spaceContent := "Hello world\n  indented with spaces\n  another line\n"
+	if isTabDominant(spaceContent) {
+		t.Fatal("expected space-indented content to NOT be tab-dominant")
+	}
+}

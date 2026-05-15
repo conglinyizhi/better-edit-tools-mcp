@@ -308,8 +308,8 @@ func rustLineCount(content string) int {
 func scanContentWarnings(content string) []string {
 	var warnings []string
 
-	tabCount := strings.Count(content, "	")
-	if tabCount > 0 {
+	tabCount := strings.Count(content, "\t")
+	if tabCount > 0 && !isTabDominant(content) {
 		warnings = append(warnings, fmt.Sprintf("content contains %d tab characters — verify indentation was preserved", tabCount))
 	}
 
@@ -333,4 +333,25 @@ func scanContentWarnings(content string) []string {
 	}
 
 	return warnings
+}
+
+// isTabDominant returns true when >50% of non-empty lines start with a tab.
+// For Go, Python, Makefile, and shell scripts, tab indentation is conventional,
+// so the tab warning would be noise.
+func isTabDominant(content string) bool {
+	lines := strings.Split(content, "\n")
+	var total, tabStart int
+	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		total++
+		if line[0] == '\t' {
+			tabStart++
+		}
+	}
+	if total == 0 {
+		return false
+	}
+	return tabStart > total/2
 }
