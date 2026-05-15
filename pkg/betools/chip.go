@@ -148,3 +148,60 @@ func isBinary(data []byte) bool {
 	}
 	return false
 }
+
+// SaveContentChip saves arbitrary content as a chip record and returns the ID.
+// Unlike SaveChip (which stores tool args), this stores content directly.
+// Returns the chip ID and a warning string if oldest chips were evicted.
+func SaveContentChip(tool string, content string) (id string, overflowWarn string) {
+	chipMu.Lock()
+	defer chipMu.Unlock()
+
+	if chipIDSet == nil {
+		chipIDSet = make(map[string]struct{}, maxChips)
+	}
+
+	id = newShortID(chipIDExists)
+	record := ChipRecord{
+		ID:        id,
+		Tool:      tool,
+		Args:      map[string]any{"_content": content},
+		CreatedAt: time.Now().Unix(),
+	}
+
+	chipIDSet[id] = struct{}{}
+	chipStore = append(chipStore, record)
+
+	if len(chipStore) > maxChips {
+		removed := chipStore[0]
+		delete(chipIDSet, removed.ID)
+		chipStore = chipStore[1:]
+		removeChipFile(removed.ID)
+		overflowWarn = fmt.Sprintf("oldest chip %s was evicted (queue max %d)", removed.ID, maxChips)
+	}
+
+	persistChip(record)
+	return id, overflowWarn
+}
+
+// ChipQueueInfo returns current chip queue metadata for status reporting.
+type ChipQueueInfo struct {
+	Count   int      `json:"count"`
+	Max     int      `json:"max"`
+	IDs     []string `json:"ids,omitempty"`
+	Warning string   `json:"warning,omitempty"`
+}
+
+func ChipQueueInfoValue() ChipQueueInfo {
+	chipMu.Lock()
+	defer chipMu.Unlock()
+
+	ids := make([]string, len(chipStore))
+	for i, c := range chipStore {
+		ids[i] = c.ID
+	}
+	return ChipQueueInfo{
+		Count: len(chipStore),
+		Max:   maxChips,
+		IDs:   ids,
+	}
+}

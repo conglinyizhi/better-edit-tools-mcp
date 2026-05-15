@@ -547,3 +547,32 @@ func TestIsTabDominant(t *testing.T) {
 		t.Fatal("expected space-indented content to NOT be tab-dominant")
 	}
 }
+
+func TestDeleteSavesChip(t *testing.T) {
+	content := "line1\nline2\nline3\n"
+	path := writeTempFile(t, "a.txt", content)
+
+	// Delete line 2 — should save to chip
+	res, err := Delete(path, 2, 2, 0, nil, "plain", false, false)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	// Verify warnings contain chip reference
+	foundChip := false
+	for _, w := range res.Warnings {
+		if strings.Contains(w, "chip://") {
+			foundChip = true
+			break
+		}
+	}
+	if !foundChip {
+		t.Fatalf("expected chip reference in delete warnings, got %v", res.Warnings)
+	}
+
+	// Verify the file was modified correctly
+	got := readFile(t, path)
+	if got != "line1\nline3\n" {
+		t.Fatalf("unexpected content after delete: %q", got)
+	}
+}

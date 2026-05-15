@@ -391,6 +391,15 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 	newContent := strings.Join(result, "")
 	warnings := scanContentWarnings(newContent)
 	if !preview {
+		// Save deleted content as a chip for potential recovery
+		deletedContent := strings.Join(fileLines[s-1:e], "")
+		if deletedContent != "" {
+			chipID, chipWarn := SaveContentChip("be-delete", deletedContent)
+			warnings = append(warnings, fmt.Sprintf("deleted content saved as chip://%s", chipID))
+			if chipWarn != "" {
+				warnings = append(warnings, chipWarn)
+			}
+		}
 		if err := writeFileAtomic(path, newContent, opts...); err != nil {
 			return DeleteResult{}, writePath(path, err)
 		}
