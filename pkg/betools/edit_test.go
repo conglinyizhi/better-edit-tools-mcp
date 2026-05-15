@@ -465,3 +465,41 @@ func TestSnapshotQueueFullReturnsWarning(t *testing.T) {
 	// Cleanup
 	CommitSnapshots()
 }
+
+func TestBracesInRange_Balanced(t *testing.T) {
+	lines := []string{"func a() {", "\treturn 1", "}"}
+	if err := bracesInRange(lines, 1, 3); err != nil {
+		t.Fatalf("expected balanced braces, got: %v", err)
+	}
+}
+
+func TestBracesInRange_Unbalanced(t *testing.T) {
+	lines := []string{"func a() {", "\treturn 1", "}", "func b() {"}
+	if err := bracesInRange(lines, 1, 4); err == nil {
+		t.Fatal("expected error for unbalanced braces")
+	}
+}
+
+func TestDeleteWithTarget_PreservesAdjacentCode(t *testing.T) {
+	content := "package main\n\nfunc first() {\n\treturn 1\n}\n\nfunc second() {\n\treturn 2\n}\n"
+	path := writeTempFile(t, "main.go", content)
+
+	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "function", Value: "second"})
+	if err != nil {
+		t.Fatalf("resolve target: %v", err)
+	}
+
+	res, err := Delete(path, span.Start, span.End, 0, nil, "plain", false, false)
+	if err != nil {
+		t.Fatalf("delete second function: %v", err)
+	}
+
+	got := readFile(t, path)
+	if !strings.Contains(got, "func first() {") {
+		t.Fatalf("first function should remain after deleting second")
+	}
+	if strings.Contains(got, "func second() {") {
+		t.Fatalf("second function should be deleted")
+	}
+	_ = res
+}

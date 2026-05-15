@@ -102,9 +102,19 @@ func functionRangeRaw(path string, targetLine int, opts ...Option) (int, int, er
 	for _, rg := range ranges {
 		if rg[0] <= targetLine && targetLine <= rg[1] {
 			// Walk backwards from the brace block start to find the signature line
+			// Stop at function boundaries (lines with '}') or blank lines
 			sigStart := rg[0]
 			for i := rg[0] - 2; i >= 0; i-- {
 				l := strings.TrimSpace(lines[i])
+				// Stop at function boundaries — a line with only '}' means we
+				// crossed into a preceding function's closing brace
+				if l == "}" {
+					break
+				}
+				// Stop at blank lines (they separate function signatures)
+				if len(l) == 0 {
+					break
+				}
 				if strings.HasPrefix(l, "func ") || strings.HasPrefix(l, "type ") ||
 					strings.HasPrefix(l, "func (") || strings.HasPrefix(l, "func[") ||
 					strings.HasPrefix(l, "} func ") || strings.HasPrefix(l, "} func (") {
@@ -122,7 +132,6 @@ func functionRangeRaw(path string, targetLine int, opts ...Option) (int, int, er
 	}
 	return 0, 0, invalidArg(fmt.Sprintf("line %d is not inside any function/block (brace detection)", targetLine))
 }
-
 func FuncRange(path string, line int, opts ...Option) (FunctionRangeResult, error) {
 	start, end, err := functionRangeRaw(path, line, opts...)
 	if err != nil {

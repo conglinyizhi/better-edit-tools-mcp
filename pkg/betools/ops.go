@@ -378,6 +378,10 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 	if e < s || e > total {
 		return DeleteResult{}, invalidArg(fmt.Sprintf("delete: end (%d) out of range (%d..%d)", e, s, total))
 	}
+	// Validate brace balance in the target range to prevent corrupting adjacent code
+	if err := bracesInRange(fileLines, s, e); err != nil {
+		return DeleteResult{}, err
+	}
 	beforeStart := max(1, s-5)
 	beforeEnd := min(total, e+5)
 	beforeContent := append([]string(nil), fileLines[beforeStart-1:beforeEnd]...)
@@ -733,4 +737,27 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// bracesInRange checks whether the braces within lines start..end are balanced.
+// This is used as a safety check on target-resolved ranges to prevent
+// off-by-one errors from corrupting adjacent code.
+func bracesInRange(lines []string, start, end int) error {
+	if start < 1 || start > len(lines) || end < start || end > len(lines) {
+		return nil
+	}
+	var depth int
+	for i := start - 1; i < end; i++ {
+		for _, ch := range lines[i] {
+			if ch == '{' {
+				depth++
+			} else if ch == '}' {
+				depth--
+			}
+		}
+	}
+	if depth != 0 {
+		return invalidArg(fmt.Sprintf("target range lines %d-%d has unbalanced braces (diff=%d). The detected range may include code outside the intended target. Use explicit line numbers instead", start, end, depth))
+	}
+	return nil
 }
