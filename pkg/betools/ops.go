@@ -109,8 +109,9 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 		}
 	}
 	if old != nil {
+		normalizedOld := normalizeLineBreaks(*old)
 		current := normalizeLineBlock(strings.Join(lines[start-1:end], ""))
-		expected := normalizeLineBlock(*old)
+		expected := normalizeLineBlock(normalizedOld)
 		if current != expected {
 			return ReplaceResult{}, invalidArg(fmt.Sprintf("replace: old content does not match (line %d-%d)", start, end))
 		}

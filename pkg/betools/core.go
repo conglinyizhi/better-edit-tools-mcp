@@ -246,8 +246,10 @@ func parseContent(text string) string {
 
 func prepareContentLines(content, lineEnding string, raw bool) []string {
 	parsed := content
+	// Always normalize line breaks first (handles JSON degradation of \\n)
+	parsed = normalizeLineBreaks(parsed)
 	if !raw {
-		parsed = parseContent(content)
+		parsed = parseContent(parsed)
 	}
 	if parsed == "" {
 		return nil
@@ -269,6 +271,23 @@ func prepareContentLines(content, lineEnding string, raw bool) []string {
 		}
 	}
 	return lines
+}
+
+// normalizeLineBreaks detects when JSON serialization degraded real newlines
+// into literal \\n (two characters: backslash + n) and fixes it.
+// The heuristic:
+//   - If content already has real newlines → correctly transmitted, no-op.
+//   - If no real newlines but contains literal \\n → semantic degradation, fix.
+//   - Otherwise → no-op.
+// This is idempotent: running it on already-correct content produces no change.
+func normalizeLineBreaks(s string) string {
+	if strings.Contains(s, "\n") {
+		return s
+	}
+	if strings.Contains(s, `\n`) {
+		return strings.ReplaceAll(s, `\n`, "\n")
+	}
+	return s
 }
 
 func rustLineCount(content string) int {

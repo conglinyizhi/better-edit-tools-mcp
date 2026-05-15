@@ -27,13 +27,19 @@ func Write(spec string, preview bool, raw bool, brief bool, opts ...Option) (Wri
 		writeSpecs = ws
 		degraded = true
 	}
+
+	// Apply normalizeLineBreaks when raw=false (auto-fix degraded JSON \\n → real newlines)
+	if !raw {
+		for i := range writeSpecs {
+			writeSpecs[i].Content = normalizeLineBreaks(writeSpecs[i].Content)
+		}
+	}
 	if raw {
 		for i := range writeSpecs {
 			writeSpecs[i].Content = strings.ReplaceAll(writeSpecs[i].Content, "\\n", "\n")
 		}
 	}
 
-	// Capture before content for snapshot
 	type writeBeforeData struct {
 		content []string
 		start   int

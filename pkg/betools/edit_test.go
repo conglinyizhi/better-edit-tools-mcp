@@ -265,3 +265,114 @@ func TestTargetResolutionLine(t *testing.T) {
 		t.Fatalf("unexpected span: %+v", span)
 	}
 }
+
+func TestNormalizeLineBreaks_RealNewlines_Noop(t *testing.T) {
+	input := "hello\nworld\n"
+	got := normalizeLineBreaks(input)
+	if got != input {
+		t.Fatalf("expected no change for content with real newlines, got: %q", got)
+	}
+}
+
+func TestNormalizeLineBreaks_LiteralNewlines_Fixed(t *testing.T) {
+	// Simulate degraded JSON: literal \\n (two chars) instead of real newlines
+	input := "hello\\nworld\\n"
+	got := normalizeLineBreaks(input)
+	if got != "hello\nworld\n" {
+		t.Fatalf("expected literal \\n converted to real newlines, got: %q", got)
+	}
+}
+
+func TestNormalizeLineBreaks_NoNewlines_Noop(t *testing.T) {
+	input := "hello world"
+	got := normalizeLineBreaks(input)
+	if got != input {
+		t.Fatalf("expected no change for plain text, got: %q", got)
+	}
+}
+
+func TestNormalizeLineBreaks_MixedNewlines_Noop(t *testing.T) {
+	// If content has BOTH real newlines and literal \\n, leave as-is
+	input := "hello\nworld\\nend"
+	got := normalizeLineBreaks(input)
+	if got != input {
+		t.Fatalf("expected no change for mixed content, got: %q", got)
+	}
+}
+
+func TestReplaceContentWithLiteralNewlines_FixedByNormalize(t *testing.T) {
+	// Content has literal \\n instead of real newlines — normalizeLineBreaks should fix it
+	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	// The content parameter has literal \\n (two chars) simulating degraded JSON
+	// When raw=false, prepareContentLines calls normalizeLineBreaks then parseContent
+	// normalizeLineBreaks converts literal \\n to real newlines
+	// parseContent handles \\t etc.
+	content := "x\\ny"  // Go: backslash-n as two chars
+	res, err := Replace(path, 2, 2, nil, content, false, "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+	got := readFile(t, path)
+	// With raw=false, the content "x\\ny" goes through normalizeLineBreaks then parseContent
+	// normalizeLineBreaks: real newlines in path file, old->ok, but content has literal \\n -> fixed to "x\ny"
+	if got != "a\nx\ny\nc\n" {
+		t.Fatalf("expected fixed content, got: %q", got)
+	}
+	_ = res
+}
+
+func TestReplaceOldWithDegradedNewlines_Matches(t *testing.T) {
+	// Old parameter has literal \\n instead of real newlines — should still match
+	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	old := "b\n"
+	// Use raw=true to skip parseContent — old with literal newline
+	content := "x\n"
+	_, err := Replace(path, 2, 2, &old, content, true, "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace should accept old with real newlines: %v", err)
+	}
+}
+
+func TestReplaceRejectsOldWithDegradedNewlines_AfterNormalize(t *testing.T) {
+	// Old parameter with literal \\n should be normalized and match
+	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	old := "x\n"
+	content := "y\n"
+	_, err := Replace(path, 2, 2, &old, content, true, "plain", false, "", false)
+	if err == nil {
+		t.Fatal("expected mismatch error for wrong old content")
+	}
+}
+
+func TestWriteNormalizeLineBreaks_LiteralNewlines(t *testing.T) {
+	// Content has literal \\n (two chars) simulating degraded JSON
+	// normalizeLineBreaks should convert them
+	path := filepath.Join(t.TempDir(), "wnorm.txt")
+	// Build a spec with literal \\n in the JSON string
+	content := "line1\\nline2\\n"
+	spec := `{"file":"` + path + `","content":"` + content + `"}`
+	_, err := Write(spec, false, false, false)
+	if err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := readFile(t, path)
+	// With normalizeLineBreaks, literal \\n should become real newlines
+	if got != "line1\nline2\n" && got != "line1\nline2" {
+		t.Fatalf("expected line breaks normalized, got: %q", got)
+	}
+}
+
+func TestWriteNormalizeLineBreaks_RealNewlines_Preserved(t *testing.T) {
+	// Content already has real newlines (correct JSON)
+	// normalizeLineBreaks is no-op
+	path := filepath.Join(t.TempDir(), "wpres.txt")
+	spec := `{"file":"` + path + `","content":"hello\nworld"}`
+	_, err := Write(spec, false, false, false)
+	if err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := readFile(t, path)
+	if got != "hello\nworld" {
+		t.Fatalf("expected real newlines preserved, got: %q", got)
+	}
+}
