@@ -376,3 +376,56 @@ func TestWriteNormalizeLineBreaks_RealNewlines_Preserved(t *testing.T) {
 		t.Fatalf("expected real newlines preserved, got: %q", got)
 	}
 }
+func TestReplacePreservesTabIndentation(t *testing.T) {
+	// Go file with tab indentation
+	path := writeTempFile(t, "main.go", "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n")
+	// old must match the file content
+	old := "\tprintln(\"hello\")\n"
+	content := "\tprintln(\"world\")\n"
+	res, err := Replace(path, 4, 4, &old, content, true, "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace tab-indented: %v", err)
+	}
+	got := readFile(t, path)
+	expected := "package main\n\nfunc main() {\n\tprintln(\"world\")\n}\n"
+	if got != expected {
+		t.Fatalf("expected tab indentation preserved, got: %q", got)
+	}
+	_ = res
+}
+func TestReplacePreservesTabIndentation_ContentWithEscapedTab(t *testing.T) {
+	// When raw=false, \\t in content becomes real tab via parseContent
+	path := writeTempFile(t, "main.go", "package main\n\nfunc main() {\n\treturn 1\n}\n")
+	// Content with escaped \\t and no escaped quotes (plain content)
+	content := "\\treturn 2"
+	old := "\treturn 1\n"
+	res, err := Replace(path, 4, 4, &old, content, false, "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace with escaped tab: %v", err)
+	}
+	got := readFile(t, path)
+	// The line should have real tab indentation (\\t from parseContent becomes tab)
+	if !strings.Contains(got, "\treturn 2") {
+		t.Fatalf("expected tab indentation preserved in output, got: %q", got)
+	}
+	_ = res
+}
+
+func TestParseContent_Escapes(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"\\n", "\n"},               // \\n → newline
+		{"\\t", "\t"},               // \\t → tab
+		{"\\\"", "\""},               // \\" → double quote
+		{"\\\\", "\\"},               // \\\\ → backslash
+		{"plain text", "plain text"}, // no escapes
+	}
+	for _, tt := range tests {
+		got := parseContent(tt.input)
+		if got != tt.expected {
+			t.Fatalf("parseContent(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}

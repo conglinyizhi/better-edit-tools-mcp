@@ -233,8 +233,12 @@ func parseContent(text string) string {
 				b.WriteByte('\t')
 			case 'r':
 				b.WriteByte('\r')
-			default:
+			case '\\':
 				b.WriteByte('\\')
+			case '"':
+				b.WriteByte('"')
+			default:
+				// For unrecognized escapes, emit the escaped char only
 				b.WriteByte(text[i])
 			}
 			continue
