@@ -156,7 +156,7 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 		Warnings: warnings,
 	}
 	if !preview {
-		id, wasFull := PushSnapshot(SnapshotRecord{
+		id, queueFull := PushSnapshot(SnapshotRecord{
 			Tool:  "be-replace",
 			File:  filepath.Clean(path),
 			Before: SnapshotRange{
@@ -177,7 +177,7 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 			Summary: fmt.Sprintf("be-replace on %s lines %d-%d", filepath.Base(path), start, end),
 		})
 		res.EventID = id
-		res.QueueFull = wasFull
+		res.QueueFull = queueFull
 	}
 	return res, nil
 }
@@ -233,7 +233,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 		Warnings: warnings,
 	}
 	if !preview {
-		id, wasFull := PushSnapshot(SnapshotRecord{
+		id, queueFull := PushSnapshot(SnapshotRecord{
 			Tool:  "be-insert",
 			File:  filepath.Clean(path),
 			Before: SnapshotRange{
@@ -253,7 +253,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 			Summary: fmt.Sprintf("be-insert on %s after line %d", filepath.Base(path), after),
 		})
 		res.EventID = id
-		res.QueueFull = wasFull
+		res.QueueFull = queueFull
 	}
 	return res, nil
 }
@@ -333,7 +333,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 		Warnings: warnings,
 	}
 	if !preview {
-		id, wasFull := PushSnapshot(SnapshotRecord{
+		id, queueFull := PushSnapshot(SnapshotRecord{
 			Tool:  "be-delete",
 			File:  filepath.Clean(path),
 			Before: SnapshotRange{
@@ -353,7 +353,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 			Summary: fmt.Sprintf("be-delete on %s (%d lines)", filepath.Base(path), len(valid)),
 		})
 		res.EventID = id
-		res.QueueFull = wasFull
+		res.QueueFull = queueFull
 	}
 	return res, nil
 	}
@@ -412,7 +412,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 		Warnings: warnings,
 	}
 	if !preview {
-		id, wasFull := PushSnapshot(SnapshotRecord{
+		id, queueFull := PushSnapshot(SnapshotRecord{
 			Tool:  "be-delete",
 			File:  filepath.Clean(path),
 			Before: SnapshotRange{
@@ -433,7 +433,7 @@ func Delete(path string, start, end, line int, linesJSON *string, format string,
 			Summary: fmt.Sprintf("be-delete on %s lines %d-%d", filepath.Base(path), s, e),
 		})
 		res.EventID = id
-		res.QueueFull = wasFull
+		res.QueueFull = queueFull
 	}
 	return res, nil
 }
@@ -448,7 +448,7 @@ func Batch(spec string, preview bool, brief bool, opts ...Option) (BatchResult, 
 		return BatchResult{}, err
 	}
 	var lastEventID string
-	var anyQueueFull bool
+	var anyQueueFull string
 	results := make([]BatchFileResult, 0, len(fileSpecs))
 	for _, fileSpec := range fileSpecs {
 		lines, le, err := readLines(fileSpec.File, opts...)
@@ -570,7 +570,7 @@ func Batch(spec string, preview bool, brief bool, opts ...Option) (BatchResult, 
 			aStart := bStart
 			aEnd := min(afterTotal, bEnd+deltaLines)
 			afterContent := append([]string(nil), lines[aStart-1:aEnd]...)
-			id, wasFull := PushSnapshot(SnapshotRecord{
+			id, queueFull := PushSnapshot(SnapshotRecord{
 				Tool: "be-batch",
 				File: filepath.Clean(fileSpec.File),
 				Before: SnapshotRange{
@@ -590,8 +590,8 @@ func Batch(spec string, preview bool, brief bool, opts ...Option) (BatchResult, 
 				Summary: fmt.Sprintf("be-batch on %s (%d edits)", filepath.Base(fileSpec.File), len(edits)),
 			})
 			lastEventID = id
-			if wasFull {
-				anyQueueFull = true
+			if queueFull != "" {
+				anyQueueFull = queueFull
 			}
 		}
 		results = append(results, BatchFileResult{File: fileSpec.File, Edits: len(edits), Total: len(lines), Warnings: warnings})

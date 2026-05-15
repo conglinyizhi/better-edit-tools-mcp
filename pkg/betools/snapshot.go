@@ -37,8 +37,9 @@ var (
 )
 
 // PushSnapshot pushes a record onto the queue. If full, evicts oldest.
-// Returns the record ID and whether the queue was full (eviction happened).
-func PushSnapshot(rec SnapshotRecord) (id string, wasFull bool) {
+// Returns the record ID and a warning string (empty if no issue, non-empty if eviction happened).
+// The file modification itself is NOT affected by queue capacity — it already completed.
+func PushSnapshot(rec SnapshotRecord) (id string, queueWarning string) {
 	snapshotMu.Lock()
 	defer snapshotMu.Unlock()
 
@@ -51,15 +52,15 @@ func PushSnapshot(rec SnapshotRecord) (id string, wasFull bool) {
 	rec.CreatedAt = time.Now().Unix()
 	snapshotIDs[id] = struct{}{}
 
-	wasFull = len(snapshots) >= MaxSnapshots
-	if wasFull {
+	if len(snapshots) >= MaxSnapshots {
 		removed := snapshots[0]
 		delete(snapshotIDs, removed.ID)
 		snapshots = snapshots[1:]
+		queueWarning = fmt.Sprintf("snapshot queue reached maximum capacity (%d); oldest snapshot evicted. The file was written successfully.", MaxSnapshots)
 	}
 
 	snapshots = append(snapshots, rec)
-	return id, wasFull
+	return id, queueWarning
 }
 
 // snapshotIDExists checks if a short ID is already in use.

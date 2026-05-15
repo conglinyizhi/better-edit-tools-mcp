@@ -74,7 +74,7 @@ func Write(spec string, preview bool, raw bool, brief bool, opts ...Option) (Wri
 
 	results := make([]WriteFileResult, 0, len(writeSpecs))
 	var lastEventID string
-	var anyQueueFull bool
+	var anyQueueFull string
 	for i, item := range writeSpecs {
 		warnings := scanContentWarnings(item.Content)
 		results = append(results, WriteFileResult{
@@ -91,7 +91,7 @@ func Write(spec string, preview bool, raw bool, brief bool, opts ...Option) (Wri
 				afterLines = []string{}
 			}
 			afterTotal := len(afterLines)
-			id, wasFull := PushSnapshot(SnapshotRecord{
+		id, queueFull := PushSnapshot(SnapshotRecord{
 				Tool: "be-write",
 				File: filepath.Clean(item.File),
 				Before: SnapshotRange{
@@ -110,8 +110,8 @@ func Write(spec string, preview bool, raw bool, brief bool, opts ...Option) (Wri
 				Summary: fmt.Sprintf("be-write on %s", filepath.Base(item.File)),
 			})
 			lastEventID = id
-			if wasFull {
-				anyQueueFull = true
+		if queueFull != "" {
+			anyQueueFull = queueFull
 			}
 		}
 	}

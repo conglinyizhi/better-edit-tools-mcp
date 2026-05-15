@@ -48,7 +48,7 @@ type ReplaceResult struct {
 	Brief    bool     `json:"brief,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 	EventID  string   `json:"event_id,omitempty"`
-	QueueFull bool    `json:"queue_full,omitempty"`
+	QueueFull string  `json:"queue_full,omitempty"`
 }
 
 type InsertResult struct {
@@ -64,7 +64,7 @@ type InsertResult struct {
 	Brief    bool     `json:"brief,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 	EventID  string   `json:"event_id,omitempty"`
-	QueueFull bool    `json:"queue_full,omitempty"`
+	QueueFull string  `json:"queue_full,omitempty"`
 }
 
 type DeleteResult struct {
@@ -78,7 +78,7 @@ type DeleteResult struct {
 	Brief    bool     `json:"brief,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 	EventID  string   `json:"event_id,omitempty"`
-	QueueFull bool    `json:"queue_full,omitempty"`
+	QueueFull string  `json:"queue_full,omitempty"`
 }
 
 type BatchFileResult struct {
@@ -95,7 +95,7 @@ type BatchResult struct {
 	Preview bool              `json:"preview,omitempty"`
 	Brief   bool              `json:"brief,omitempty"`
 	EventID string            `json:"event_id,omitempty"`
-	QueueFull bool            `json:"queue_full,omitempty"`
+	QueueFull string           `json:"queue_full,omitempty"`
 }
 
 type WriteSpecItem struct {
@@ -119,7 +119,7 @@ type WriteResult struct {
 	Preview  bool              `json:"preview,omitempty"`
 	Brief    bool              `json:"brief,omitempty"`
 	EventID  string            `json:"event_id,omitempty"`
-	QueueFull bool             `json:"queue_full,omitempty"`
+	QueueFull string            `json:"queue_full,omitempty"`
 }
 
 type FunctionRangeResult struct {

@@ -3,6 +3,7 @@ package betools
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -428,4 +429,39 @@ func TestParseContent_Escapes(t *testing.T) {
 			t.Fatalf("parseContent(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
 	}
+}
+
+func TestSnapshotQueueFullReturnsWarning(t *testing.T) {
+	// Clean up any leftover snapshots from other tests
+	CommitSnapshots()
+	// Fill the snapshot queue to capacity
+	for i := 0; i < MaxSnapshots; i++ {
+		_, warn := PushSnapshot(SnapshotRecord{
+			Tool:    "test",
+			File:    "/tmp/test.txt",
+			Summary: fmt.Sprintf("snapshot %d", i),
+		})
+		if warn != "" {
+			t.Fatalf("unexpected warning before queue full: %s", warn)
+		}
+	}
+
+	// Next push should evict oldest and produce a warning string
+	_, warn := PushSnapshot(SnapshotRecord{
+		Tool:    "test",
+		File:    "/tmp/test.txt",
+		Summary: "overflow",
+	})
+	if warn == "" {
+		t.Fatal("expected warning when snapshot queue is full")
+	}
+	if !strings.Contains(warn, "snapshot queue") {
+		t.Fatalf("expected warning about snapshot queue, got: %s", warn)
+	}
+	if !strings.Contains(warn, "written successfully") {
+		t.Fatalf("expected warning to confirm write was successful, got: %s", warn)
+	}
+
+	// Cleanup
+	CommitSnapshots()
 }
