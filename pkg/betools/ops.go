@@ -184,6 +184,10 @@ func normalizeLineBlock(content string) string {
 	return strings.TrimRight(strings.ReplaceAll(content, "\r\n", "\n"), "\r\n")
 }
 
+// Insert adds content after the specified line number (0 = beginning of file).
+// The `after` parameter is the only position specifier — there is no implicit
+// line-1 conversion (unlike the legacy `line` parameter which was removed to
+// eliminate tool confusion; models could not reliably predict the -1 offset).
 func Insert(path string, after int, content string, raw bool, format string, preview bool, brief bool, opts ...Option) (InsertResult, error) {
 	lines, le, err := readLines(path, opts...)
 	if err != nil {
@@ -256,6 +260,12 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	return res, nil
 }
 
+// Delete removes lines start..end (inclusive) from the file.
+//
+// Only start/end range deletion is supported. Historic aliases (line, lines,
+// start_line, end_line) were removed because offering 5 ways to express the same
+// action created high tool confusion for LLM callers — models consistently
+// struggled to pick the correct combination of parameters.
 func Delete(path string, start, end int, format string, preview bool, brief bool, opts ...Option) (DeleteResult, error) {
 	fileLines, _, err := readLines(path, opts...)
 	if err != nil {
