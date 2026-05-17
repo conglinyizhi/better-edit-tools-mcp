@@ -37,7 +37,7 @@ Precise line-range substitution. Accepts a `viewed_code_id` parameter from a pri
 
 ### `be-insert`
 
-Adds content after a specified line. `line=0` inserts at the very beginning of the file. Also accepts `after_line` as an alias. The preferred primitive for incremental edits — avoids rewriting unrelated lines.
+Adds content after a specified line. `after_line=0` inserts at the very beginning of the file. The preferred primitive for incremental edits — avoids rewriting unrelated lines. The sole parameter for insertion position is `after_line`, replacing the old ambiguous `line`/`after_line` dual param.
 
 ——Insert new content exactly where it belongs without touching the rest of the file.
 
@@ -49,15 +49,9 @@ Inserts content from a file (`file:///absolute/path`) or a previously saved chip
 
 ### `be-delete`
 
-Removes one line, a line range, or a batch of line numbers supplied as JSON. Accepts both `start`/`end` and `start_line`/`end_line` aliases. Line-oriented for predictable, easy-to-reason-about results.
+Removes a line range using `start`/`end` line numbers or a `target` descriptor. Line-oriented for predictable, easy-to-reason-about results. Legacy aliases (`start_line`, `end_line`, `line`, `lines`) have been removed to eliminate tool confusion.
 
 ——Remove targets with line-level precision and predictable results.
-
-### `be-batch`
-
-Multi-operation editing entry point. Applies several edits in one call, including edits across multiple files, and processes them bottom-to-top to prevent line-number drift.
-
-——Apply a whole edit plan in one pass while keeping line numbers stable.
 
 ### `be-write`
 
@@ -66,7 +60,8 @@ Raw file write tool for full-content replacement. Accepts both single-file and m
 - Single file: `{"file":"...","content":"..."}`
 - Multi file: `{"files":[{"file":"...","content":"..."}]}`
 
-A degraded parsing path is automatically invoked when standard JSON parsing fails, rescuing AI-generated content with broken escaping. When `raw: true`, literal `\n` in content is converted to real newlines, solving the double-encoding problem in MCP call chains.
+A degraded parsing path is automatically invoked when standard JSON parsing fails, rescuing AI-generated content with broken escaping. When `raw: true`, literal `
+` in content is converted to real newlines, solving the double-encoding problem in MCP call chains.
 
 ——Even when the JSON wrapper breaks, the write still tries to rescue the payload.
 
@@ -82,16 +77,22 @@ Finds the enclosing XML/HTML/Vue tag pair for a line. The markup-oriented counte
 
 ——Locate the surrounding tag pair that defines the real editing boundary.
 
+### `be-balance`
+
+Structural sanity check for brackets, braces, parentheses, HTML/XML tag closure, and quote parity. The scanner avoids interference from strings and comments. The `verbose` parameter controls output detail:
+
+- `false` (default): only outputs unmatched items.
+- `true`: outputs all matched pairs.
+
+——Catch structural mistakes early, even when the file mixes code, markup, and strings.
 ## Design highlights
 
 - **Atomic writes**: File modifications go through a temp-file-then-rename cycle, preventing data corruption if the process crashes mid-write.
-- **Smart batch sorting**: Batch edits are automatically sorted bottom-to-top, so you never have to worry about line-number offsets.
 - **isError signaling**: Errors properly report `isError: true` per the MCP spec.
 - **Go-native**: No runtime dependencies — a single binary with a small embedded editing library.
 - **Fault-tolerant JSON parsing**: AI-generated content often contains backticks, `${}`, or unescaped quotes; `be-write` automatically falls back to character-level extraction.
 - **Session state bridging**: `be-read` returns a `viewed_code_id` that `be-replace` can accept to validate consistent line numbering.
 - **Localized descriptions**: `--lang <zh|en>` switches tool description language; parameter names and behavior remain unchanged.
-
 ## Usage
 
 ### Build

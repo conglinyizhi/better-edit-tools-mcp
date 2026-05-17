@@ -154,7 +154,7 @@ func TestInsertAndDeleteWriteFile(t *testing.T) {
 	if got := readFile(t, path); got != "a\nx\nb\n" {
 		t.Fatalf("unexpected after insert: %q", got)
 	}
-	if _, err := Delete(path, 2, 2, 0, nil, "plain", false, false); err != nil {
+	if _, err := Delete(path, 2, 2, "plain", false, false); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 	if got := readFile(t, path); got != "a\nb\n" {
@@ -162,20 +162,6 @@ func TestInsertAndDeleteWriteFile(t *testing.T) {
 	}
 }
 
-func TestBatchSortsFromBottomUp(t *testing.T) {
-	path := writeTempFile(t, "a.txt", "a\nb\nc\nd\n")
-	spec := `{"file":"` + path + `","edits":[{"action":"delete-lines","start":2,"end":2},{"action":"insert-after","line":1,"content":"x"},{"action":"replace-lines","start":4,"end":4,"content":"z"}]}`
-	res, err := Batch(spec, false, false)
-	if err != nil {
-		t.Fatalf("batch: %v", err)
-	}
-	if res.Files != 1 || len(res.Results) != 1 {
-		t.Fatalf("unexpected batch result: %+v", res)
-	}
-	if got := readFile(t, path); got != "a\nx\nc\nz\n" {
-		t.Fatalf("unexpected batch content: %q", got)
-	}
-}
 
 func TestWriteDegradedParser(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
@@ -489,7 +475,7 @@ func TestDeleteWithTarget_PreservesAdjacentCode(t *testing.T) {
 		t.Fatalf("resolve target: %v", err)
 	}
 
-	res, err := Delete(path, span.Start, span.End, 0, nil, "plain", false, false)
+	res, err := Delete(path, span.Start, span.End, "plain", false, false)
 	if err != nil {
 		t.Fatalf("delete second function: %v", err)
 	}
@@ -553,7 +539,7 @@ func TestDeleteSavesChip(t *testing.T) {
 	path := writeTempFile(t, "a.txt", content)
 
 	// Delete line 2 — should save to chip
-	res, err := Delete(path, 2, 2, 0, nil, "plain", false, false)
+	res, err := Delete(path, 2, 2, "plain", false, false)
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}

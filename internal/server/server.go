@@ -193,7 +193,6 @@ func (s *Server) listTools() []Tool {
 				"type": "object",
 				"properties": map[string]any{
 					"file":       map[string]any{"type": "string"},
-					"line":       map[string]any{"type": "integer", "minimum": 0},
 					"after_line": map[string]any{"type": "integer", "minimum": 0},
 					"content":    map[string]any{"type": "string"},
 					"raw":        map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
@@ -208,7 +207,7 @@ func (s *Server) listTools() []Tool {
 						},
 					},
 				},
-				"required": []string{"file", "line", "content"},
+				"required": []string{"file", "after_line", "content"},
 			},
 		},
 		{
@@ -217,16 +216,9 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":       map[string]any{"type": "string"},
-					"start":      map[string]any{"type": "integer", "minimum": 1},
-					"start_line": map[string]any{"type": "integer", "minimum": 1},
-					"end":        map[string]any{"type": "integer", "minimum": 1},
-					"end_line":   map[string]any{"type": "integer", "minimum": 1},
-					"line":       map[string]any{"type": "integer", "minimum": 1},
-					"lines":      map[string]any{"type": "string"},
-					"format":     map[string]any{"type": "string"},
-					"preview":    map[string]any{"type": "boolean"},
-					"brief":      map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
+					"file":  map[string]any{"type": "string"},
+					"start": map[string]any{"type": "integer", "minimum": 1},
+					"end":   map[string]any{"type": "integer", "minimum": 1},
 					"target": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -234,24 +226,10 @@ func (s *Server) listTools() []Tool {
 							"value": map[string]any{"type": "string"},
 						},
 					},
-				},
-				"required": []string{"file"},
-			},
-		},
-		{
-			Name:        "be-batch",
-			Description: localizedDescription(s.lang, "be-batch"),
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"spec": map[string]any{
-						"type":        "string",
-						"description": "JSON spec describing edits. Format: [{\"file\": \"path\", \"edits\": [{\"action\": \"replace-lines|insert-after|delete-lines\", \"start\": N, \"end\": N, \"content\": \"...\"}]}]",
-					},
+					"format":  map[string]any{"type": "string"},
 					"preview": map[string]any{"type": "boolean"},
-					"brief":   map[string]any{"type": "boolean", "description": "return minimal response"},
+					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 				},
-				"required": []string{"spec"},
 			},
 		},
 		{
@@ -397,8 +375,6 @@ func localizedDescription(lang, name string) string {
 		"be-read":         "按行号读取文件内容。",
 		"be-replace":      "替换文件中的指定行范围。",
 		"be-insert":       "在指定行后插入内容。",
-		"be-delete":       "删除单行、范围或批量指定的行号。",
-		"be-batch":        "一次执行多处编辑，支持多文件。",
 		"be-write":        "直接写入文件内容，JSON 失败时会尽量降级解析。",
 		"be-func-range":   "定位某一行所在的函数或花括号范围。",
 		"be-tag-range":    "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
@@ -412,8 +388,6 @@ func localizedDescription(lang, name string) string {
 		"be-read":         "Read file content with line numbers.",
 		"be-replace":      "Replace a precise line range in a file.",
 		"be-insert":       "Insert content after a specific line.",
-		"be-delete":       "Delete one line, a line range, or a batch of line numbers.",
-		"be-batch":        "Apply multiple edits in one call, including multi-file edits.",
 		"be-write":        "Write raw content to file(s), with a degraded parser for malformed JSON payloads.",
 		"be-func-range":   "Find the enclosing function or brace block for a given line.",
 		"be-tag-range":    "Find the enclosing XML/HTML/Vue tag pair for a given line.",
@@ -519,7 +493,6 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 	case "be-insert":
 		var p struct {
 			File    string         `json:"file"`
-			Line    int            `json:"line"`
 			After   *int           `json:"after_line"`
 			Content string         `json:"content"`
 			Raw     bool           `json:"raw"`
@@ -531,12 +504,9 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		after := p.Line
+		after := 0
 		if p.After != nil {
 			after = *p.After
-		} else if p.Line > 0 {
-			// line=N inserts BEFORE line N (user-intuitive: "at line N")
-			after = p.Line - 1
 		}
 		if p.Target != nil {
 			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
@@ -555,10 +525,6 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			File    string         `json:"file"`
 			Start   *int           `json:"start"`
 			End     *int           `json:"end"`
-			StartLn *int           `json:"start_line"`
-			EndLn   *int           `json:"end_line"`
-			Line    *int           `json:"line"`
-			Lines   *string        `json:"lines"`
 			Format  string         `json:"format"`
 			Target  *editTargetArg `json:"target"`
 			Preview bool           `json:"preview"`
@@ -567,21 +533,12 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		var start, end, line int
+		var start, end int
 		if p.Start != nil {
 			start = *p.Start
 		}
-		if p.StartLn != nil {
-			start = *p.StartLn
-		}
 		if p.End != nil {
 			end = *p.End
-		}
-		if p.EndLn != nil {
-			end = *p.EndLn
-		}
-		if p.Line != nil {
-			line = *p.Line
 		}
 		if p.Target != nil {
 			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
@@ -590,21 +547,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			start, end = span.Start, span.End
 		}
-		res, err := betools.Delete(p.File, start, end, line, p.Lines, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
-		if err != nil {
-			return "", err
-		}
-		return mustJSON(res), nil
-	case "be-batch":
-		var p struct {
-			Spec    string `json:"spec"`
-			Preview bool   `json:"preview"`
-			Brief   bool   `json:"brief"`
-		}
-		if err := json.Unmarshal(b, &p); err != nil {
-			return "", err
-		}
-		res, err := betools.Batch(p.Spec, p.Preview, p.Brief, s.opts...)
+		res, err := betools.Delete(p.File, start, end, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}

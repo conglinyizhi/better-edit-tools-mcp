@@ -10,18 +10,6 @@ type TargetSpan struct {
 	End   int `json:"end"`
 }
 
-type BatchEditSpec struct {
-	Action  string `json:"action"`
-	Start   any    `json:"start,omitempty"`
-	End     any    `json:"end,omitempty"`
-	Line    any    `json:"line,omitempty"`
-	Content string `json:"content,omitempty"`
-}
-
-type BatchFileSpec struct {
-	File  string          `json:"file"`
-	Edits []BatchEditSpec `json:"edits"`
-}
 
 type ShowResult struct {
 	Status   string   `json:"status"`
@@ -81,22 +69,6 @@ type DeleteResult struct {
 	QueueFull string   `json:"queue_full,omitempty"`
 }
 
-type BatchFileResult struct {
-	File     string   `json:"file"`
-	Edits    int      `json:"edits"`
-	Total    int      `json:"total"`
-	Warnings []string `json:"warnings,omitempty"`
-}
-
-type BatchResult struct {
-	Status    string            `json:"status"`
-	Files     int               `json:"files"`
-	Results   []BatchFileResult `json:"results"`
-	Preview   bool              `json:"preview,omitempty"`
-	Brief     bool              `json:"brief,omitempty"`
-	EventID   string            `json:"event_id,omitempty"`
-	QueueFull string            `json:"queue_full,omitempty"`
-}
 
 type WriteSpecItem struct {
 	File    string

@@ -46,21 +46,15 @@ chore: bump workflow dependencies
 bash <(curl -fsSL https://raw.githubusercontent.com/conglinyizhi/better-edit-tools-mcp/main/scripts/install.sh)
 ```
 
-二进制安装到 `~/.local/share/better-edit-tools/bin/`。
-脚本会自动按当前系统和架构选择资产，并校验 SHA-256 后再解压。
-
-## MCP 注册
-
-```json
-{
-  "mcp": {
-    "better-edit-tools": {
-      "type": "local",
-      "command": ["/path/to/better-edit-tools"]
-    }
-  }
-}
-```
+8 个 MCP tools：
+- `be-balance`
+- `be-read`
+- `be-replace`
+- `be-insert`
+- `be-delete`
+- `be-write`
+- `be-func-range`
+- `be-tag-range`
 
 所有工具通过 stdio 传输暴露，工具名前缀统一为 `be-`。
 
@@ -71,7 +65,7 @@ cmd/
 └── better-edit-tools/main.go     # 启动入口：CLI 解析后进入 server.Run()
 internal/
 ├── app/                          # 命令行和语言协商
-├── edit/                         # 核心编辑库（show/replace/insert/delete/batch/write）
+├── edit/                         # 核心编辑库（show/replace/insert/delete/write）
 └── server/                       # MCP/stdio 适配层
 ```
 
@@ -82,17 +76,15 @@ internal/
 
 ## 工具说明
 
-9 个 MCP tools：
+8 个 MCP tools：
 - `be-balance`
 - `be-read`
 - `be-replace`
 - `be-insert`
 - `be-delete`
-- `be-batch`
 - `be-write`
 - `be-func-range`
 - `be-tag-range`
-
 MCP 工具对外返回 JSON 字符串内容；错误时响应体会包含 `isError: true`。内部编辑逻辑统一使用 Go 错误返回。
 
 ## 注意事项

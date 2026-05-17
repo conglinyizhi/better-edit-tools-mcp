@@ -67,7 +67,7 @@ func TestToolCallRunsEdit(t *testing.T) {
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + path + `","line":1,"content":"x","raw":true,"preview":false}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + path + `","after_line":0,"content":"x","raw":true,"preview":false}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve: %v", err)
@@ -223,7 +223,7 @@ func TestToolCallSupportsDeleteAliasesAndReplaceOld(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-delete","arguments":{"file":"` + deletePath + `","start_line":2,"end_line":3,"preview":false}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-delete","arguments":{"file":"` + deletePath + `","start":2,"end":3,"preview":false}}}`
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve delete: %v", err)
 	}
