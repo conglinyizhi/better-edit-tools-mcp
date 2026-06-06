@@ -248,17 +248,11 @@ func parseContent(text string) string {
 	return b.String()
 }
 
-func prepareContentLines(content, lineEnding string, raw bool) []string {
-	parsed := content
-	// Always normalize line breaks first (handles JSON degradation of \\n)
-	parsed = normalizeLineBreaks(parsed)
-	if !raw {
-		parsed = parseContent(parsed)
-	}
-	if parsed == "" {
+func prepareContentLines(content, lineEnding string) []string {
+	if content == "" {
 		return nil
 	}
-	parts := strings.Split(parsed, "\n")
+	parts := strings.Split(content, "\n")
 	if len(parts) > 0 && parts[len(parts)-1] == "" {
 		parts = parts[:len(parts)-1]
 	}

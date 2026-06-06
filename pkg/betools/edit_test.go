@@ -123,7 +123,7 @@ func TestReadAlias(t *testing.T) {
 func TestReplacePreviewDoesNotWrite(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
 	old := "b\n"
-	res, err := Replace(path, 2, 2, &old, "x", true, "plain", true, "", false)
+	res, err := Replace(path, 2, 2, &old, "x", "plain", true, "", false)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestReplacePreviewDoesNotWrite(t *testing.T) {
 func TestReplaceRejectsOldMismatch(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
 	old := "x\n"
-	if _, err := Replace(path, 2, 2, &old, "y", true, "plain", true, "", false); err == nil {
+	if _, err := Replace(path, 2, 2, &old, "y", "plain", true, "", false); err == nil {
 		t.Fatalf("expected mismatch error")
 	}
 	if got := readFile(t, path); got != "a\nb\nc\n" {
@@ -148,7 +148,7 @@ func TestReplaceRejectsOldMismatch(t *testing.T) {
 
 func TestInsertAndDeleteWriteFile(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\n")
-	if _, err := Insert(path, 1, "x", true, "plain", false, false); err != nil {
+	if _, err := Insert(path, 1, "x", "plain", false, false); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 	if got := readFile(t, path); got != "a\nx\nb\n" {
@@ -166,7 +166,7 @@ func TestInsertAndDeleteWriteFile(t *testing.T) {
 func TestWriteDegradedParser(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := `{"file":"` + path + `","content":"hello\nworld"}`
-	res, err := Write(spec, false, false, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestWriteRawFallback(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.txt")
 	spec := `{"file":"` + path + `","content":"hello
 world"}`
-	res, err := Write(spec, false, false, false)
+	res, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write fallback: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestInjectedFileSystemIsUsed(t *testing.T) {
 	if _, _, err := Show(path, 1, 1, false, WithFileSystem(fsys)); err == nil {
 		t.Fatal("expected error for missing file inside injected fs")
 	}
-	if _, err := Write(`{"file":"sandbox.txt","content":"hello"}`, false, false, false, WithFileSystem(fsys)); err != nil {
+	if _, err := Write(`{"file":"sandbox.txt","content":"hello"}`, false, false, WithFileSystem(fsys)); err != nil {
 		t.Fatalf("write with injected fs: %v", err)
 	}
 	got, err := os.ReadFile(path)
@@ -288,22 +288,17 @@ func TestNormalizeLineBreaks_MixedNewlines_Noop(t *testing.T) {
 }
 
 func TestReplaceContentWithLiteralNewlines_FixedByNormalize(t *testing.T) {
-	// Content has literal \\n instead of real newlines — normalizeLineBreaks should fix it
+	// Content uses real newlines (content is used as-is after JSON parsing)
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
-	// The content parameter has literal \\n (two chars) simulating degraded JSON
-	// When raw=false, prepareContentLines calls normalizeLineBreaks then parseContent
-	// normalizeLineBreaks converts literal \\n to real newlines
-	// parseContent handles \\t etc.
-	content := "x\\ny" // Go: backslash-n as two chars
-	res, err := Replace(path, 2, 2, nil, content, false, "plain", false, "", false)
+	content := "x\ny" // real newline in Go string
+	res, err := Replace(path, 2, 2, nil, content, "plain", false, "", false)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
 	got := readFile(t, path)
-	// With raw=false, the content "x\\ny" goes through normalizeLineBreaks then parseContent
-	// normalizeLineBreaks: real newlines in path file, old->ok, but content has literal \\n -> fixed to "x\ny"
+	// The content "x\ny" is used as-is, resulting in two lines
 	if got != "a\nx\ny\nc\n" {
-		t.Fatalf("expected fixed content, got: %q", got)
+		t.Fatalf("expected content, got: %q", got)
 	}
 	_ = res
 }
@@ -314,7 +309,7 @@ func TestReplaceOldWithDegradedNewlines_Matches(t *testing.T) {
 	old := "b\n"
 	// Use raw=true to skip parseContent — old with literal newline
 	content := "x\n"
-	_, err := Replace(path, 2, 2, &old, content, true, "plain", false, "", false)
+	_, err := Replace(path, 2, 2, &old, content, "plain", false, "", false)
 	if err != nil {
 		t.Fatalf("replace should accept old with real newlines: %v", err)
 	}
@@ -325,7 +320,7 @@ func TestReplaceRejectsOldWithDegradedNewlines_AfterNormalize(t *testing.T) {
 	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
 	old := "x\n"
 	content := "y\n"
-	_, err := Replace(path, 2, 2, &old, content, true, "plain", false, "", false)
+	_, err := Replace(path, 2, 2, &old, content, "plain", false, "", false)
 	if err == nil {
 		t.Fatal("expected mismatch error for wrong old content")
 	}
@@ -338,7 +333,7 @@ func TestWriteNormalizeLineBreaks_LiteralNewlines(t *testing.T) {
 	// Build a spec with literal \\n in the JSON string
 	content := "line1\\nline2\\n"
 	spec := `{"file":"` + path + `","content":"` + content + `"}`
-	_, err := Write(spec, false, false, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -354,7 +349,7 @@ func TestWriteNormalizeLineBreaks_RealNewlines_Preserved(t *testing.T) {
 	// normalizeLineBreaks is no-op
 	path := filepath.Join(t.TempDir(), "wpres.txt")
 	spec := `{"file":"` + path + `","content":"hello\nworld"}`
-	_, err := Write(spec, false, false, false)
+	_, err := Write(spec, false, false)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -369,7 +364,7 @@ func TestReplacePreservesTabIndentation(t *testing.T) {
 	// old must match the file content
 	old := "\tprintln(\"hello\")\n"
 	content := "\tprintln(\"world\")\n"
-	res, err := Replace(path, 4, 4, &old, content, true, "plain", false, "", false)
+	res, err := Replace(path, 4, 4, &old, content, "plain", false, "", false)
 	if err != nil {
 		t.Fatalf("replace tab-indented: %v", err)
 	}
@@ -381,17 +376,17 @@ func TestReplacePreservesTabIndentation(t *testing.T) {
 	_ = res
 }
 func TestReplacePreservesTabIndentation_ContentWithEscapedTab(t *testing.T) {
-	// When raw=false, \\t in content becomes real tab via parseContent
+	// Content uses real tab character",
 	path := writeTempFile(t, "main.go", "package main\n\nfunc main() {\n\treturn 1\n}\n")
-	// Content with escaped \\t and no escaped quotes (plain content)
-	content := "\\treturn 2"
+	// Content with real tab
+	content := "\treturn 2"
 	old := "\treturn 1\n"
-	res, err := Replace(path, 4, 4, &old, content, false, "plain", false, "", false)
+	res, err := Replace(path, 4, 4, &old, content, "plain", false, "", false)
 	if err != nil {
 		t.Fatalf("replace with escaped tab: %v", err)
 	}
 	got := readFile(t, path)
-	// The line should have real tab indentation (\\t from parseContent becomes tab)
+	// The line should have real tab indentation
 	if !strings.Contains(got, "\treturn 2") {
 		t.Fatalf("expected tab indentation preserved in output, got: %q", got)
 	}

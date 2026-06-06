@@ -171,7 +171,7 @@ func (s *Server) listTools() []Tool {
 					"end":     map[string]any{"type": "integer", "minimum": 1},
 					"old":     map[string]any{"type": "string"},
 					"content": map[string]any{"type": "string"},
-					"raw":     map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
+					"raw":     map[string]any{"type": "boolean", "description": "deprecated: content is now auto-detected; this parameter is ignored"},
 					"format":  map[string]any{"type": "string"},
 					"preview": map[string]any{"type": "boolean"},
 					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
@@ -195,7 +195,7 @@ func (s *Server) listTools() []Tool {
 					"file":       map[string]any{"type": "string"},
 					"after_line": map[string]any{"type": "integer", "minimum": 0},
 					"content":    map[string]any{"type": "string"},
-					"raw":        map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
+					"raw":        map[string]any{"type": "boolean", "description": "deprecated: content is now auto-detected; this parameter is ignored"},
 					"format":     map[string]any{"type": "string"},
 					"preview":    map[string]any{"type": "boolean"},
 					"brief":      map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
@@ -253,7 +253,7 @@ func (s *Server) listTools() []Tool {
 					},
 					"preview": map[string]any{"type": "boolean"},
 					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit per-file details)"},
-					"raw":     map[string]any{"type": "boolean", "description": "set to true when your content has literal \\n (visible backslash-n) that needs to become real newlines; normally keep false (standard JSON escaping)"},
+					"raw":     map[string]any{"type": "boolean", "description": "deprecated: content is now auto-detected; this parameter is ignored"},
 				},
 			},
 		},
@@ -485,7 +485,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if old == nil {
 			old = p.OldText
 		}
-		res, err := betools.Replace(p.File, start, end, old, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.ViewedCodeID, p.Brief, s.opts...)
+		res, err := betools.Replace(p.File, start, end, old, p.Content, defaultFormat(p.Format), p.Preview, p.ViewedCodeID, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -515,7 +515,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			after = span.End
 		}
-		res, err := betools.Insert(p.File, after, p.Content, p.Raw, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
+		res, err := betools.Insert(p.File, after, p.Content, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -589,7 +589,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			}
 			spec = mustJSON(map[string]any{"files": files})
 		}
-		res, err := betools.Write(spec, p.Preview, p.Raw, p.Brief, s.opts...)
+		res, err := betools.Write(spec, p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
@@ -696,7 +696,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		}
 
 		// Use the core betools.Insert with resolved content
-		res, err := betools.Insert(targetFile, lineNum, content, true, "plain", false, false, s.opts...)
+		res, err := betools.Insert(targetFile, lineNum, content, "plain", false, false, s.opts...)
 		if err != nil {
 			return "", err
 		}

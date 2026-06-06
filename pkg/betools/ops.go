@@ -105,7 +105,7 @@ func Read(path string, start int, endLine int, brief bool, opts ...Option) (Show
 	return Show(path, start, endLine, brief, opts...)
 }
 
-func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, brief bool, opts ...Option) (ReplaceResult, error) {
+func Replace(path string, start, end int, old *string, content string, format string, preview bool, sessionID string, brief bool, opts ...Option) (ReplaceResult, error) {
 	lines, le, err := readLines(path, opts...)
 	if err != nil {
 		return ReplaceResult{}, readPath(path, err)
@@ -136,7 +136,7 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 	beforeStart := max(1, start-5)
 	beforeEnd := min(total, end+5)
 	beforeContent := append([]string(nil), lines[beforeStart-1:beforeEnd]...)
-	newLines := prepareContentLines(content, le, raw)
+	newLines := prepareContentLines(content, le)
 	out := make([]string, 0, len(lines)-((end-start)+1)+len(newLines))
 	out = append(out, lines[:start-1]...)
 	out = append(out, newLines...)
@@ -207,7 +207,7 @@ func normalizeLineBlock(content string) string {
 // The `after` parameter is the only position specifier — there is no implicit
 // line-1 conversion (unlike the legacy `line` parameter which was removed to
 // eliminate tool confusion; models could not reliably predict the -1 offset).
-func Insert(path string, after int, content string, raw bool, format string, preview bool, brief bool, opts ...Option) (InsertResult, error) {
+func Insert(path string, after int, content string, format string, preview bool, brief bool, opts ...Option) (InsertResult, error) {
 	lines, le, err := readLines(path, opts...)
 	if err != nil {
 		return InsertResult{}, readPath(path, err)
@@ -219,7 +219,7 @@ func Insert(path string, after int, content string, raw bool, format string, pre
 	beforeStart := max(1, after-5)
 	beforeEnd := min(total, after+5)
 	beforeContent := append([]string(nil), lines[beforeStart-1:beforeEnd]...)
-	newLines := prepareContentLines(content, le, raw)
+	newLines := prepareContentLines(content, le)
 	result := make([]string, 0, len(lines)+len(newLines))
 	result = append(result, lines[:after]...)
 	result = append(result, newLines...)
