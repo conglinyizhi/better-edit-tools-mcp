@@ -25,8 +25,20 @@ func Show(path string, start int, endLine int, brief bool, opts ...Option) (Show
 
 	s := start
 	var e int
-	if endLine <= 0 {
-		// auto mode: detect function range or show context
+	if endLine < 0 && endLine != -1 {
+		// Negative end (e.g., -3): count from end of file: total + endLine + 1
+		e = total + endLine + 1
+		if e < s {
+		return ShowResult{}, "", invalidArg(fmt.Sprintf("show: computed end (%d) < start (%d) with end=%d, total=%d", e, s, endLine, total))
+		}
+		if e > total {
+			e = total
+		}
+		if e < 1 {
+			e = 1
+		}
+	} else if endLine <= 0 {
+		// auto mode (-1 or 0): detect function range or show context
 		if rs, re, err := functionRangeRaw(path, s, opts...); err == nil {
 			s = rs
 			e = re
