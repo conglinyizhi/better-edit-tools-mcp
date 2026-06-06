@@ -51,6 +51,14 @@ func Write(spec string, preview bool, brief bool, opts ...Option) (WriteResult, 
 		}
 	}
 
+	// Normalize content to match existing file's line ending (preserve CRLF)
+	for i := range writeSpecs {
+		if _, le, err := readLines(writeSpecs[i].File, opts...); err == nil && le == "\r\n" {
+			normalized := strings.ReplaceAll(writeSpecs[i].Content, "\r\n", "\n")
+			writeSpecs[i].Content = strings.ReplaceAll(normalized, "\n", "\r\n")
+		}
+	}
+
 	if !preview {
 		if err := writeFilesAtomic(writeSpecs, opts...); err != nil {
 			path := spec
