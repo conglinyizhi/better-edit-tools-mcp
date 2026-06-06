@@ -76,7 +76,12 @@ func Show(path string, start int, endLine int, brief bool, opts ...Option) (Show
 	if !brief {
 		var b strings.Builder
 		for i := s - 1; i < e; i++ {
-			fmt.Fprintf(&b, "%d\t%s", i+1, strings.TrimRight(lines[i], "\n\r"))
+			text := strings.TrimRight(lines[i], "\n\r")
+			if text == "" {
+				fmt.Fprintf(&b, "%d\t<blank>", i+1)
+			} else {
+				fmt.Fprintf(&b, "%d\t%s", i+1, text)
+			}
 			if i < e-1 {
 				b.WriteByte('\n')
 			}
