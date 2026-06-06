@@ -312,8 +312,16 @@ func scanContentWarnings(content string) []string {
 	hasTrailing := false
 	for _, line := range lines {
 		if len(line) > 0 {
-			last := line[len(line)-1]
-			if last == ' ' || last == '	' {
+			// Strip line number prefix (e.g., "12\t") before checking content
+			contentPart := line
+			if tabIdx := strings.Index(line, "\t"); tabIdx >= 0 {
+				contentPart = line[tabIdx+1:]
+			}
+			if contentPart == "" {
+				continue
+			}
+			last := contentPart[len(contentPart)-1]
+			if last == ' ' || last == '\t' {
 				hasTrailing = true
 				break
 			}
@@ -323,7 +331,7 @@ func scanContentWarnings(content string) []string {
 		warnings = append(warnings, "content contains trailing whitespace on one or more lines")
 	}
 
-	if !strings.HasSuffix(content, "\n") {
+	if content != "" && !strings.HasSuffix(content, "\n") {
 		warnings = append(warnings, "file does not end with a newline")
 	}
 
