@@ -4,79 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-type sandboxFS struct {
-	root  string
-	block map[string]bool
-}
-
-func (s sandboxFS) abs(name string) string {
-	if filepath.IsAbs(name) {
-		return name
-	}
-	return filepath.Join(s.root, name)
-}
-
-func (s sandboxFS) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(s.abs(name))
-}
-
-func (s sandboxFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
-	return os.WriteFile(s.abs(name), data, perm)
-}
-
-func (s sandboxFS) Stat(name string) (fs.FileInfo, error) {
-	return os.Stat(s.abs(name))
-}
-
-func (s sandboxFS) Rename(oldpath, newpath string) error {
-	return os.Rename(s.abs(oldpath), s.abs(newpath))
-}
-
-func (s sandboxFS) Remove(name string) error {
-	return os.Remove(s.abs(name))
-}
-
-func (s sandboxFS) Open(name string) (io.ReadCloser, error) {
-	if s.block != nil && s.block[name] {
-		return nil, os.ErrPermission
-	}
-	return os.Open(s.abs(name))
-}
-
-func (s sandboxFS) Create(name string) (io.WriteCloser, error) {
-	return os.Create(s.abs(name))
-}
-
-func writeTempFile(t *testing.T, name, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write temp file: %v", err)
-	}
-	return path
-}
-
-func readFile(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read file: %v", err)
-	}
-	return string(data)
-}
-
 func TestShowAutoUsesFunctionRange(t *testing.T) {
-	path := writeTempFile(t, "main.go", "package main\n\nfunc demo() {\n\tprintln(\"x\")\n}\n")
-	res, _, err := Show(path, 3, -1, false)
+	m, opt := withFS(map[string]string{"main.go": "package main\n\nfunc demo() {\n\tprintln(\"x\")\n}\n"})
+	res, _, err := Show("main.go", 3, -1, false, opt)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
@@ -86,11 +20,12 @@ func TestShowAutoUsesFunctionRange(t *testing.T) {
 	if !strings.Contains(res.Content, "3\tfunc demo() {") {
 		t.Fatalf("unexpected content: %q", res.Content)
 	}
+	_ = m
 }
 
 func TestShowExplicitRange(t *testing.T) {
-	path := writeTempFile(t, "main.go", "one\ntwo\nthree\n")
-	res, _, err := Show(path, 2, 3, false)
+	m, opt := withFS(map[string]string{"main.go": "one\ntwo\nthree\n"})
+	res, _, err := Show("main.go", 2, 3, false, opt)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
@@ -100,15 +35,16 @@ func TestShowExplicitRange(t *testing.T) {
 	if !strings.Contains(res.Content, "2\ttwo") || !strings.Contains(res.Content, "3\tthree") {
 		t.Fatalf("unexpected content: %q", res.Content)
 	}
+	_ = m
 }
 
 func TestReadAlias(t *testing.T) {
-	path := writeTempFile(t, "alias.txt", "a\nb\n")
-	showRes, showID, err := Show(path, 1, 1, false)
+	m, opt := withFS(map[string]string{"alias.txt": "a\nb\n"})
+	showRes, showID, err := Show("alias.txt", 1, 1, false, opt)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
-	readRes, readID, err := Read(path, 1, 1, false)
+	readRes, readID, err := Read("alias.txt", 1, 1, false, opt)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -118,88 +54,91 @@ func TestReadAlias(t *testing.T) {
 	if showID == "" || readID == "" {
 		t.Fatalf("expected session ids from read-like calls")
 	}
+	_ = m
 }
 
 func TestReplacePreviewDoesNotWrite(t *testing.T) {
-	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	m, opt := withFS(map[string]string{"a.txt": "a\nb\nc\n"})
 	old := "b\n"
-	res, err := Replace(path, 2, 2, &old, "x", "plain", true, "", false)
+	res, err := Replace("a.txt", 2, 2, &old, "x", "plain", true, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
 	if !res.Preview {
 		t.Fatalf("preview flag missing: %+v", res)
 	}
-	if got := readFile(t, path); got != "a\nb\nc\n" {
+	if got := readFS(t, m, "a.txt"); got != "a\nb\nc\n" {
 		t.Fatalf("file changed unexpectedly: %q", got)
 	}
 }
 
 func TestReplaceRejectsOldMismatch(t *testing.T) {
-	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	m, opt := withFS(map[string]string{"a.txt": "a\nb\nc\n"})
 	old := "x\n"
-	if _, err := Replace(path, 2, 2, &old, "y", "plain", true, "", false); err == nil {
+	if _, err := Replace("a.txt", 2, 2, &old, "y", "plain", true, "", false, opt); err == nil {
 		t.Fatalf("expected mismatch error")
 	}
-	if got := readFile(t, path); got != "a\nb\nc\n" {
+	if got := readFS(t, m, "a.txt"); got != "a\nb\nc\n" {
 		t.Fatalf("file changed unexpectedly: %q", got)
 	}
 }
 
 func TestInsertAndDeleteWriteFile(t *testing.T) {
-	path := writeTempFile(t, "a.txt", "a\nb\n")
-	if _, err := Insert(path, 1, "x", "plain", false, false); err != nil {
+	m, opt := withFS(map[string]string{"a.txt": "a\nb\n"})
+	if _, err := Insert("a.txt", 1, "x", "plain", false, false, opt); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
-	if got := readFile(t, path); got != "a\nx\nb\n" {
+	if got := readFS(t, m, "a.txt"); got != "a\nx\nb\n" {
 		t.Fatalf("unexpected after insert: %q", got)
 	}
-	if _, err := Delete(path, 2, 2, "plain", false, false); err != nil {
+	if _, err := Delete("a.txt", 2, 2, "plain", false, false, opt); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	if got := readFile(t, path); got != "a\nb\n" {
+	if got := readFS(t, m, "a.txt"); got != "a\nb\n" {
 		t.Fatalf("unexpected after delete: %q", got)
 	}
 }
 
-
 func TestWriteDegradedParser(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "w.txt")
-	spec := `{"file":"` + path + `","content":"hello\nworld"}`
-	res, err := Write(spec, false, false)
+	m, opt := withFS(nil)
+	spec := `{"file":"w.txt","content":"hello\nworld"}`
+	res, err := Write(spec, false, false, opt)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if res.Degraded {
 		t.Fatalf("unexpected degraded for valid json: %+v", res)
 	}
-	if got := readFile(t, path); got != "hello\nworld" {
+	if got := readFS(t, m, "w.txt"); got != "hello\nworld" {
 		t.Fatalf("unexpected write content: %q", got)
 	}
 }
 
 func TestWriteRawFallback(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "w.txt")
-	spec := `{"file":"` + path + `","content":"hello
+	m, opt := withFS(nil)
+	spec := `{"file":"w.txt","content":"hello
 world"}`
-	res, err := Write(spec, false, false)
+	res, err := Write(spec, false, false, opt)
 	if err != nil {
 		t.Fatalf("write fallback: %v", err)
 	}
 	if !res.Degraded {
 		t.Fatalf("expected degraded flag: %+v", res)
 	}
-	if got := readFile(t, path); !strings.Contains(got, "hello") {
+	if got := readFS(t, m, "w.txt"); !strings.Contains(got, "hello") {
 		t.Fatalf("unexpected fallback content: %q", got)
 	}
 }
 
 func TestShowRejectsBinaryFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "bin.dat")
-	if err := os.WriteFile(path, []byte{0x00, 0x01, 0x02, 0x7f, 0xff}, 0o644); err != nil {
+	// MemFS can store arbitrary bytes — we test binary rejection through Show
+	m := NewMemFS(map[string]string{"bin.dat": ""})
+	opt := WithFileSystem(m)
+	// Write binary content directly to MemFS
+	if err := m.WriteFile("bin.dat", []byte{0x00, 0x01, 0x02, 0x7f, 0xff}, 0o644); err != nil {
 		t.Fatalf("write binary: %v", err)
 	}
-	_, _, err := Show(path, 1, 1, false)
+	_, _, err := Show("bin.dat", 1, 1, false, opt)
 	if err == nil {
 		t.Fatal("expected binary rejection")
 	}
@@ -209,27 +148,30 @@ func TestShowRejectsBinaryFile(t *testing.T) {
 }
 
 func TestInjectedFileSystemIsUsed(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "sandbox.txt")
-	fsys := sandboxFS{root: dir}
-	if _, _, err := Show(path, 1, 1, false, WithFileSystem(fsys)); err == nil {
-		t.Fatal("expected error for missing file inside injected fs")
+	m := NewMemFS(nil)
+	fsys := WithFileSystem(m)
+
+	// Show on non-existent file should error
+	if _, _, err := Show("sandbox.txt", 1, 1, false, fsys); err == nil {
+		t.Fatal("expected error for missing file in MemFS")
 	}
-	if _, err := Write(`{"file":"sandbox.txt","content":"hello"}`, false, false, WithFileSystem(fsys)); err != nil {
-		t.Fatalf("write with injected fs: %v", err)
+
+	// Write and verify
+	if _, err := Write(`{"file":"sandbox.txt","content":"hello"}`, false, false, fsys); err != nil {
+		t.Fatalf("write with MemFS: %v", err)
 	}
-	got, err := os.ReadFile(path)
+	got, err := m.ReadFile("sandbox.txt")
 	if err != nil {
 		t.Fatalf("read sandbox file: %v", err)
 	}
 	if string(got) != "hello" {
-		t.Fatalf("unexpected sandbox content: %q", string(got))
+		t.Fatalf("unexpected content: %q", string(got))
 	}
 }
 
 func TestBalanceSimple(t *testing.T) {
-	path := writeTempFile(t, "a.js", "function demo() { return [1, 2]; }\n")
-	out, err := CheckStructureBalance(path, false)
+	_, opt := withFS(map[string]string{"a.js": "function demo() { return [1, 2]; }\n"})
+	out, err := CheckStructureBalance("a.js", false, opt)
 	if err != nil {
 		t.Fatalf("balance: %v", err)
 	}
@@ -243,8 +185,8 @@ func TestBalanceSimple(t *testing.T) {
 }
 
 func TestTargetResolutionLine(t *testing.T) {
-	path := writeTempFile(t, "a.txt", "one\ntwo\nthree\n")
-	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "line", Value: "2"})
+	_, opt := withFS(map[string]string{"a.txt": "one\ntwo\nthree\n"})
+	span, err := ResolveTargetSpan("a.txt", ContentTarget{Kind: "line", Value: "2"}, opt)
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
@@ -262,7 +204,6 @@ func TestNormalizeLineBreaks_RealNewlines_Noop(t *testing.T) {
 }
 
 func TestNormalizeLineBreaks_LiteralNewlines_Fixed(t *testing.T) {
-	// Simulate degraded JSON: literal \\n (two chars) instead of real newlines
 	input := "hello\\nworld\\n"
 	got := normalizeLineBreaks(input)
 	if got != "hello\nworld\n" {
@@ -279,7 +220,6 @@ func TestNormalizeLineBreaks_NoNewlines_Noop(t *testing.T) {
 }
 
 func TestNormalizeLineBreaks_MixedNewlines_Noop(t *testing.T) {
-	// If content has BOTH real newlines and literal \\n, leave as-is
 	input := "hello\nworld\\nend"
 	got := normalizeLineBreaks(input)
 	if got != input {
@@ -288,15 +228,13 @@ func TestNormalizeLineBreaks_MixedNewlines_Noop(t *testing.T) {
 }
 
 func TestReplaceContentWithLiteralNewlines_FixedByNormalize(t *testing.T) {
-	// Content uses real newlines (content is used as-is after JSON parsing)
-	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
-	content := "x\ny" // real newline in Go string
-	res, err := Replace(path, 2, 2, nil, content, "plain", false, "", false)
+	m, opt := withFS(map[string]string{"a.txt": "a\nb\nc\n"})
+	content := "x\ny"
+	res, err := Replace("a.txt", 2, 2, nil, content, "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
-	got := readFile(t, path)
-	// The content "x\ny" is used as-is, resulting in two lines
+	got := readFS(t, m, "a.txt")
 	if got != "a\nx\ny\nc\n" {
 		t.Fatalf("expected content, got: %q", got)
 	}
@@ -304,89 +242,77 @@ func TestReplaceContentWithLiteralNewlines_FixedByNormalize(t *testing.T) {
 }
 
 func TestReplaceOldWithDegradedNewlines_Matches(t *testing.T) {
-	// Old parameter has literal \\n instead of real newlines — should still match
-	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	_, opt := withFS(map[string]string{"a.txt": "a\nb\nc\n"})
 	old := "b\n"
-	// Use raw=true to skip parseContent — old with literal newline
 	content := "x\n"
-	_, err := Replace(path, 2, 2, &old, content, "plain", false, "", false)
+	_, err := Replace("a.txt", 2, 2, &old, content, "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace should accept old with real newlines: %v", err)
 	}
 }
 
 func TestReplaceRejectsOldWithDegradedNewlines_AfterNormalize(t *testing.T) {
-	// Old parameter with literal \\n should be normalized and match
-	path := writeTempFile(t, "a.txt", "a\nb\nc\n")
+	_, opt := withFS(map[string]string{"a.txt": "a\nb\nc\n"})
 	old := "x\n"
 	content := "y\n"
-	_, err := Replace(path, 2, 2, &old, content, "plain", false, "", false)
+	_, err := Replace("a.txt", 2, 2, &old, content, "plain", false, "", false, opt)
 	if err == nil {
 		t.Fatal("expected mismatch error for wrong old content")
 	}
 }
 
 func TestWriteNormalizeLineBreaks_LiteralNewlines(t *testing.T) {
-	// Content has literal \\n (two chars) simulating degraded JSON
-	// normalizeLineBreaks should convert them
-	path := filepath.Join(t.TempDir(), "wnorm.txt")
-	// Build a spec with literal \\n in the JSON string
+	m, opt := withFS(nil)
 	content := "line1\\nline2\\n"
-	spec := `{"file":"` + path + `","content":"` + content + `"}`
-	_, err := Write(spec, false, false)
+	spec := `{"file":"wnorm.txt","content":"` + content + `"}`
+	_, err := Write(spec, false, false, opt)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	got := readFile(t, path)
-	// With normalizeLineBreaks, literal \\n should become real newlines
+	got := readFS(t, m, "wnorm.txt")
 	if got != "line1\nline2\n" && got != "line1\nline2" {
 		t.Fatalf("expected line breaks normalized, got: %q", got)
 	}
 }
 
 func TestWriteNormalizeLineBreaks_RealNewlines_Preserved(t *testing.T) {
-	// Content already has real newlines (correct JSON)
-	// normalizeLineBreaks is no-op
-	path := filepath.Join(t.TempDir(), "wpres.txt")
-	spec := `{"file":"` + path + `","content":"hello\nworld"}`
-	_, err := Write(spec, false, false)
+	m, opt := withFS(nil)
+	spec := `{"file":"wpres.txt","content":"hello\nworld"}`
+	_, err := Write(spec, false, false, opt)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "wpres.txt")
 	if got != "hello\nworld" {
 		t.Fatalf("expected real newlines preserved, got: %q", got)
 	}
 }
+
 func TestReplacePreservesTabIndentation(t *testing.T) {
-	// Go file with tab indentation
-	path := writeTempFile(t, "main.go", "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n")
-	// old must match the file content
+	m, opt := withFS(map[string]string{"main.go": "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n"})
 	old := "\tprintln(\"hello\")\n"
 	content := "\tprintln(\"world\")\n"
-	res, err := Replace(path, 4, 4, &old, content, "plain", false, "", false)
+	res, err := Replace("main.go", 4, 4, &old, content, "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace tab-indented: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "main.go")
 	expected := "package main\n\nfunc main() {\n\tprintln(\"world\")\n}\n"
 	if got != expected {
 		t.Fatalf("expected tab indentation preserved, got: %q", got)
 	}
 	_ = res
 }
+
 func TestReplacePreservesTabIndentation_ContentWithEscapedTab(t *testing.T) {
-	// Content uses real tab character",
-	path := writeTempFile(t, "main.go", "package main\n\nfunc main() {\n\treturn 1\n}\n")
-	// Content with real tab
+	m, opt := withFS(map[string]string{"main.go": "package main\n\nfunc main() {\n\treturn 1\n}\n"})
 	content := "\treturn 2"
 	old := "\treturn 1\n"
-	res, err := Replace(path, 4, 4, &old, content, "plain", false, "", false)
+	res, err := Replace("main.go", 4, 4, &old, content, "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace with escaped tab: %v", err)
 	}
-	got := readFile(t, path)
-	// The line should have real tab indentation
+	got := readFS(t, m, "main.go")
 	if !strings.Contains(got, "\treturn 2") {
 		t.Fatalf("expected tab indentation preserved in output, got: %q", got)
 	}
@@ -413,9 +339,7 @@ func TestParseContent_Escapes(t *testing.T) {
 }
 
 func TestSnapshotQueueFullReturnsWarning(t *testing.T) {
-	// Clean up any leftover snapshots from other tests
 	CommitSnapshots()
-	// Fill the snapshot queue to capacity
 	for i := 0; i < MaxSnapshots; i++ {
 		_, warn := PushSnapshot(SnapshotRecord{
 			Tool:    "test",
@@ -426,8 +350,6 @@ func TestSnapshotQueueFullReturnsWarning(t *testing.T) {
 			t.Fatalf("unexpected warning before queue full: %s", warn)
 		}
 	}
-
-	// Next push should evict oldest and produce a warning string
 	_, warn := PushSnapshot(SnapshotRecord{
 		Tool:    "test",
 		File:    "/tmp/test.txt",
@@ -442,8 +364,6 @@ func TestSnapshotQueueFullReturnsWarning(t *testing.T) {
 	if !strings.Contains(warn, "written successfully") {
 		t.Fatalf("expected warning to confirm write was successful, got: %s", warn)
 	}
-
-	// Cleanup
 	CommitSnapshots()
 }
 
@@ -462,33 +382,31 @@ func TestBracesInRange_Unbalanced(t *testing.T) {
 }
 
 func TestDeleteWithTarget_PreservesAdjacentCode(t *testing.T) {
-	content := "package main\n\nfunc first() {\n\treturn 1\n}\n\nfunc second() {\n\treturn 2\n}\n"
-	path := writeTempFile(t, "main.go", content)
+	content := "package main\n\nfunc first() {\n\treturn 1\n}\n\nfunc second() {\n\treturn 2\n}\n\nfunc third() {\n\treturn 3\n}\n"
+	m, opt := withFS(map[string]string{"main.go": content})
 
-	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "function", Value: "second"})
+	span, err := ResolveTargetSpan("main.go", ContentTarget{Kind: "function", Value: "second"}, opt)
 	if err != nil {
 		t.Fatalf("resolve target: %v", err)
 	}
 
-	res, err := Delete(path, span.Start, span.End, "plain", false, false)
+	_, err = Delete("main.go", span.Start, span.End, "plain", false, false, opt)
 	if err != nil {
 		t.Fatalf("delete second function: %v", err)
 	}
 
-	got := readFile(t, path)
+	got := readFS(t, m, "main.go")
 	if !strings.Contains(got, "func first() {") {
-		t.Fatalf("first function should remain after deleting second")
+		t.Fatal("first function should remain after deleting second")
 	}
 	if strings.Contains(got, "func second() {") {
-		t.Fatalf("second function should be deleted")
+		t.Fatal("second function should be deleted")
 	}
-	_ = res
 }
 
 func TestBalancePositionTrace(t *testing.T) {
-	// File with unbalanced '{' that has no matching '}'
-	path := writeTempFile(t, "a.js", "var x = {\n")
-	out, err := CheckStructureBalance(path, false)
+	_, opt := withFS(map[string]string{"a.js": "var x = {\n"})
+	out, err := CheckStructureBalance("a.js", false, opt)
 	if err != nil {
 		t.Fatalf("balance: %v", err)
 	}
@@ -515,14 +433,12 @@ func TestBalancePositionTrace(t *testing.T) {
 		t.Error("expected col field in unbalanced item output")
 	}
 }
+
 func TestIsTabDominant(t *testing.T) {
-	// Tab-dominant content: >50% of non-empty lines start with tab
 	tabContent := "func main() {\n\tif true {\n\t\treturn 1\n\t}\n\treturn 2\n}\n"
 	if !isTabDominant(tabContent) {
 		t.Fatal("expected code with mostly tab-indented lines to be tab-dominant")
 	}
-
-	// Space-dominant content (Markdown or plain text)
 	spaceContent := "Hello world\n  indented with spaces\n  another line\n"
 	if isTabDominant(spaceContent) {
 		t.Fatal("expected space-indented content to NOT be tab-dominant")
@@ -531,15 +447,13 @@ func TestIsTabDominant(t *testing.T) {
 
 func TestDeleteSavesChip(t *testing.T) {
 	content := "line1\nline2\nline3\n"
-	path := writeTempFile(t, "a.txt", content)
+	m, opt := withFS(map[string]string{"a.txt": content})
 
-	// Delete line 2 — should save to chip
-	res, err := Delete(path, 2, 2, "plain", false, false)
+	res, err := Delete("a.txt", 2, 2, "plain", false, false, opt)
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	// Verify warnings contain chip reference
 	foundChip := false
 	for _, w := range res.Warnings {
 		if strings.Contains(w, "chip://") {
@@ -551,8 +465,7 @@ func TestDeleteSavesChip(t *testing.T) {
 		t.Fatalf("expected chip reference in delete warnings, got %v", res.Warnings)
 	}
 
-	// Verify the file was modified correctly
-	got := readFile(t, path)
+	got := readFS(t, m, "a.txt")
 	if got != "line1\nline3\n" {
 		t.Fatalf("unexpected content after delete: %q", got)
 	}
