@@ -11,3 +11,8 @@ better-edit-tools
 .github/script/betools
 
 .sisyphus/
+
+.fe-*.tmp
+.fe-*.bak
+coverage.out
+*.test
