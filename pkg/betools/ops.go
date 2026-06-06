@@ -17,7 +17,14 @@ func Show(path string, start int, endLine int, brief bool, opts ...Option) (Show
 	}
 	total := len(lines)
 	if total == 0 {
-		return ShowResult{}, "", invalidArg("show: empty file")
+		return ShowResult{
+			Status: "ok",
+			File:   filepath.Clean(path),
+			Start:  0,
+			End:    0,
+			Total:  0,
+			Brief:  brief,
+		}, "", nil
 	}
 	if start < 1 || start > total {
 		return ShowResult{}, "", invalidArg(fmt.Sprintf("show: start out of range (1..%d)", total))
