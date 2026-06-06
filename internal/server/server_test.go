@@ -278,3 +278,239 @@ func mustReadFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// ──────────────────────────────────────────────
+// MCP 集成测试：错误响应 + 结构校验
+// ──────────────────────────────────────────────
+
+func TestToolCall_MissingFile_ReturnsError(t *testing.T) {
+	srv := New("en")
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"start":1}}}`
+	out := callServer(t, srv, req)
+	resp := parseResp(t, out)
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing result: %#v", resp)
+	}
+	if isError, _ := result["isError"].(bool); !isError {
+		t.Fatal("expected isError=true for missing file param")
+	}
+}
+
+func TestToolCall_UnknownTool_ReturnsError(t *testing.T) {
+	srv := New("en")
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-nonexistent","arguments":{}}}`
+	out := callServer(t, srv, req)
+	resp := parseResp(t, out)
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing result: %#v", resp)
+	}
+	if isError, _ := result["isError"].(bool); !isError {
+		t.Fatal("expected isError=true for unknown tool")
+	}
+}
+
+func TestToolCall_ReadBrief_HasEmptyContent(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	path := dir + "/brief.txt"
+	os.WriteFile(path, []byte("a\nb\n"), 0o644)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `","start":1,"end":2,"brief":true}}}`
+	out := callServer(t, srv, req)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
+		t.Fatalf("json result: %v", err)
+	}
+	if result["brief"] != true {
+		t.Fatal("expected brief=true")
+	}
+	if content, _ := result["content"].(string); content != "" {
+		t.Fatalf("expected empty content in brief mode, got %q", content)
+	}
+}
+
+func TestToolCall_ReplacePreview_FileUnchanged(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	path := dir + "/preview.txt"
+	os.WriteFile(path, []byte("keep\n"), 0o644)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-replace","arguments":{"file":"` + path + `","start":1,"end":1,"content":"changed\n","preview":true}}}`
+	out := callServer(t, srv, req)
+	mustSuccess(t, out)
+	got := mustReadFile(t, path)
+	if got != "keep\n" {
+		t.Fatalf("expected file unchanged in preview, got %q", got)
+	}
+}
+
+func TestToolCall_BalanceVerbose_HasMatchedPairs(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	path := dir + "/balanced.js"
+	os.WriteFile(path, []byte("function a() {}\n"), 0o644)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-balance","arguments":{"file":"` + path + `","verbose":true}}}`
+	out := callServer(t, srv, req)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if _, ok := result["matched"]; !ok {
+		t.Fatalf("expected 'matched' in verbose balance, got keys: %v", keysOf(result))
+	}
+}
+
+func TestToolCall_FuncRange_ReturnsRange(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	path := dir + "/demofunc.go"
+	os.WriteFile(path, []byte("package main\n\nfunc demo() {\n\tx := 1\n}\n"), 0o644)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-func-range","arguments":{"file":"` + path + `","line":3}}}`
+	out := callServer(t, srv, req)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if start, _ := result["start"].(float64); start != 3 {
+		t.Fatalf("expected start=3, got %v", result["start"])
+	}
+	if end, _ := result["end"].(float64); end != 5 {
+		t.Fatalf("expected end=5, got %v", result["end"])
+	}
+}
+
+func TestToolCall_TagRange_ReturnsTag(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	path := dir + "/tagtest.html"
+	os.WriteFile(path, []byte("<div>\n<p>text</p>\n</div>\n"), 0o644)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-tag-range","arguments":{"file":"` + path + `","line":2}}}`
+	out := callServer(t, srv, req)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if result["tag"] != "p" {
+		t.Fatalf("expected tag 'p', got %q", result["tag"])
+	}
+}
+
+func TestToolCall_InsertChip_EmptyFrom_ReturnsChipList(t *testing.T) {
+	srv := New("en")
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert-chip","arguments":{}}}`
+	out := callServer(t, srv, req)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if result["status"] != "ok" {
+		t.Fatalf("expected status=ok, got %v", result["status"])
+	}
+}
+
+func TestToolCall_TrxStatus_ReturnsQueue(t *testing.T) {
+	srv := New("en")
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-trx-status","arguments":{}}}`
+	out := callServer(t, srv, req)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if result["status"] != "ok" {
+		t.Fatalf("expected status=ok, got %v", result["status"])
+	}
+	if _, ok := result["queue"]; !ok {
+		t.Fatalf("expected 'queue' in trx-status")
+	}
+}
+
+func TestToolCall_Write_MultiFile_ReturnsResults(t *testing.T) {
+	srv := New("en")
+	dir := t.TempDir()
+	p1 := dir + "/a.txt"
+	p2 := dir + "/b.txt"
+	spec := `{"files":[{"file":"` + p1 + `","content":"hello"},{"file":"` + p2 + `","content":"world"}]}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-write","arguments":` + spec + `}}`
+	out := callServer(t, srv, req)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if result["status"] != "ok" {
+		t.Fatalf("expected status=ok, got %v", result["status"])
+	}
+	if files, _ := result["files"].(float64); files != 2 {
+		t.Fatalf("expected 2 files, got %v", files)
+	}
+	if got := mustReadFile(t, p1); got != "hello" {
+		t.Fatalf("expected 'hello', got %q", got)
+	}
+}
+
+// ──────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────
+
+func callServer(t *testing.T, srv *Server, req string) *bytes.Buffer {
+	t.Helper()
+	var out bytes.Buffer
+	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	return &out
+}
+
+func parseResp(t *testing.T, out *bytes.Buffer) map[string]any {
+	t.Helper()
+	scanner := bufio.NewScanner(out)
+	if !scanner.Scan() {
+		t.Fatalf("no response")
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	return resp
+}
+
+func mustSuccess(t *testing.T, out *bytes.Buffer) {
+	t.Helper()
+	resp := parseResp(t, out)
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing result: %#v", resp)
+	}
+	if isError, _ := result["isError"].(bool); isError {
+		t.Fatalf("unexpected error: %#v", result)
+	}
+}
+
+func mustTextResult(t *testing.T, out *bytes.Buffer) string {
+	t.Helper()
+	resp := parseResp(t, out)
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing result: %#v", resp)
+	}
+	if isError, _ := result["isError"].(bool); isError {
+		t.Fatalf("unexpected error: %#v", result)
+	}
+	contents, ok := result["content"].([]any)
+	if !ok || len(contents) == 0 {
+		t.Fatalf("missing content array: %#v", result)
+	}
+	first, ok := contents[0].(map[string]any)
+	if !ok {
+		t.Fatalf("content[0] not object: %#v", contents[0])
+	}
+	text, _ := first["text"].(string)
+	return text
+}
+
+func keysOf(m map[string]any) []string {
+	var ks []string
+	for k := range m {
+		ks = append(ks, k)
+	}
+	return ks
+}
