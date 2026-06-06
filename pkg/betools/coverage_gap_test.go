@@ -15,13 +15,15 @@ import (
 // ──────────────────────────────────────────────
 
 func TestCreateSession_ReturnsID(t *testing.T) {
-	CommitSnapshots() // reset global state
-	path := writeTempFile(t, "sess.txt", "a\nb\nc\n")
+	CommitSnapshots()
+	path := filepath.Join(t.TempDir(), "sess.txt")
+	if err := os.WriteFile(path, []byte("a\nb\nc\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 	id := CreateSession(path, 1, 3)
 	if id == "" {
 		t.Fatal("expected non-empty session ID")
 	}
-	// Verify it's UUID-like
 	if len(id) != 36 {
 		t.Fatalf("expected UUID length 36, got %d: %q", len(id), id)
 	}
@@ -36,7 +38,10 @@ func TestGetSession_ReturnsNilForUnknown(t *testing.T) {
 
 func TestGetSession_ReturnsStoredSession(t *testing.T) {
 	CommitSnapshots()
-	path := writeTempFile(t, "sess2.txt", "x\ny\nz\n")
+	path := filepath.Join(t.TempDir(), "sess2.txt")
+	if err := os.WriteFile(path, []byte("x\ny\nz\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 	id := CreateSession(path, 2, 3)
 	s := GetSession(id)
 	if s == nil {
@@ -55,7 +60,10 @@ func TestGetSession_ReturnsStoredSession(t *testing.T) {
 
 func TestSessionFromCache_FileUnchanged_NoWarning(t *testing.T) {
 	CommitSnapshots()
-	path := writeTempFile(t, "cache_ok.txt", "keep\nsame\n")
+	path := filepath.Join(t.TempDir(), "cache_ok.txt")
+	if err := os.WriteFile(path, []byte("keep\nsame\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 	id := CreateSession(path, 1, 2)
 	_, warn := SessionFromCache(id)
 	if warn != "" {
@@ -65,10 +73,11 @@ func TestSessionFromCache_FileUnchanged_NoWarning(t *testing.T) {
 
 func TestSessionFromCache_FileLineCountChanged_Warning(t *testing.T) {
 	CommitSnapshots()
-	path := writeTempFile(t, "cache_changed.txt", "line1\nline2\nline3\n")
-	id := CreateSession(path, 1, 3) // 3 lines
-
-	// Change to fewer lines → triggers the file-has-changed check
+	path := filepath.Join(t.TempDir(), "cache_changed.txt")
+	if err := os.WriteFile(path, []byte("line1\nline2\nline3\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	id := CreateSession(path, 1, 3)
 	if err := os.WriteFile(path, []byte("only2\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -110,7 +119,10 @@ func TestSessionFromCache_InvalidID_ErrorMessage(t *testing.T) {
 
 func TestCleanupSession_RemovesSession(t *testing.T) {
 	CommitSnapshots()
-	path := writeTempFile(t, "cleanup.txt", "a\nb\n")
+	path := filepath.Join(t.TempDir(), "cleanup.txt")
+	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 	id := CreateSession(path, 1, 2)
 	CleanupSession(id)
 	s := GetSession(id)
@@ -133,14 +145,11 @@ func TestSaveChip_LargeArgs_CreatesChip(t *testing.T) {
 	if id == "" {
 		t.Fatal("expected non-empty chip ID for large args")
 	}
-	// Clean up
-	chipDirInit.Do(ensureChipDir)
-	os.Remove(filepath.Join(chipDir, fmt.Sprintf("chip-%s.json", id)))
 }
 
 func TestSaveChip_SmallArgs_ReturnsEmpty(t *testing.T) {
 	CommitSnapshots()
-	args := map[string]any{"x": "y"} // very small
+	args := map[string]any{"x": "y"}
 	id := SaveChip("be-write", args, "")
 	if id != "" {
 		t.Fatalf("expected empty chip ID for small args, got %q", id)
@@ -152,9 +161,8 @@ func TestGetChip_ValidID_ReturnsRecord(t *testing.T) {
 	args := map[string]any{"file": "/tmp/test.txt", "content": "hello"}
 	id := SaveChip("be-write", args, "error msg")
 	if id == "" {
-		t.Skip("chip not saved (args might be too short after marshaling)")
+		t.Skip("chip not saved (args too short)")
 	}
-
 	rec, err := GetChip(id)
 	if err != nil {
 		t.Fatalf("GetChip: %v", err)
@@ -179,16 +187,12 @@ func TestGetChip_InvalidID_Error(t *testing.T) {
 
 func TestListChips_ReturnsIDs(t *testing.T) {
 	CommitSnapshots()
-	// Clean existing chips
 	chipMu.Lock()
 	chipStore = nil
 	chipIDSet = nil
 	chipMu.Unlock()
-
-	// Save a few chips
 	id1 := SaveChip("be-write", map[string]any{"file": "/tmp/1.txt", "content": strings.Repeat("x", 100)}, "")
 	id2 := SaveChip("be-replace", map[string]any{"file": "/tmp/2.txt", "content": strings.Repeat("y", 100)}, "")
-
 	ids := ListChips()
 	if len(ids) < 2 {
 		t.Fatalf("expected at least 2 chips, got %d: %v", len(ids), ids)
@@ -199,15 +203,14 @@ func TestListChips_ReturnsIDs(t *testing.T) {
 	if ids[1] != id2 {
 		t.Fatalf("expected second chip ID %q, got %q", id2, ids[1])
 	}
-
 }
+
 func TestSaveContentChip_ReturnsID(t *testing.T) {
 	CommitSnapshots()
 	chipMu.Lock()
 	chipStore = nil
 	chipIDSet = nil
 	chipMu.Unlock()
-
 	id, warn := SaveContentChip("be-delete", "deleted content here")
 	if id == "" {
 		t.Fatal("expected non-empty chip ID")
@@ -215,7 +218,6 @@ func TestSaveContentChip_ReturnsID(t *testing.T) {
 	if warn != "" {
 		t.Fatalf("unexpected overflow warning: %q", warn)
 	}
-
 	rec, err := GetChip(id)
 	if err != nil {
 		t.Fatalf("GetChip: %v", err)
@@ -230,17 +232,14 @@ func TestSaveContentChip_ReturnsID(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// Snapshot 队列操作测试（list/stats）
+// Snapshot 队列操作测试
 // ──────────────────────────────────────────────
 
 func TestListSnapshots_NewestFirst(t *testing.T) {
 	CommitSnapshots()
-
 	id1, _ := PushSnapshot(SnapshotRecord{Tool: "first", File: "/tmp/1.txt", Summary: "first"})
 	id2, _ := PushSnapshot(SnapshotRecord{Tool: "second", File: "/tmp/2.txt", Summary: "second"})
-
 	snapshots := ListSnapshots()
-	// ListSnapshots returns newest first
 	if len(snapshots) < 2 {
 		t.Fatalf("expected at least 2 snapshots, got %d", len(snapshots))
 	}
@@ -250,13 +249,11 @@ func TestListSnapshots_NewestFirst(t *testing.T) {
 	if snapshots[1].ID != id1 {
 		t.Fatalf("expected second newest: got %q, want %q", snapshots[1].ID, id1)
 	}
-
 	CommitSnapshots()
 }
 
 func TestSnapshotQueueStats_Accurate(t *testing.T) {
 	CommitSnapshots()
-
 	stats := SnapshotQueueStats()
 	if stats.Used != 0 {
 		t.Fatalf("expected 0 used after commit, got %d", stats.Used)
@@ -264,13 +261,11 @@ func TestSnapshotQueueStats_Accurate(t *testing.T) {
 	if stats.Max != MaxSnapshots {
 		t.Fatalf("expected Max=%d, got %d", MaxSnapshots, stats.Max)
 	}
-
 	PushSnapshot(SnapshotRecord{Tool: "test", File: "/tmp/s.txt", Summary: "x"})
 	stats = SnapshotQueueStats()
 	if stats.Used != 1 {
 		t.Fatalf("expected 1 used, got %d", stats.Used)
 	}
-
 	CommitSnapshots()
 }
 
@@ -284,14 +279,19 @@ func TestRollbackSnapshots_Zero_Noop(t *testing.T) {
 
 func TestRollbackSnapshots_ExceedsQueue_Clamped(t *testing.T) {
 	CommitSnapshots()
-	path := writeTempFile(t, "rollback_clamp.txt", "a\nb\nc\n")
-	_, _ = Replace(path, 2, 2, nil, "x\n", "plain", false, "", false)
-
-	// Request more than available
+	path := filepath.Join(t.TempDir(), "rollback_clamp.txt")
+	if err := os.WriteFile(path, []byte("a\nb\nc\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := Replace(path, 2, 2, nil, "x\n", "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace: %v", err)
+	}
 	count, errs := RollbackSnapshots(100)
 	if count < 1 {
 		t.Fatalf("expected at least 1 rollback (clamped), got %d, errs=%v", count, errs)
 	}
+	_ = errs
 	CommitSnapshots()
 }
 
@@ -300,8 +300,8 @@ func TestRollbackSnapshots_ExceedsQueue_Clamped(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestResolveTargetSpan_Line_Found(t *testing.T) {
-	path := writeTempFile(t, "target_line.txt", "one\ntwo\nthree\n")
-	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "line", Value: "2"})
+	_, opt := withFS(map[string]string{"target_line.txt": "one\ntwo\nthree\n"})
+	span, err := ResolveTargetSpan("target_line.txt", ContentTarget{Kind: "line", Value: "2"}, opt)
 	if err != nil {
 		t.Fatalf("resolve line target: %v", err)
 	}
@@ -311,16 +311,16 @@ func TestResolveTargetSpan_Line_Found(t *testing.T) {
 }
 
 func TestResolveTargetSpan_Line_OutOfRange(t *testing.T) {
-	path := writeTempFile(t, "target_oor.txt", "only one\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "line", Value: "999"})
+	_, opt := withFS(map[string]string{"target_oor.txt": "only one\n"})
+	_, err := ResolveTargetSpan("target_oor.txt", ContentTarget{Kind: "line", Value: "999"}, opt)
 	if err == nil {
 		t.Fatal("expected error for out-of-range line")
 	}
 }
 
 func TestResolveTargetSpan_Marker_Found(t *testing.T) {
-	path := writeTempFile(t, "target_marker.txt", "before\nTODO: fix this\nafter\n")
-	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "marker", Value: "TODO"})
+	_, opt := withFS(map[string]string{"target_marker.txt": "before\nTODO: fix this\nafter\n"})
+	span, err := ResolveTargetSpan("target_marker.txt", ContentTarget{Kind: "marker", Value: "TODO"}, opt)
 	if err != nil {
 		t.Fatalf("resolve marker target: %v", err)
 	}
@@ -330,24 +330,24 @@ func TestResolveTargetSpan_Marker_Found(t *testing.T) {
 }
 
 func TestResolveTargetSpan_Marker_NotFound(t *testing.T) {
-	path := writeTempFile(t, "target_no_marker.txt", "a\nb\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "marker", Value: "missing"})
+	_, opt := withFS(map[string]string{"target_no_marker.txt": "a\nb\n"})
+	_, err := ResolveTargetSpan("target_no_marker.txt", ContentTarget{Kind: "marker", Value: "missing"}, opt)
 	if err == nil {
 		t.Fatal("expected error for marker not found")
 	}
 }
 
 func TestResolveTargetSpan_Marker_EmptyValue(t *testing.T) {
-	path := writeTempFile(t, "target_empty_marker.txt", "a\nb\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "marker", Value: "  "})
+	_, opt := withFS(map[string]string{"target_empty_marker.txt": "a\nb\n"})
+	_, err := ResolveTargetSpan("target_empty_marker.txt", ContentTarget{Kind: "marker", Value: "  "}, opt)
 	if err == nil {
 		t.Fatal("expected error for empty marker value")
 	}
 }
 
 func TestResolveTargetSpan_Function_Found(t *testing.T) {
-	path := writeTempFile(t, "target_func.go", "package main\n\nfunc hello() {\n\treturn 1\n}\n")
-	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "function", Value: "hello"})
+	_, opt := withFS(map[string]string{"target_func.go": "package main\n\nfunc hello() {\n\treturn 1\n}\n"})
+	span, err := ResolveTargetSpan("target_func.go", ContentTarget{Kind: "function", Value: "hello"}, opt)
 	if err != nil {
 		t.Fatalf("resolve function target: %v", err)
 	}
@@ -357,16 +357,16 @@ func TestResolveTargetSpan_Function_Found(t *testing.T) {
 }
 
 func TestResolveTargetSpan_Function_NotFound(t *testing.T) {
-	path := writeTempFile(t, "target_no_func.txt", "just text\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "function", Value: "missing"})
+	_, opt := withFS(map[string]string{"target_no_func.txt": "just text\n"})
+	_, err := ResolveTargetSpan("target_no_func.txt", ContentTarget{Kind: "function", Value: "missing"}, opt)
 	if err == nil {
 		t.Fatal("expected error for function not found")
 	}
 }
 
 func TestResolveTargetSpan_Tag_Found(t *testing.T) {
-	path := writeTempFile(t, "target_tag.html", "<div>\n<span>text</span>\n</div>\n")
-	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "tag", Value: "span"})
+	_, opt := withFS(map[string]string{"target_tag.html": "<div>\n<span>text</span>\n</div>\n"})
+	span, err := ResolveTargetSpan("target_tag.html", ContentTarget{Kind: "tag", Value: "span"}, opt)
 	if err != nil {
 		t.Fatalf("resolve tag target: %v", err)
 	}
@@ -376,16 +376,16 @@ func TestResolveTargetSpan_Tag_Found(t *testing.T) {
 }
 
 func TestResolveTargetSpan_Tag_NotFound(t *testing.T) {
-	path := writeTempFile(t, "target_no_tag.txt", "just text\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "tag", Value: "missing"})
+	_, opt := withFS(map[string]string{"target_no_tag.txt": "just text\n"})
+	_, err := ResolveTargetSpan("target_no_tag.txt", ContentTarget{Kind: "tag", Value: "missing"}, opt)
 	if err == nil {
 		t.Fatal("expected error for tag not found")
 	}
 }
 
 func TestResolveTargetSpan_UnknownKind(t *testing.T) {
-	path := writeTempFile(t, "target_unknown.txt", "a\nb\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "unknownKind", Value: "x"})
+	_, opt := withFS(map[string]string{"target_unknown.txt": "a\nb\n"})
+	_, err := ResolveTargetSpan("target_unknown.txt", ContentTarget{Kind: "unknownKind", Value: "x"}, opt)
 	if err == nil {
 		t.Fatal("expected error for unknown target kind")
 	}
@@ -459,10 +459,9 @@ func TestQuickBalanceCheck_Unbalanced(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestFuncRange_NestedBlocks(t *testing.T) {
-	// Function with nested if/for blocks
 	content := "package main\n\nfunc demo() {\n\tif true {\n\t\tfor i := 0; i < 10; i++ {\n\t\t\tdo()\n\t\t}\n\t}\n}\n"
-	path := writeTempFile(t, "nested.go", content)
-	res, err := FuncRange(path, 3) // line 3 = func demo() {
+	m, opt := withFS(map[string]string{"nested.go": content})
+	res, err := FuncRange("nested.go", 3, opt)
 	if err != nil {
 		t.Fatalf("func-range nested: %v", err)
 	}
@@ -472,13 +471,13 @@ func TestFuncRange_NestedBlocks(t *testing.T) {
 	if res.End != 9 {
 		t.Fatalf("expected end at line 9 (closing of func), got %d", res.End)
 	}
+	_ = m
 }
 
 func TestFuncRange_TargetInsideInnerBlock(t *testing.T) {
-	// When target line is inside a nested block, should still find the enclosing function
 	content := "package main\n\nfunc outer() {\n\tif true {\n\t\tinnerFunc()\n\t}\n}\n"
-	path := writeTempFile(t, "inner.go", content)
-	res, err := FuncRange(path, 5) // line 5 = "innerFunc()" inside if block
+	m, opt := withFS(map[string]string{"inner.go": content})
+	res, err := FuncRange("inner.go", 5, opt)
 	if err != nil {
 		t.Fatalf("func-range inside block: %v", err)
 	}
@@ -488,19 +487,19 @@ func TestFuncRange_TargetInsideInnerBlock(t *testing.T) {
 	if res.End != 7 {
 		t.Fatalf("expected end at func close (line 7), got %d", res.End)
 	}
+	_ = m
 }
 
 func TestFuncRange_TargetOutOfRange(t *testing.T) {
-	content := "package main\n\nfunc demo() {\n}\n"
-	path := writeTempFile(t, "oor_func.go", content)
-	// Test with Show's auto-mode which internally calls functionRangeRaw
-	_, _, err := Show(path, 999, -1, false)
+	m, opt := withFS(map[string]string{"oor_func.go": "package main\n\nfunc demo() {\n}\n"})
+	_, _, err := Show("oor_func.go", 999, -1, false, opt)
 	if err == nil {
 		t.Fatal("expected error for out-of-range target line")
 	}
 	if !errors.Is(err, ErrInvalid) {
 		t.Fatalf("expected ErrInvalid, got %v", err)
 	}
+	_ = m
 }
 
 // ──────────────────────────────────────────────
@@ -529,25 +528,28 @@ func TestNewWriteError_FormatsPath(t *testing.T) {
 		t.Fatalf("unexpected error message: %q", err.Error())
 	}
 }
+
 func TestWritePath_FormatsPath(t *testing.T) {
 	err := writePath("/tmp/test", fmt.Errorf("permission denied"))
 	if !strings.Contains(err.Error(), "/tmp/test") {
 		t.Fatalf("expected path in error message, got: %q", err.Error())
 	}
 }
+
 func TestJSONParse_FormatsMessage(t *testing.T) {
 	err := jsonParse(fmt.Errorf("syntax error"))
 	if !strings.Contains(err.Error(), "parse JSON") {
 		t.Fatalf("expected 'parse JSON' in error, got: %q", err.Error())
 	}
 }
+
 // ──────────────────────────────────────────────
-// Balance 输出格式测试（tree 模式）
+// Balance 输出格式测试
 // ──────────────────────────────────────────────
 
 func TestBalanceVerbose_HasMatchedAndUnbalanced(t *testing.T) {
-	path := writeTempFile(t, "balance_v.js", "function demo() {\n\treturn 1;\n}\n")
-	out, err := CheckStructureBalance(path, true)
+	m, opt := withFS(map[string]string{"balance_v.js": "function demo() {\n\treturn 1;\n}\n"})
+	out, err := CheckStructureBalance("balance_v.js", true, opt)
 	if err != nil {
 		t.Fatalf("balance verbose: %v", err)
 	}
@@ -561,6 +563,7 @@ func TestBalanceVerbose_HasMatchedAndUnbalanced(t *testing.T) {
 	if _, ok := v["unbalanced"]; !ok {
 		t.Fatalf("expected 'unbalanced' in verbose output")
 	}
+	_ = m
 }
 
 func keysOf(m map[string]any) []string {

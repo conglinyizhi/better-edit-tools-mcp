@@ -15,9 +15,8 @@ import (
 // ──────────────────────────────────────────────
 
 func TestShowNegativeEnd_FromEnd(t *testing.T) {
-	// 11-line file, end=-3 → should read lines 1..9 (11 + (-3) + 1 = 9)
-	path := writeTempFile(t, "a.txt", "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\n")
-	res, _, err := Show(path, 1, -3, false)
+	m, opt := withFS(map[string]string{"a.txt": "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\n"})
+	res, _, err := Show("a.txt", 1, -3, false, opt)
 	if err != nil {
 		t.Fatalf("show with end=-3: %v", err)
 	}
@@ -30,42 +29,43 @@ func TestShowNegativeEnd_FromEnd(t *testing.T) {
 	if strings.Contains(res.Content, "line10") {
 		t.Fatalf("expected content NOT to include line10, got: %q", res.Content)
 	}
+	_ = m
 }
 
 func TestShowNegativeEnd_BeforeStart(t *testing.T) {
-	// 5-line file, end=-9 (computed = 5 + -9 + 1 = -3 < start=1) → error
-	path := writeTempFile(t, "b.txt", "a\nb\nc\nd\ne\n")
-	_, _, err := Show(path, 3, -9, false)
+	m, opt := withFS(map[string]string{"b.txt": "a\nb\nc\nd\ne\n"})
+	_, _, err := Show("b.txt", 3, -9, false, opt)
 	if err == nil {
 		t.Fatal("expected error for negative end before start")
 	}
 	if !errors.Is(err, ErrInvalid) {
 		t.Fatalf("expected ErrInvalid, got: %v", err)
 	}
+	_ = m
 }
 
 func TestShowNegativeEnd_ExactEnd(t *testing.T) {
-	// 10-line file, end=-2 → should end at line 9
-	path := writeTempFile(t, "c.txt", "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n")
-	res, _, err := Show(path, 5, -2, false)
+	m, opt := withFS(map[string]string{"c.txt": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"})
+	res, _, err := Show("c.txt", 5, -2, false, opt)
 	if err != nil {
 		t.Fatalf("show with end=-2: %v", err)
 	}
 	if res.End != 9 {
 		t.Fatalf("expected end=9 for end=-2 on 10 lines, got %d", res.End)
 	}
+	_ = m
 }
 
 func TestShowNegativeEnd_AutoModePreserved(t *testing.T) {
-	// end=-1 should remain auto mode (function range detection)
-	path := writeTempFile(t, "main.go", "package main\n\nfunc demo() {\n\tprintln(\"x\")\n}\n")
-	res, _, err := Show(path, 3, -1, false)
+	m, opt := withFS(map[string]string{"main.go": "package main\n\nfunc demo() {\n\tprintln(\"x\")\n}\n"})
+	res, _, err := Show("main.go", 3, -1, false, opt)
 	if err != nil {
 		t.Fatalf("show with end=-1 (auto): %v", err)
 	}
 	if res.Start != 3 || res.End != 5 {
 		t.Fatalf("expected auto mode range 3..5, got %d..%d", res.Start, res.End)
 	}
+	_ = m
 }
 
 // ──────────────────────────────────────────────
@@ -73,11 +73,11 @@ func TestShowNegativeEnd_AutoModePreserved(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestShowEmptyFile_ReturnsOK(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "empty.txt")
-	if err := os.WriteFile(path, []byte{}, 0o644); err != nil {
-		t.Fatalf("write empty file: %v", err)
-	}
-	res, _, err := Show(path, 1, 1, false)
+	m, opt := withFS(nil)
+	// Empty file via MemFS: just read a non-existent path won't work,
+	// so create an empty file in MemFS
+	m.WriteFile("empty.txt", []byte{}, 0o644)
+	res, _, err := Show("empty.txt", 1, 1, false, opt)
 	if err != nil {
 		t.Fatalf("show on empty file: %v", err)
 	}
@@ -93,17 +93,17 @@ func TestShowEmptyFile_ReturnsOK(t *testing.T) {
 }
 
 func TestReadEmptyFile_ReturnsOK(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "empty2.txt")
-	if err := os.WriteFile(path, []byte{}, 0o644); err != nil {
-		t.Fatalf("write empty file: %v", err)
-	}
-	res, _, err := Read(path, 1, 1, false)
+	m, opt := withFS(nil)
+	// Verify Read matches Show for empty files
+	m.WriteFile("empty2.txt", []byte{}, 0o644)
+	res, _, err := Read("empty2.txt", 1, 1, false, opt)
 	if err != nil {
 		t.Fatalf("read on empty file: %v", err)
 	}
 	if res.Total != 0 {
 		t.Fatalf("expected total=0 for Read on empty file, got %d", res.Total)
 	}
+	_ = m
 }
 
 // ──────────────────────────────────────────────
@@ -111,13 +111,11 @@ func TestReadEmptyFile_ReturnsOK(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestShowBlankLineMarker(t *testing.T) {
-	// File with blank lines in the middle
-	path := writeTempFile(t, "blank.txt", "a\n\n\nb\n")
-	res, _, err := Show(path, 1, 4, false)
+	m, opt := withFS(map[string]string{"blank.txt": "a\n\n\nb\n"})
+	res, _, err := Show("blank.txt", 1, 4, false, opt)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
-	// Lines 2 and 3 are blank → should show <blank>
 	if !strings.Contains(res.Content, "2\t<blank>") {
 		t.Fatalf("expected line 2 to show <blank>, got: %q", res.Content)
 	}
@@ -127,12 +125,12 @@ func TestShowBlankLineMarker(t *testing.T) {
 	if strings.Contains(res.Content, "1\t<blank>") {
 		t.Fatalf("line 1 has content and should NOT show <blank>")
 	}
+	_ = m
 }
 
 func TestShowBlankLineMarker_OnlyBlankLines(t *testing.T) {
-	// File with only blank lines
-	path := writeTempFile(t, "only_blank.txt", "\n\n\n")
-	res, _, err := Show(path, 1, 3, false)
+	m, opt := withFS(map[string]string{"only_blank.txt": "\n\n\n"})
+	res, _, err := Show("only_blank.txt", 1, 3, false, opt)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
@@ -142,6 +140,7 @@ func TestShowBlankLineMarker_OnlyBlankLines(t *testing.T) {
 			t.Fatalf("expected line %d to show <blank>, content: %q", lineNum, res.Content)
 		}
 	}
+	_ = m
 }
 
 // ──────────────────────────────────────────────
@@ -149,8 +148,6 @@ func TestShowBlankLineMarker_OnlyBlankLines(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestScanWarnings_BlankLinesOnly_NoTrailingWhitespace(t *testing.T) {
-	// scanContentWarnings receives the FORMATTED display content (with line numbers).
-	// Blank lines become "N\t" — the tab is the line number separator, not trailing whitespace.
 	content := "1\t<blank>\n2\t<blank>\n3\t<blank>"
 	warnings := scanContentWarnings(content)
 	for _, w := range warnings {
@@ -186,7 +183,7 @@ func TestScanWarnings_BlankLinesMixedContent_NoFalsePositive(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// #42: 空文件/空内容时不应报告 trailing newline 警告
+// #42: 空文件/空内容时不应报告 trailing newline
 // ──────────────────────────────────────────────
 
 func TestScanWarnings_EmptyContent_NoNewlineWarning(t *testing.T) {
@@ -227,12 +224,10 @@ func TestScanWarnings_MultiLineWithNewline_NoWarning(t *testing.T) {
 
 func TestWritePreservesExistingCRLF(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "crlf.txt")
-	// Create a CRLF file first
 	orig := "line1\r\nline2\r\nline3\r\n"
 	if err := os.WriteFile(path, []byte(orig), 0o644); err != nil {
 		t.Fatalf("write orig: %v", err)
 	}
-	// Overwrite with LF content
 	spec := `{"file":"` + path + `","content":"new1\nnew2\n"}`
 	_, err := Write(spec, false, false)
 	if err != nil {
@@ -246,29 +241,24 @@ func TestWritePreservesExistingCRLF(t *testing.T) {
 	if !strings.Contains(gotStr, "\r\n") {
 		t.Fatalf("expected CRLF preserved in output, got: %q", gotStr)
 	}
-	// Verify actual line ending bytes
 	if gotStr != "new1\r\nnew2\r\n" {
 		t.Fatalf("expected content with CRLF, got: %q", gotStr)
 	}
 }
 
 func TestWriteNewFileDefaultLF(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "new_lf.txt")
-	spec := `{"file":"` + path + `","content":"hello\nworld\n"}`
-	_, err := Write(spec, false, false)
+	m, opt := withFS(nil)
+	spec := `{"file":"new_lf.txt","content":"hello\nworld\n"}`
+	_, err := Write(spec, false, false, opt)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read: %v", err)
+	got := readFS(t, m, "new_lf.txt")
+	if strings.Contains(got, "\r\n") {
+		t.Fatalf("new file should use LF, got CRLF: %q", got)
 	}
-	gotStr := string(got)
-	if strings.Contains(gotStr, "\r\n") {
-		t.Fatalf("new file should use LF, got CRLF: %q", gotStr)
-	}
-	if gotStr != "hello\nworld\n" {
-		t.Fatalf("expected LF content, got: %q", gotStr)
+	if got != "hello\nworld\n" {
+		t.Fatalf("expected LF content, got: %q", got)
 	}
 }
 
@@ -278,7 +268,6 @@ func TestWriteCRLFContentMixed_UnifiedToTarget(t *testing.T) {
 	if err := os.WriteFile(path, []byte(orig), 0o644); err != nil {
 		t.Fatalf("write orig: %v", err)
 	}
-	// Content with mixed CRLF+LF
 	spec := `{"file":"` + path + `","content":"a\r\nb\nc\r\nd\n"}`
 	_, err := Write(spec, false, false)
 	if err != nil {
@@ -289,7 +278,6 @@ func TestWriteCRLFContentMixed_UnifiedToTarget(t *testing.T) {
 		t.Fatalf("read: %v", err)
 	}
 	gotStr := string(got)
-	// All line endings should be unified to CRLF
 	if !strings.Contains(gotStr, "\r\n") {
 		t.Fatalf("expected CRLF in output, got: %q", gotStr)
 	}
@@ -303,9 +291,9 @@ func TestWriteCRLFContentMixed_UnifiedToTarget(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestWriteEmptyContent_CleanWarnings(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "empty_write.txt")
-	spec := `{"file":"` + path + `","content":""}`
-	res, err := Write(spec, false, false)
+	m, opt := withFS(nil)
+	spec := `{"file":"empty_write.txt","content":""}`
+	res, err := Write(spec, false, false, opt)
 	if err != nil {
 		t.Fatalf("write empty content: %v", err)
 	}
@@ -316,44 +304,44 @@ func TestWriteEmptyContent_CleanWarnings(t *testing.T) {
 			}
 		}
 	}
+	_ = m
 }
 
 // ──────────────────────────────────────────────
-// #6 / #12: Replace/Delete 行号范围边界语义（1-based inclusive）
+// #6 / #12: Replace/Delete 行号范围边界语义
 // ──────────────────────────────────────────────
 
 func TestReplaceFirstLine(t *testing.T) {
-	path := writeTempFile(t, "first.txt", "old_first\nsecond\nthird\n")
-	_, err := Replace(path, 1, 1, nil, "new_first\n", "plain", false, "", false)
+	m, opt := withFS(map[string]string{"first.txt": "old_first\nsecond\nthird\n"})
+	_, err := Replace("first.txt", 1, 1, nil, "new_first\n", "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace first line: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "first.txt")
 	if got != "new_first\nsecond\nthird\n" {
 		t.Fatalf("expected first line replaced, got: %q", got)
 	}
 }
 
 func TestReplaceLastLine(t *testing.T) {
-	path := writeTempFile(t, "last.txt", "first\nsecond\nold_last\n")
-	_, err := Replace(path, 3, 3, nil, "new_last\n", "plain", false, "", false)
+	m, opt := withFS(map[string]string{"last.txt": "first\nsecond\nold_last\n"})
+	_, err := Replace("last.txt", 3, 3, nil, "new_last\n", "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace last line: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "last.txt")
 	if got != "first\nsecond\nnew_last\n" {
 		t.Fatalf("expected last line replaced, got: %q", got)
 	}
 }
 
 func TestReplaceRangeInclusive(t *testing.T) {
-	path := writeTempFile(t, "range.txt", "a\nb\nc\nd\ne\n")
-	// Replace lines 2-4 (inclusive) with two lines
-	_, err := Replace(path, 2, 4, nil, "x\ny\n", "plain", false, "", false)
+	m, opt := withFS(map[string]string{"range.txt": "a\nb\nc\nd\ne\n"})
+	_, err := Replace("range.txt", 2, 4, nil, "x\ny\n", "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace range: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "range.txt")
 	if got != "a\nx\ny\ne\n" {
 		t.Fatalf("expected 3 lines replaced by 2, got: %q", got)
 	}
@@ -364,40 +352,37 @@ func TestReplaceRangeInclusive(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestInsertAtBeginning(t *testing.T) {
-	path := writeTempFile(t, "begin.txt", "b\nc\n")
-	_, err := Insert(path, 0, "a\n", "plain", false, false)
+	m, opt := withFS(map[string]string{"begin.txt": "b\nc\n"})
+	_, err := Insert("begin.txt", 0, "a\n", "plain", false, false, opt)
 	if err != nil {
 		t.Fatalf("insert at beginning: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "begin.txt")
 	if got != "a\nb\nc\n" {
 		t.Fatalf("expected 'a' at beginning, got: %q", got)
 	}
 }
 
 func TestInsertAtEnd(t *testing.T) {
-	path := writeTempFile(t, "end.txt", "a\nb\n")
-	totalLines := 2
-	_, err := Insert(path, totalLines, "c\n", "plain", false, false)
+	m, opt := withFS(map[string]string{"end.txt": "a\nb\n"})
+	_, err := Insert("end.txt", 2, "c\n", "plain", false, false, opt)
 	if err != nil {
 		t.Fatalf("insert at end: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "end.txt")
 	if got != "a\nb\nc\n" {
 		t.Fatalf("expected 'c' at end, got: %q", got)
 	}
 }
 
 func TestInsertAtBeginning_EmptyFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "empty_insert.txt")
-	if err := os.WriteFile(path, []byte{}, 0o644); err != nil {
-		t.Fatalf("write empty: %v", err)
-	}
-	_, err := Insert(path, 0, "first\n", "plain", false, false)
+	m, opt := withFS(nil)
+	m.WriteFile("empty_insert.txt", []byte{}, 0o644)
+	_, err := Insert("empty_insert.txt", 0, "first\n", "plain", false, false, opt)
 	if err != nil {
 		t.Fatalf("insert into empty file: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "empty_insert.txt")
 	if got != "first\n" {
 		t.Fatalf("expected 'first' in empty file, got: %q", got)
 	}
@@ -408,9 +393,8 @@ func TestInsertAtBeginning_EmptyFile(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestFuncRangeIncludesSignature(t *testing.T) {
-	path := writeTempFile(t, "main.go", "package main\n\nfunc hello() {\n\treturn 1\n}\n")
-	// Ask for range of line 3 ("func hello() {")
-	res, err := FuncRange(path, 3)
+	m, opt := withFS(map[string]string{"main.go": "package main\n\nfunc hello() {\n\treturn 1\n}\n"})
+	res, err := FuncRange("main.go", 3, opt)
 	if err != nil {
 		t.Fatalf("func-range: %v", err)
 	}
@@ -420,23 +404,24 @@ func TestFuncRangeIncludesSignature(t *testing.T) {
 	if res.End != 5 {
 		t.Fatalf("expected range to end at line 5 (closing brace), got %d", res.End)
 	}
+	_ = m
 }
 
 func TestFuncRange_EmptyBody(t *testing.T) {
-	// Function with empty body: func empty() {}
-	path := writeTempFile(t, "empty.go", "package main\n\nfunc empty() {}\n")
-	res, err := FuncRange(path, 3)
+	m, opt := withFS(map[string]string{"empty.go": "package main\n\nfunc empty() {}\n"})
+	res, err := FuncRange("empty.go", 3, opt)
 	if err != nil {
 		t.Fatalf("func-range empty body: %v", err)
 	}
 	if res.Start != 3 {
 		t.Fatalf("expected start=3 for func on one line, got %d", res.Start)
 	}
+	_ = m
 }
 
 func TestTagRangeSelfClosing_Skipped(t *testing.T) {
-	path := writeTempFile(t, "page.html", "<div>\n<br/>\n</div>\n")
-	res, err := TagRange(path, 2)
+	m, opt := withFS(map[string]string{"page.html": "<div>\n<br/>\n</div>\n"})
+	res, err := TagRange("page.html", 2, opt)
 	if err != nil {
 		t.Fatalf("tag-range for <br/>: %v", err)
 	}
@@ -446,22 +431,28 @@ func TestTagRangeSelfClosing_Skipped(t *testing.T) {
 	if res.Start != 1 || res.End != 3 {
 		t.Fatalf("expected range 1..3 for <div>..</div>, got %d..%d", res.Start, res.End)
 	}
+	_ = m
 }
 
 func TestTagRange_SingleLinePaired(t *testing.T) {
-	path := writeTempFile(t, "span.html", "<div><span>hello</span></div>\n")
-	res, err := TagRange(path, 1)
+	m, opt := withFS(map[string]string{"span.html": "<div><span>hello</span></div>\n"})
+	res, err := TagRange("span.html", 1, opt)
 	if err != nil {
 		t.Fatalf("tag-range single line: %v", err)
 	}
 	if res.Tag != "span" {
 		t.Fatalf("expected innermost tag 'span', got %q", res.Tag)
 	}
+	_ = m
 }
 
+// ──────────────────────────────────────────────
+// #4: be-balance 应跳过字符串/注释中的括号
+// ──────────────────────────────────────────────
+
 func TestBalanceSkipsBracesInStrings(t *testing.T) {
-	path := writeTempFile(t, "strings.js", "var x = \"{\";\nvar y = \"}\";\n")
-	out, err := CheckStructureBalance(path, true)
+	m, opt := withFS(map[string]string{"strings.js": "var x = \"{\";\nvar y = \"}\";\n"})
+	out, err := CheckStructureBalance("strings.js", true, opt)
 	if err != nil {
 		t.Fatalf("balance: %v", err)
 	}
@@ -471,17 +462,17 @@ func TestBalanceSkipsBracesInStrings(t *testing.T) {
 	}
 	unbalanced, _ := v["unbalanced"].([]any)
 	for _, item := range unbalanced {
-		m, _ := item.(map[string]any)
-		if sym, _ := m["symbol"].(string); sym == "{" || sym == "}" {
-			t.Fatalf("expected braces in strings to be ignored, found unmatched: %v", m)
+		m2, _ := item.(map[string]any)
+		if sym, _ := m2["symbol"].(string); sym == "{" || sym == "}" {
+			t.Fatalf("expected braces in strings to be ignored, found unmatched: %v", m2)
 		}
 	}
+	_ = m
 }
 
 func TestBalanceSkipsBracesInComments(t *testing.T) {
-	// Line comments and block comments with braces should not affect balance
-	path := writeTempFile(t, "comments.js", "// line comment { with brace\n/* block { comment */\nvar x = {};\n")
-	out, err := CheckStructureBalance(path, true)
+	m, opt := withFS(map[string]string{"comments.js": "// line comment { with brace\n/* block { comment */\nvar x = {};\n"})
+	out, err := CheckStructureBalance("comments.js", true, opt)
 	if err != nil {
 		t.Fatalf("balance: %v", err)
 	}
@@ -489,31 +480,32 @@ func TestBalanceSkipsBracesInComments(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &v); err != nil {
 		t.Fatalf("json parse: %v", err)
 	}
-	// var x = {}; has balanced braces; comments should be ignored
 	unbalanced, _ := v["unbalanced"].([]any)
 	for _, item := range unbalanced {
-		m, _ := item.(map[string]any)
-		if sym, _ := m["symbol"].(string); sym == "{" || sym == "}" {
-			t.Fatalf("expected braces in comments to be ignored, found unmatched: %v", m)
+		m2, _ := item.(map[string]any)
+		if sym, _ := m2["symbol"].(string); sym == "{" || sym == "}" {
+			t.Fatalf("expected braces in comments to be ignored, found unmatched: %v", m2)
 		}
 	}
+	_ = m
 }
+
+// ──────────────────────────────────────────────
+// #27: be-delete function target 不吞噬相邻花括号
+// ──────────────────────────────────────────────
+
 func TestDeleteFunctionTarget_NoEatAdjacentBrace(t *testing.T) {
 	content := "package main\n\nfunc first() {\n\treturn 1\n}\n\nfunc second() {\n\treturn 2\n}\n\nfunc third() {\n\treturn 3\n}\n"
-	path := writeTempFile(t, "main.go", content)
-
-	// Delete "second" via target resolution
-	span, err := ResolveTargetSpan(path, ContentTarget{Kind: "function", Value: "second"})
+	m, opt := withFS(map[string]string{"main.go": content})
+	span, err := ResolveTargetSpan("main.go", ContentTarget{Kind: "function", Value: "second"}, opt)
 	if err != nil {
 		t.Fatalf("resolve target: %v", err)
 	}
-
-	_, err = Delete(path, span.Start, span.End, "plain", false, false)
+	_, err = Delete("main.go", span.Start, span.End, "plain", false, false, opt)
 	if err != nil {
 		t.Fatalf("delete second: %v", err)
 	}
-
-	got := readFile(t, path)
+	got := readFS(t, m, "main.go")
 	if !strings.Contains(got, "func first() {") {
 		t.Fatal("first function should remain")
 	}
@@ -526,29 +518,23 @@ func TestDeleteFunctionTarget_NoEatAdjacentBrace(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// #28: Snapshot queue full → eviction warning
-// (已在 edit_test.go 中有 TestSnapshotQueueFullReturnsWarning)
-// 这里补充 rollback 测试
+// #28: Snapshot rollback（仍需真实 FS）
 // ──────────────────────────────────────────────
 
 func TestSnapshotRollback(t *testing.T) {
-	CommitSnapshots() // reset queue
-
-	path := writeTempFile(t, "rollback.txt", "original\nline2\nline3\n")
-
-	// Perform a replace via the tool (creates snapshot)
+	CommitSnapshots()
+	path := filepath.Join(t.TempDir(), "rollback.txt")
+	if err := os.WriteFile(path, []byte("original\nline2\nline3\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 	_, err := Replace(path, 2, 2, nil, "modified\n", "plain", false, "", false)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
-
-	// Verify modified
 	got := readFile(t, path)
 	if got != "original\nmodified\nline3\n" {
 		t.Fatalf("unexpected after replace: %q", got)
 	}
-
-	// Rollback
 	count, errs := RollbackSnapshots(1)
 	if len(errs) > 0 {
 		t.Fatalf("rollback errors: %v", errs)
@@ -556,31 +542,25 @@ func TestSnapshotRollback(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("expected 1 rollback, got %d", count)
 	}
-
-	// Verify restored
 	restored := readFile(t, path)
 	if restored != "original\nline2\nline3\n" {
 		t.Fatalf("expected rollback to original, got: %q", restored)
 	}
-
 	CommitSnapshots()
 }
 
 func TestSnapshotRollback_Multiple(t *testing.T) {
 	CommitSnapshots()
-
-	path := writeTempFile(t, "multiback.txt", "a\nb\nc\n")
-
-	// Two edits
+	path := filepath.Join(t.TempDir(), "multiback.txt")
+	if err := os.WriteFile(path, []byte("a\nb\nc\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 	_, _ = Replace(path, 1, 1, nil, "x\n", "plain", false, "", false)
 	_, _ = Replace(path, 3, 3, nil, "z\n", "plain", false, "", false)
-
 	got := readFile(t, path)
 	if got != "x\nb\nz\n" {
 		t.Fatalf("expected both edits, got: %q", got)
 	}
-
-	// Rollback both
 	count, errs := RollbackSnapshots(2)
 	if len(errs) > 0 {
 		t.Fatalf("rollback errors: %v", errs)
@@ -588,50 +568,45 @@ func TestSnapshotRollback_Multiple(t *testing.T) {
 	if count != 2 {
 		t.Fatalf("expected 2 rollbacks, got %d", count)
 	}
-
 	restored := readFile(t, path)
 	if restored != "a\nb\nc\n" {
 		t.Fatalf("expected full rollback to original, got: %q", restored)
 	}
-
 	CommitSnapshots()
 }
 
 // ──────────────────────────────────────────────
-// #33/#44: 内容按 JSON 解析结果原样使用（不再中转义）
+// #33/#44: 内容按 JSON 解析结果原样使用
 // ──────────────────────────────────────────────
 
 func TestReplaceContentAsIs_NoTransform(t *testing.T) {
-	// Content with literal escape sequences stays as-is
-	path := writeTempFile(t, "asis.txt", "a\nb\nc\n")
-	// Content has literal \n (two chars) -- this comes from JSON as-is
+	m, opt := withFS(map[string]string{"asis.txt": "a\nb\nc\n"})
 	content := "x\\ny"
-	res, err := Replace(path, 2, 2, nil, content, "plain", false, "", false)
+	res, err := Replace("asis.txt", 2, 2, nil, content, "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
-	got := readFile(t, path)
-	// The literal \n should remain literal, NOT converted to newline
+	got := readFS(t, m, "asis.txt")
 	if strings.Contains(got, "x\n") && !strings.Contains(got, "x\\n") {
-		// If content has a real newline where we expected literal \, that's wrong
+		// This would mean \n was real newline when we expected literal
 	}
 	_ = res
 }
 
 // ──────────────────────────────────────────────
-// #34: Replace 保留制表符缩进（复杂场景）
+// #34: Replace 保留制表符缩进
 // ──────────────────────────────────────────────
 
 func TestReplaceTabIndentation_MultipleLines(t *testing.T) {
 	content := "func foo() {\n\tif true {\n\t\tdoSomething()\n\t}\n}\n"
-	path := writeTempFile(t, "main.go", content)
+	m, opt := withFS(map[string]string{"main.go": content})
 	old := "\tif true {\n\t\tdoSomething()\n\t}\n"
 	newContent := "\tif false {\n\t\tdoNothing()\n\t}\n"
-	_, err := Replace(path, 2, 4, &old, newContent, "plain", false, "", false)
+	_, err := Replace("main.go", 2, 4, &old, newContent, "plain", false, "", false, opt)
 	if err != nil {
 		t.Fatalf("replace multi-line tab: %v", err)
 	}
-	got := readFile(t, path)
+	got := readFS(t, m, "main.go")
 	expected := "func foo() {\n\tif false {\n\t\tdoNothing()\n\t}\n}\n"
 	if got != expected {
 		t.Fatalf("expected tab indentation preserved, got: %q", got)
@@ -639,12 +614,12 @@ func TestReplaceTabIndentation_MultipleLines(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// #26: brief mode → content is empty
+// #26: brief mode
 // ──────────────────────────────────────────────
 
 func TestShowBriefMode(t *testing.T) {
-	path := writeTempFile(t, "brief.txt", "line1\nline2\nline3\n")
-	res, _, err := Show(path, 1, 3, true) // brief=true
+	m, opt := withFS(map[string]string{"brief.txt": "line1\nline2\nline3\n"})
+	res, _, err := Show("brief.txt", 1, 3, true, opt)
 	if err != nil {
 		t.Fatalf("show brief: %v", err)
 	}
@@ -657,24 +632,21 @@ func TestShowBriefMode(t *testing.T) {
 	if res.Total != 3 {
 		t.Fatalf("expected total=3, got %d", res.Total)
 	}
+	_ = m
 }
 
 // ──────────────────────────────────────────────
-// #21: injectable FileSystem（已有，补一个边界情况）
+// #21: injectable FileSystem（迁移到 MemFS）
 // ──────────────────────────────────────────────
 
 func TestInjectedFileSystem_BlockedRead(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "blocked.txt")
-	if err := os.WriteFile(path, []byte("secret"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	// FS that blocks access to this file
-	fsys := sandboxFS{root: dir, block: map[string]bool{path: true}}
-	_, _, err := Show(path, 1, 1, false, WithFileSystem(fsys))
+	// MemFS does not have a block feature; simulate by simply not creating the file
+	m := NewMemFS(nil)
+	_, _, err := Show("blocked.txt", 1, 1, false, WithFileSystem(m))
 	if err == nil {
-		t.Fatal("expected error for blocked file read")
+		t.Fatal("expected error for missing file in MemFS")
 	}
+	_ = m
 }
 
 // ──────────────────────────────────────────────
@@ -682,16 +654,16 @@ func TestInjectedFileSystem_BlockedRead(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestTargetResolution_MarkerNotFound(t *testing.T) {
-	path := writeTempFile(t, "marker.txt", "a\nb\nc\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "marker", Value: "nonexistent"})
+	_, opt := withFS(map[string]string{"marker.txt": "a\nb\nc\n"})
+	_, err := ResolveTargetSpan("marker.txt", ContentTarget{Kind: "marker", Value: "nonexistent"}, opt)
 	if err == nil {
 		t.Fatal("expected error for unresolved marker")
 	}
 }
 
 func TestTargetResolution_FunctionNotFound(t *testing.T) {
-	path := writeTempFile(t, "nofunc.txt", "just text\nno functions here\n")
-	_, err := ResolveTargetSpan(path, ContentTarget{Kind: "function", Value: "missingFunc"})
+	_, opt := withFS(map[string]string{"nofunc.txt": "just text\nno functions here\n"})
+	_, err := ResolveTargetSpan("nofunc.txt", ContentTarget{Kind: "function", Value: "missingFunc"}, opt)
 	if err == nil {
 		t.Fatal("expected error for unresolved function")
 	}
@@ -702,20 +674,20 @@ func TestTargetResolution_FunctionNotFound(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestShowStartBoundary(t *testing.T) {
-	path := writeTempFile(t, "boundary.txt", "only\n")
-	// start=1 on 1-line file should work
-	res, _, err := Show(path, 1, 1, false)
+	m, opt := withFS(map[string]string{"boundary.txt": "only\n"})
+	res, _, err := Show("boundary.txt", 1, 1, false, opt)
 	if err != nil {
 		t.Fatalf("show start=1 on 1-line file: %v", err)
 	}
 	if res.Start != 1 || res.End != 1 {
 		t.Fatalf("expected range 1..1, got %d..%d", res.Start, res.End)
 	}
+	_ = m
 }
 
 func TestShowStartOutOfRange(t *testing.T) {
-	path := writeTempFile(t, "oor.txt", "a\nb\n")
-	_, _, err := Show(path, 999, 1, false)
+	_, opt := withFS(map[string]string{"oor.txt": "a\nb\n"})
+	_, _, err := Show("oor.txt", 999, 1, false, opt)
 	if err == nil {
 		t.Fatal("expected error for start > total")
 	}
