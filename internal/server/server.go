@@ -171,7 +171,6 @@ func (s *Server) listTools() []Tool {
 					"end":     map[string]any{"type": "integer", "minimum": 1},
 					"old":     map[string]any{"type": "string"},
 					"content": map[string]any{"type": "string"},
-					"raw":     map[string]any{"type": "boolean", "description": "deprecated: content is now auto-detected; this parameter is ignored"},
 					"format":  map[string]any{"type": "string"},
 					"preview": map[string]any{"type": "boolean"},
 					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
@@ -195,7 +194,6 @@ func (s *Server) listTools() []Tool {
 					"file":       map[string]any{"type": "string"},
 					"after_line": map[string]any{"type": "integer", "minimum": 0},
 					"content":    map[string]any{"type": "string"},
-					"raw":        map[string]any{"type": "boolean", "description": "deprecated: content is now auto-detected; this parameter is ignored"},
 					"format":     map[string]any{"type": "string"},
 					"preview":    map[string]any{"type": "boolean"},
 					"brief":      map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
@@ -253,7 +251,6 @@ func (s *Server) listTools() []Tool {
 					},
 					"preview": map[string]any{"type": "boolean"},
 					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit per-file details)"},
-					"raw":     map[string]any{"type": "boolean", "description": "deprecated: content is now auto-detected; this parameter is ignored"},
 				},
 			},
 		},
@@ -457,7 +454,6 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			Old          *string        `json:"old"`
 			OldText      *string        `json:"old_text"`
 			Content      string         `json:"content"`
-			Raw          bool           `json:"raw"`
 			Format       string         `json:"format"`
 			Target       *editTargetArg `json:"target"`
 			Preview      bool           `json:"preview"`
@@ -495,7 +491,6 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			File    string         `json:"file"`
 			After   *int           `json:"after_line"`
 			Content string         `json:"content"`
-			Raw     bool           `json:"raw"`
 			Format  string         `json:"format"`
 			Target  *editTargetArg `json:"target"`
 			Preview bool           `json:"preview"`
@@ -562,7 +557,6 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 				Content string `json:"content"`
 			} `json:"files"`
 			Preview bool `json:"preview"`
-			Raw     bool `json:"raw"`
 			Brief   bool `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {

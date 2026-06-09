@@ -67,7 +67,7 @@ func TestToolCallRunsEdit(t *testing.T) {
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + path + `","after_line":0,"content":"x","raw":true,"preview":false}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + path + `","after_line":0,"content":"x","preview":false}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve: %v", err)
@@ -162,7 +162,7 @@ func TestToolCallSupportsInsertAliasAndWriteDirectContent(t *testing.T) {
 	if err := os.WriteFile(insertPath, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write insert file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + insertPath + `","after_line":1,"content":"x","raw":true,"preview":false}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + insertPath + `","after_line":1,"content":"x","preview":false}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve insert: %v", err)
