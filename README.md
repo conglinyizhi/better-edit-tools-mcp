@@ -60,8 +60,7 @@ Raw file write tool for full-content replacement. Accepts both single-file and m
 - Single file: `{"file":"...","content":"..."}`
 - Multi file: `{"files":[{"file":"...","content":"..."}]}`
 
-A degraded parsing path is automatically invoked when standard JSON parsing fails, rescuing AI-generated content with broken escaping. When `raw: true`, literal `
-` in content is converted to real newlines, solving the double-encoding problem in MCP call chains.
+A degraded parsing path is automatically invoked when standard JSON parsing fails, rescuing AI-generated content with broken escaping. Literal `\n` in content is auto-detected and converted to real newlines, solving the double-encoding problem in MCP call chains.
 
 ——Even when the JSON wrapper breaks, the write still tries to rescue the payload.
 
