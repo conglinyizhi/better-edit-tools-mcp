@@ -19,7 +19,7 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 #### `Read`
 
 ```go
-func Read(path string, start int, endLine int, opts ...Option) (ShowResult, string, error)
+func Read(path string, start int, endLine int, brief bool, opts ...Option) (ShowResult, string, error)
 ```
 
 Reads a line range from a file. Returns the content and a `viewed_code_id` (second return value) that can be passed to `Replace` for line-number validation.
@@ -34,7 +34,7 @@ Reads a line range from a file. Returns the content and a `viewed_code_id` (seco
 #### `Replace`
 
 ```go
-func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, opts ...Option) (ReplaceResult, error)
+func Replace(path string, start, end int, old *string, content string, format string, preview bool, sessionID string, brief bool, opts ...Option) (ReplaceResult, error)
 ```
 
 Precise line-range substitution.
@@ -42,33 +42,32 @@ Precise line-range substitution.
 - `start`, `end`: line range (inclusive), both required
 - `old`: optional — when non-nil, verifies current file content against old before writing; returns error on mismatch
 - `content`: replacement content
-- `raw`: write verbatim without formatting adjustments
 - `format`: output format (`"trim"` or `""`)
 - `preview`: if true, returns diff without writing to disk
-- `viewed_code_id`: optional — validates line count consistency against a prior `be-read` session
+- `sessionID`: optional — validates line count consistency against a prior `be-read` session
+- `brief`: return minimal response (omit diff and balance)
 
 #### `Insert`
 
 ```go
-func Insert(path string, after int, content string, raw bool, format string, preview bool, opts ...Option) (InsertResult, error)
+func Insert(path string, after int, content string, format string, preview bool, brief bool, opts ...Option) (InsertResult, error)
 ```
 
 Inserts content after a specified line.
 
 - `after`: insert after this line. Pass `0` to insert at the very beginning of the file
-- `raw`, `format`, `preview`: same semantics as `Replace`
+- `format`, `preview`, `brief`: same semantics as `Replace`
 
 #### `Delete`
 
 ```go
-func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool, opts ...Option) (DeleteResult, error)
+func Delete(path string, start, end int, format string, preview bool, brief bool, opts ...Option) (DeleteResult, error)
 ```
 
-Deletes lines. Three modes:
+Deletes lines in the specified range.
 
-- Line range: set `start` + `end` (inclusive)
-- Single line: set `line`
-- Batch: set `linesJSON` as a JSON array like `"[3,5,8]"`
+- `start`, `end`: line range (inclusive), both required
+- `format`, `preview`, `brief`: same semantics as `Replace`
 
 #### `Batch`
 
@@ -98,7 +97,7 @@ Edits are automatically sorted bottom-to-top to prevent line-number drift.
 #### `Write`
 
 ```go
-func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, error)
+func Write(spec string, preview bool, brief bool, opts ...Option) (WriteResult, error)
 ```
 
 Raw file write tool for full-content replacement. Supports single-file and multi-file payloads.
@@ -106,8 +105,9 @@ Raw file write tool for full-content replacement. Supports single-file and multi
 - `spec`: JSON string
   - Single file: `{"file":"...","content":"..."}`
   - Multi file: `{"files":[{"file":"...","content":"..."}]}`
-- `raw`: when true, literal `\n` in content is converted to real newlines
-- Falls back to character-level extraction when JSON parsing fails; `preview=true` returns results without writing
+- `preview`: if true, returns results without writing to disk
+- `brief`: return minimal response (omit per-file details)
+- Falls back to character-level extraction when JSON parsing fails
 
 ### Scope Detection
 

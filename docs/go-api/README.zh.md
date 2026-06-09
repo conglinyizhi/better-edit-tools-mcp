@@ -19,7 +19,7 @@ import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 #### `Read`
 
 ```go
-func Read(path string, start int, endLine int, opts ...Option) (ShowResult, string, error)
+func Read(path string, start int, endLine int, brief bool, opts ...Option) (ShowResult, string, error)
 ```
 
 读取指定文件的行范围。返回内容包括完整内容和 `viewed_code_id`（第二个返回值）。`viewed_code_id` 可传给 `Replace` 进行行数校验。
@@ -34,7 +34,7 @@ func Read(path string, start int, endLine int, opts ...Option) (ShowResult, stri
 #### `Replace`
 
 ```go
-func Replace(path string, start, end int, old *string, content string, raw bool, format string, preview bool, sessionID string, opts ...Option) (ReplaceResult, error)
+func Replace(path string, start, end int, old *string, content string, format string, preview bool, sessionID string, brief bool, opts ...Option) (ReplaceResult, error)
 ```
 
 精确替换指定行范围的内容。
@@ -42,34 +42,33 @@ func Replace(path string, start, end int, old *string, content string, raw bool,
 - `start`、`end`：行范围（闭区间），二者均不可省略
 - `old`：可选，非 nil 时会校验当前文件内容与 old 是否一致，不一致则返回错误
 - `content`：替换后的内容
-- `raw`：是否原样写入，不与格式化逻辑冲突
 - `format`：写入后的格式（"trim" 或 ""）
 - `preview`：如果为 true，只返回 diff 不写入文件
-- `viewed_code_id`：可选，传 `be-read` 返回的 `viewed_code_id` 时校验行数一致性
+- `sessionID`：可选，传 `be-read` 返回的 `viewed_code_id` 时校验行数一致性
+- `brief`：返回精简结果（省略 diff 和 balance）
 
 #### `Insert`
 
 ```go
-func Insert(path string, after int, content string, raw bool, format string, preview bool, opts ...Option) (InsertResult, error)
+func Insert(path string, after int, content string, format string, preview bool, brief bool, opts ...Option) (InsertResult, error)
 ```
 
 在指定行后插入内容。
 
 - `after`：在此行后插入。传 `0` 表示在文件最开头插入
 - `content`：插入的内容
-- `raw`、`format`、`preview`：与 `Replace` 语义一致
+- `format`、`preview`、`brief`：与 `Replace` 语义一致
 
 #### `Delete`
 
 ```go
-func Delete(path string, start, end, line int, linesJSON *string, format string, preview bool, opts ...Option) (DeleteResult, error)
+func Delete(path string, start, end int, format string, preview bool, brief bool, opts ...Option) (DeleteResult, error)
 ```
 
-删除行。支持三种模式：
+删除指定行范围。
 
-- 行范围删除：传 `start` + `end`（闭区间）
-- 单行删除：传 `line`
-- 批量删除：传 `linesJSON`，JSON 数组格式如 `"[3,5,8]"`
+- `start`、`end`：行范围（闭区间），二者均不可省略
+- `format`、`preview`、`brief`：与 `Replace` 语义一致
 
 #### `Batch`
 
@@ -99,7 +98,7 @@ func Batch(spec string, preview bool, opts ...Option) (BatchResult, error)
 #### `Write`
 
 ```go
-func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, error)
+func Write(spec string, preview bool, brief bool, opts ...Option) (WriteResult, error)
 ```
 
 原始写入工具，直接覆盖文件内容。支持单文件和批量文件写入。
@@ -107,8 +106,9 @@ func Write(spec string, preview bool, raw bool, opts ...Option) (WriteResult, er
 - `spec`：JSON 字符串
   - 单文件：`{"file":"...","content":"..."}`
   - 多文件：`{"files":[{"file":"...","content":"..."}]}`
-- `raw`：为 true 时 content 中的字面 `\n` 转为真实换行符
-- JSON 解析失败时自动降级为字符级提取；`preview=true` 时只返回结果不写入
+- `preview`：如果为 true，只返回结果不写入文件
+- `brief`：返回精简结果（省略单文件详情）
+- JSON 解析失败时自动降级为字符级提取
 
 ### 范围检测
 
