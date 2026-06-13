@@ -48,5 +48,5 @@ func ParseArgs(args []string) (Config, bool) {
 }
 
 func printHelp() {
-	fmt.Printf("%s %s\n\nUsage:\n  %s [--lang <zh|en>] [--version] [--help]\n\nRuns the MCP server over stdio by default.\n", Name, Version, Name)
+	fmt.Printf("%s %s\n\nUsage:\n  %s [--lang <zh|en>] [--version] [--help]\n  %s <command> [options]\n\nRuns the MCP server over stdio by default.\n\nCLI commands:\n  read, replace, insert, delete, write, balance, func-range, tag-range\n\nUse `%s <command> --help` for command-specific options.\n", Name, Version, Name, Name, Name)
 }
