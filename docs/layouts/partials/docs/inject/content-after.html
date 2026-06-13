@@ -1,0 +1,15 @@
+{{- if not .IsHome -}}
+{{- $llms := site.Home.OutputFormats.Get "llms" -}}
+<hr>
+<p class="book-post-meta">
+  <a href="{{ .Permalink }}index.md" target="_blank" rel="noopener">
+    {{ i18n "viewMarkdownSource" | default "查看 Markdown 源" }}
+  </a>
+  {{ if $llms }}
+  &middot;
+  <a href="{{ $llms.Permalink }}" target="_blank" rel="noopener">
+    {{ i18n "viewLlmsTxt" | default "llms.txt" }}
+  </a>
+  {{ end }}
+</p>
+{{- end -}}

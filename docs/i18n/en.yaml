@@ -1,0 +1,4 @@
+- id: viewMarkdownSource
+  translation: "View Markdown source"
+- id: viewLlmsTxt
+  translation: "llms.txt"

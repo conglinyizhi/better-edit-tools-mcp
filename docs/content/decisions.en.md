@@ -50,6 +50,9 @@ Therefore, residual `be-batch` descriptions in the README and Go API documentati
 
 If you really need batch editing, please use a combination of single tools, or consider orchestrating with scripts in CLI mode (CLI subcommands were provided in v0.11.0).
 
+
+{{< issue title="Feedback: I Want to Add `be-batch` / Batch Editing Tool" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
+
 ---
 
 ## I Want to Simplify or Extend `be-delete` / `be-insert` Parameters
@@ -69,6 +72,9 @@ Reasons:
 - More parameter aliases increase maintenance costs for documentation, tests, and schemas.
 
 If you want to add new parameter aliases, you need very strong evidence that the current parameters frequently cause model errors and that the new parameters can significantly reduce the error rate.
+
+
+{{< issue title="Feedback: I Want to Simplify or Extend `be-delete` / `be-insert` Parameters" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
 
 ---
 
@@ -100,6 +106,9 @@ Other acquisition methods are fine but the names are still long. We worry that i
 
 If you want to rename, please explain in the issue: what specific problem the current name causes, how much confusion the new name can reduce, and whether it is worth a breaking change (although we have not reached a major version > 0, we still cautiously value compatibility to avoid updates affecting extensibility)... at least provide users with a convenient migration guide.
 
+
+{{< issue title="Feedback: I Want to Make Tool Names Shorter or Rename Them" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
+
 ---
 
 ## I Want to Add Formatting / Type Checking / Test Hook Post-Processing
@@ -114,6 +123,9 @@ Reasons:
 - This work is better left to the Agent workflow itself or the toolchain on the MCP client side.
 
 If you want to add some validation, please explain why it must be completed inside better-edit-tools rather than by the caller.
+
+
+{{< issue title="Feedback: I Want to Add Formatting / Type Checking / Test Hook Post-Processing" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
 
 ---
 
@@ -137,6 +149,9 @@ As a compromise, v0.11.0 externalized **translation copy** to `internal/server/i
 
 If you want to choose between externalization and built-in, please explain in the issue: what specific maintenance pain points you encounter and how much additional complexity you are willing to take on.
 
+
+{{< issue title="Feedback: I Want to Externalize Tool Descriptions / InputSchema" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
+
 ---
 
 ## I Want to Refactor `listTools` into a Factory Pattern
@@ -152,6 +167,9 @@ Reasons:
 - Keeping it simple and direct better matches the project's current stage.
 
 If the number of tools increases significantly in the future or multiple schema sets need to be supported, this can be re-evaluated.
+
+
+{{< issue title="Feedback: I Want to Refactor `listTools` into a Factory Pattern" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
 
 ---
 
@@ -169,6 +187,9 @@ Reasons:
 
 If you want to improve the transaction mechanism, we suggest solving snapshot persistence / cross-process issues first rather than changing descriptions.
 
+
+{{< issue title="Feedback: I Want to Deeply Integrate Transactions / Snapshots with the Editing Workflow" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
+
 ---
 
 ## I Want to Add `be-apply` or Atomic Multi-File Editing
@@ -182,6 +203,9 @@ Reasons:
 - Atomic multi-file editing is complex and requires a new design approach; it is not a simple extension of existing tools.
 
 If you have a strong need for this, please first explain why your scenario cannot be met by existing tool combinations + snapshot rollback.
+
+
+{{< issue title="Feedback: I Want to Add `be-apply` or Atomic Multi-File Editing" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
 
 ---
 
@@ -225,6 +249,9 @@ Then the following happened:
 
 While editing this section, I thought of something: we could try using pipes to avoid agents generating symbols incorrectly and causing parsing failures. But the Kimi agent pointed out that this still requires ensuring the EOL markers at the beginning and end are paired, which I really can't do anything about. So I initiated a feature commit (see commit `2e4d97a`) to let the CLI use this functionality as much as possible.
 
+
+{{< issue title="Feedback: I Want to Add CLI Subcommands / I Want Dedicated Integration for Pi Agent" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
+
 ---
 
 ## I Want `install.sh` to Automatically Configure MCP Clients
@@ -239,6 +266,9 @@ Reasons:
 - Each agent usually has its own system prompt or skill to guide how to configure MCP; this should be left to the agent itself.
 
 Considering that `install.sh` is actually only friendly to Linux and macOS users, we may need to provide other installation methods for Windows users in the future. But for the reasons above, we cannot and will not provide one-click installation. However, v0.11.0 added `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md` as workflow documents for AI Agents.
+
+
+{{< issue title="Feedback: I Want `install.sh` to Automatically Configure MCP Clients" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
 
 ---
 
@@ -266,6 +296,9 @@ LANGUAGE=''
 
 The LC filter results are not shown because there is nothing to show (exit 1).
 
+
+{{< issue title="Feedback: I Want to Change the `--lang` Default Value or Auto-Detection Logic" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
+
 ---
 
 ## I Want to Change the Versioning Strategy or Release Process
@@ -286,6 +319,9 @@ Version rules:
 - New features bump minor (e.g., CLI subcommands, i18n externalization → v0.11.0).
 - Bug fixes bump patch.
 - Major version is reserved for a future stable 1.0 release.
+
+
+{{< issue title="Feedback: I Want to Change the Versioning Strategy or Release Process" body="Please describe your suggestion, problem, or new evidence." labels="docs" text="📝 Open issue" >}}
 
 ---
 

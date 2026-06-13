@@ -1,0 +1,6 @@
+{{- $llms := site.Home.OutputFormats.Get "llms" -}}
+{{- if $llms -}}
+<a href="{{ $llms.Permalink }}" target="_blank" rel="noopener">llms.txt</a>
+{{- else -}}
+llms.txt
+{{- end -}}
