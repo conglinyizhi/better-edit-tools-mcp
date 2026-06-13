@@ -1,0 +1,15 @@
+{
+  "be-read": "按行号读取文件内容。返回 viewed_code_id，后续调用 be-replace 时传入可校验目标范围是否已变化。",
+  "be-replace": "替换文件中的指定行范围。传入 viewed_code_id 可校验自 be-read 以来文件是否变化；传入 old 时必须与原内容完全一致。",
+  "be-replace-old": "可选。若提供，必须与原文件内容完全一致，否则工具返回错误。",
+  "be-replace-viewed-code-id": "从最近一次 be-read 返回结果中获取，用于检测目标范围是否已变化。",
+  "be-insert": "在指定行后插入内容。",
+  "be-write": "直接写入文件内容，JSON 失败时会尽量降级解析。",
+  "be-func-range": "定位某一行所在的函数或花括号范围。",
+  "be-tag-range": "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
+  "be-balance": "检查括号、标签和引号的配对情况。",
+  "be-insert-chip": "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
+  "be-trx-commit": "提交所有待确认的编辑快照（清空队列）。",
+  "be-trx-rollback": "回滚最近 N 个编辑快照。step 从 1 开始，表示回滚最近几个操作。",
+  "be-trx-status": "查看待处理的编辑快照及队列使用情况。"
+}

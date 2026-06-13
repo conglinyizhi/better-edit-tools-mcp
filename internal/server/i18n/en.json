@@ -1,0 +1,15 @@
+{
+  "be-read": "Read file content with line numbers. Returns viewed_code_id; pass it to be-replace to verify the target range has not changed.",
+  "be-replace": "Replace a precise line range in a file. Pass viewed_code_id from a prior be-read to validate consistency; if old is provided it must match the current content exactly.",
+  "be-replace-old": "Optional. If provided, must match the current file content exactly; otherwise the tool returns an error.",
+  "be-replace-viewed-code-id": "Obtained from the most recent be-read result, used to detect whether the target range has changed.",
+  "be-insert": "Insert content after a specific line.",
+  "be-write": "Write raw content to file(s), with a degraded parser for malformed JSON payloads.",
+  "be-func-range": "Find the enclosing function or brace block for a given line.",
+  "be-tag-range": "Find the enclosing XML/HTML/Vue tag pair for a given line.",
+  "be-balance": "Check bracket, brace, parenthesis, tag, and quote balance.",
+  "be-insert-chip": "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
+  "be-trx-commit": "Commit all pending edit snapshots (clear the queue).",
+  "be-trx-rollback": "Roll back the last N edit snapshots from the queue.",
+  "be-trx-status": "Show pending edit snapshots and queue usage."
+}

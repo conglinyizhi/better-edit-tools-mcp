@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,11 @@ import (
 	"github.com/conglinyizhi/better-edit-tools-mcp/internal/app"
 	betools "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 )
+
+//go:embed i18n/*.json
+var i18nFS embed.FS
+
+var i18nData = loadI18N()
 
 type Tool struct {
 	Name        string         `json:"name"`
@@ -169,11 +175,12 @@ func (s *Server) listTools() []Tool {
 					"file":    map[string]any{"type": "string"},
 					"start":   map[string]any{"type": "integer", "minimum": 1},
 					"end":     map[string]any{"type": "integer", "minimum": 1},
-					"old":     map[string]any{"type": "string"},
+					"old":     map[string]any{"type": "string", "description": localizedDescription(s.lang, "be-replace-old")},
 					"content": map[string]any{"type": "string"},
 					"format":  map[string]any{"type": "string"},
 					"preview": map[string]any{"type": "boolean"},
-					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
+					"brief":          map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
+					"viewed_code_id": map[string]any{"type": "string", "description": localizedDescription(s.lang, "be-replace-viewed-code-id")},
 					"target": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -367,37 +374,41 @@ func (s *Server) readTool(name, description string) Tool {
 	}
 }
 
+func loadI18N() map[string]map[string]string {
+	data := make(map[string]map[string]string)
+	entries, err := i18nFS.ReadDir("i18n")
+	if err != nil {
+		return data
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		lang := strings.TrimSuffix(name, ".json")
+		content, err := i18nFS.ReadFile("i18n/" + name)
+		if err != nil {
+			continue
+		}
+		var m map[string]string
+		if err := json.Unmarshal(content, &m); err != nil {
+			continue
+		}
+		data[lang] = m
+	}
+	return data
+}
+
 func localizedDescription(lang, name string) string {
-	zh := map[string]string{
-		"be-read":         "按行号读取文件内容。",
-		"be-replace":      "替换文件中的指定行范围。",
-		"be-insert":       "在指定行后插入内容。",
-		"be-write":        "直接写入文件内容，JSON 失败时会尽量降级解析。",
-		"be-func-range":   "定位某一行所在的函数或花括号范围。",
-		"be-tag-range":    "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
-		"be-balance":      "检查括号、标签和引号的配对情况。",
-		"be-insert-chip":  "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
-		"be-trx-commit":   "提交所有待确认的编辑快照（清空队列）。",
-		"be-trx-rollback": "回滚最近 N 个编辑快照。step 从 1 开始，表示回滚最近几个操作。",
-		"be-trx-status":   "查看待处理的编辑快照及队列使用情况。",
+	if m, ok := i18nData[lang]; ok {
+		if v, ok := m[name]; ok {
+			return v
+		}
 	}
-	en := map[string]string{
-		"be-read":         "Read file content with line numbers.",
-		"be-replace":      "Replace a precise line range in a file.",
-		"be-insert":       "Insert content after a specific line.",
-		"be-write":        "Write raw content to file(s), with a degraded parser for malformed JSON payloads.",
-		"be-func-range":   "Find the enclosing function or brace block for a given line.",
-		"be-tag-range":    "Find the enclosing XML/HTML/Vue tag pair for a given line.",
-		"be-balance":      "Check bracket, brace, parenthesis, tag, and quote balance.",
-		"be-insert-chip":  "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
-		"be-trx-commit":   "Commit all pending edit snapshots (clear the queue).",
-		"be-trx-rollback": "Roll back the last N edit snapshots from the queue.",
-		"be-trx-status":   "Show pending edit snapshots and queue usage.",
+	if m, ok := i18nData["en"]; ok {
+		return m[name]
 	}
-	if lang == "zh" {
-		return zh[name]
-	}
-	return en[name]
+	return ""
 }
 
 func (s *Server) callTool(name string, args map[string]any) (string, error) {
