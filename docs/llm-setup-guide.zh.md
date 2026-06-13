@@ -20,7 +20,7 @@
    - 基础地址：`https://github.com/conglinyizhi/better-edit-tools-mcp/releases/latest/download/`
    - 包名：`better-edit-tools-${OS}-${ARCH}.tar.gz`
    - 校验文件：`checksums.txt`
-   - 如需指定版本，把 `latest` 替换为 tag，例如 `v0.10.0`。
+   - 如需指定版本，把 `latest` 替换为 tag，例如 `v0.11.0`。
 
 3. **下载并校验**
    - 同时下载包和 `checksums.txt`。
