@@ -262,35 +262,3 @@ var ErrWrite   = errors.New("write error")
 ```
 
 所有 betools 返回的错误均可通过 `errors.Is` 与这三个哨兵值匹配。
-
----
-
-## CLI 使用
-
-上述函数同样通过 `better-edit-tools` 二进制以子命令形式暴露，适合 shell 脚本或偏好命令行调用的 agent（如 Pi）。
-
-```bash
-# 读取 1-10 行
-better-edit-tools read --file main.go --start 1 --end 10 --output json
-
-# 替换指定范围
-better-edit-tools replace --file main.go --start 5 --end 10 --content "..."
-
-# 在第 4 行后插入
-better-edit-tools insert --file main.go --after-line 4 --content "..."
-
-# 删除指定范围
-better-edit-tools delete --file main.go --start 5 --end 10
-
-# 写入文件
-better-edit-tools write --file main.go --content "package main\n"
-
-# 结构检查 / 范围检测
-better-edit-tools balance --file main.go
-better-edit-tools func-range --file main.go --line 12
-better-edit-tools tag-range --file index.html --line 8
-```
-
-使用 `--preview` 可在不写入文件的情况下查看 diff，`--output json` 输出与上述 Go 结果类型对应的结构化 JSON。
-
-注意：基于 session 的特性（`viewed_code_id` 校验和快照/事务工具）仅在 MCP server 模式下可用，因为它们依赖进程内状态。
