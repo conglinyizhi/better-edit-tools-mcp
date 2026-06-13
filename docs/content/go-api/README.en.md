@@ -1,3 +1,8 @@
+---
+title: "Go API Reference"
+weight: 50
+description: "Go API reference for embedding better-edit-tools in Go agent frameworks."
+---
 # betools — Go API Reference
 
 ## Package

@@ -1,0 +1,8 @@
+{{ $title := .Get "title" | default "反馈" }}
+{{ $body := .Get "body" | default "" }}
+{{ $labels := .Get "labels" | default "" }}
+{{ $repo := site.Params.BookRepo | default "https://github.com/conglinyizhi/better-edit-tools-mcp" }}
+{{ $query := querify "title" $title "body" $body "labels" $labels }}
+<a class="book-btn" href="{{ $repo }}/issues/new?{{ $query }}" target="_blank" rel="noopener">
+  {{ .Get "text" | default "🐛 创建 Issue" }}
+</a>

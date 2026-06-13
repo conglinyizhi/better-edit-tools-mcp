@@ -1,3 +1,8 @@
+---
+title: "LLM Self-Setup Guide"
+weight: 30
+description: "Guide for AI Agents to download, verify, and install the better-edit-tools binary."
+---
 # LLM Self-Setup Guide
 
 This guide is written for AI agents (Kimi Code, Claude Code, Cline, etc.) that need to make the `better-edit-tools` binary available on the user's machine.

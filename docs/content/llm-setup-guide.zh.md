@@ -1,3 +1,8 @@
+---
+title: "大模型自配置指南"
+weight: 20
+description: "帮助 AI Agent 把 better-edit-tools 二进制安装到本地并完成 MCP 配置的流程指南。"
+---
 # 大模型自配置指南
 
 本文档面向需要帮用户把 `better-edit-tools` 二进制安装到本地的 AI Agent（Kimi Code、Claude Code、Cline 等）。

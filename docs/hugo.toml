@@ -1,0 +1,38 @@
+baseURL = 'https://conglinyizhi.github.io/better-edit-tools-mcp/'
+defaultContentLanguage = 'zh'
+defaultContentLanguageInSubdir = false
+title = 'better-edit-tools 文档'
+theme = 'hugo-book'
+
+[params]
+  description = 'better-edit-tools 文档站：面向开发者和 AI Agent 的文件精确编辑工具文档。'
+  BookRepo = 'https://github.com/conglinyizhi/better-edit-tools-mcp'
+  BookEditPath = 'edit/main/docs'
+  BookComments = false
+  BookSearch = true
+  BookPortableLinks = true
+  BookSection = '*'
+
+[languages]
+  [languages.zh]
+    label = '中文'
+    weight = 1
+    contentDir = 'content'
+  [languages.en]
+    label = 'English'
+    weight = 2
+    contentDir = 'content'
+
+[mediaTypes]
+  [mediaTypes."text/plain"]
+    suffixes = ["txt"]
+
+[outputFormats]
+  [outputFormats.llms]
+    mediaType = "text/plain"
+    baseName = "llms"
+    isPlainText = true
+    notAlternative = true
+
+[outputs]
+  home = ["HTML", "RSS", "llms"]
