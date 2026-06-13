@@ -1,8 +1,8 @@
+# better-edit-tools
+
 <div align="right">
   <a href="README.md">English</a> | <a href="README.zh.md">中文</a>
 </div>
-
-# better-edit-tools
 
 > 实验性项目：工具名称、参数和行为都可能随着设计继续调整。不要把具体工具名写死到 prompt 里，优先使用能力描述或动态解析的方式选择工具。
 
@@ -14,6 +14,8 @@
 如果你是 Go 开发者，想在 Agent 框架中直接嵌入编辑能力，请参见 [Go API 文档](docs/go-api/README.zh.md)。
 
 🤖 想让 AI 自动帮你完成本地安装？请参见 [大模型自配置指南](docs/llm-setup-guide.zh.md)。
+
+📜 想了解项目历史决策和已被关闭的功能提议，请参见 [历史决策记录](docs/decisions.zh.md)（仅提供简体中文）。
 
 ## 工具说明
 
@@ -29,7 +31,6 @@
 ### `be-read`
 
 只读查看工具，按行号展示文件内容。`end` 用正数指定结束行，传 `0` 或负数则自动扩展到所在函数范围。适合在不手动计算区间的情况下快速获取上下文。返回 `viewed_code_id`（v0.4+），可用于后续 `be-replace` 的行数校验。
-
 
 ——不用自己算范围，就能看到最需要的那一段上下文。
 

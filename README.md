@@ -1,8 +1,8 @@
+# better-edit-tools
+
 <div align="right">
   <a href="README.zh.md">中文</a> | <a href="README.md">English</a>
 </div>
-
-# better-edit-tools
 
 > An experimental high-performance MCP (Model Context Protocol) file editing toolkit in Go — atomic writes, smart batch sorting, and intelligent function-scope detection.
 > Experimental project: tool names, parameters, and behaviors may change as the design evolves. Do not hardcode specific tool names into prompts; prefer capability-based or dynamically resolved tool selection.
@@ -13,6 +13,8 @@
 If you are a Go developer who wants to embed editing capabilities directly in your agent framework, see the [Go API documentation](docs/go-api/README.md).
 
 🤖 Want an AI agent to install and configure the binary for you? See the [LLM self-setup guide](docs/llm-setup-guide.md).
+
+📜 For historical decisions and closed feature proposals, see the [decision log](docs/decisions.zh.md) (Simplified Chinese only).
 
 ## Tools
 
@@ -88,6 +90,7 @@ Finds the enclosing XML/HTML/Vue tag pair for a line. The markup-oriented counte
 - **Fault-tolerant JSON parsing**: AI-generated content often contains backticks, `${}`, or unescaped quotes; `be-write` automatically falls back to character-level extraction.
 - **Session state bridging**: `be-read` returns a `viewed_code_id` that `be-replace` can accept to validate consistent line numbering.
 - **Localized descriptions**: `--lang <zh|en>` switches tool description language; parameter names and behavior remain unchanged.
+
 ## Usage
 
 ### Build
