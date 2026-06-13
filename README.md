@@ -7,8 +7,12 @@
 > An experimental high-performance MCP (Model Context Protocol) file editing toolkit in Go — atomic writes, smart batch sorting, and intelligent function-scope detection.
 > Experimental project: tool names, parameters, and behaviors may change as the design evolves. Do not hardcode specific tool names into prompts; prefer capability-based or dynamically resolved tool selection.
 > Tool descriptions are localized at startup via `--lang <zh|en>` and fall back to the `LANG` environment variable when omitted.
+>
+> ⚠️ **For Chinese-speaking users**: if you are using a Chinese-language model (e.g., Kimi), make sure to add `"args": ["--lang", "zh"]` to your MCP configuration. Otherwise tool descriptions will fall back to English.
 
 If you are a Go developer who wants to embed editing capabilities directly in your agent framework, see the [Go API documentation](docs/go-api/README.md).
+
+🤖 Want an AI agent to install and configure the binary for you? See the [LLM self-setup guide](docs/llm-setup-guide.md).
 
 ## Tools
 
