@@ -250,3 +250,35 @@ var ErrWrite   = errors.New("write error")
 ```
 
 All betools errors can be matched with `errors.Is` against these three sentinels.
+
+---
+
+## CLI usage
+
+The same functions are exposed through the `better-edit-tools` binary as CLI subcommands. This is useful for shell scripts or agents (such as Pi) that prefer invoking a command over speaking MCP.
+
+```bash
+# Read lines 1-10
+better-edit-tools read --file main.go --start 1 --end 10 --output json
+
+# Replace a range
+better-edit-tools replace --file main.go --start 5 --end 10 --content "..."
+
+# Insert after line 4
+better-edit-tools insert --file main.go --after-line 4 --content "..."
+
+# Delete a range
+better-edit-tools delete --file main.go --start 5 --end 10
+
+# Write a file
+better-edit-tools write --file main.go --content "package main\n"
+
+# Balance / range detection
+better-edit-tools balance --file main.go
+better-edit-tools func-range --file main.go --line 12
+better-edit-tools tag-range --file index.html --line 8
+```
+
+Use `--preview` to see the diff without writing, and `--output json` to get structured JSON output matching the Go result types above.
+
+Note: session-based features (`viewed_code_id` validation and snapshot/transaction tools) are only available through the MCP server, because they rely on in-process state.

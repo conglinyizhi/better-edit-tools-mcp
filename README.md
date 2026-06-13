@@ -119,6 +119,41 @@ Add to your MCP client configuration:
 
 For example, Claude Desktop's config is at `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
 
+### CLI usage
+
+The same binary can be used as a command-line tool. When invoked with a subcommand, it executes a single operation and exits; otherwise it starts the MCP server as usual.
+
+```bash
+# Read
+./better-edit-tools read --file main.go --start 1 --end auto
+
+# Replace
+./better-edit-tools replace --file main.go --start 5 --end 10 --content "..."
+
+# Insert
+./better-edit-tools insert --file main.go --after-line 4 --content "..."
+
+# Delete
+./better-edit-tools delete --file main.go --start 5 --end 10
+
+# Write
+./better-edit-tools write --file main.go --content "package main\n\nfunc main() {}"
+
+# Balance / scope detection
+./better-edit-tools balance --file main.go
+./better-edit-tools func-range --file main.go --line 12
+./better-edit-tools tag-range --file index.html --line 8
+```
+
+Use `--output json` to get machine-parseable output, and `--preview` to see the diff without writing to disk.
+
+```bash
+./better-edit-tools read --file main.go --start 1 --end 10 --output json
+./better-edit-tools replace --file main.go --start 5 --end 10 --content "..." --preview
+```
+
+Note: `viewed_code_id` and snapshot/transaction tools are MCP-only because they rely on in-process session state.
+
 ### Install
 
 The helper script downloads the latest release for your OS and architecture, verifies the SHA-256 checksum, and installs the binary into `~/.local/share/better-edit-tools/bin/`. Pass a tag name to install a specific version.

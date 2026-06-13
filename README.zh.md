@@ -124,6 +124,41 @@ Claude Desktop 配置文件位置：
 - macOS：`~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows：`%APPDATA%\Claude\claude_desktop_config.json`
 
+### 命令行使用
+
+同一个二进制文件也可以作为命令行工具直接使用。传入子命令时执行单次操作并退出；不传子命令时仍按原有行为启动 MCP server。
+
+```bash
+# 读取
+./better-edit-tools read --file main.go --start 1 --end auto
+
+# 替换
+./better-edit-tools replace --file main.go --start 5 --end 10 --content "..."
+
+# 插入
+./better-edit-tools insert --file main.go --after-line 4 --content "..."
+
+# 删除
+./better-edit-tools delete --file main.go --start 5 --end 10
+
+# 写入
+./better-edit-tools write --file main.go --content "package main\n\nfunc main() {}"
+
+# 结构检查 / 范围检测
+./better-edit-tools balance --file main.go
+./better-edit-tools func-range --file main.go --line 12
+./better-edit-tools tag-range --file index.html --line 8
+```
+
+使用 `--output json` 输出机器可解析的 JSON，`--preview` 只查看 diff 不写入文件。
+
+```bash
+./better-edit-tools read --file main.go --start 1 --end 10 --output json
+./better-edit-tools replace --file main.go --start 5 --end 10 --content "..." --preview
+```
+
+注意：`viewed_code_id` 和事务/快照工具依赖进程内 session 状态，目前仅保留在 MCP 模式下使用。
+
 ### 安装
 
 安装脚本根据当前系统和架构自动下载最新 Release，校验 SHA-256 后安装到 `~/.local/share/better-edit-tools/bin/`。也可传 tag 参数安装指定版本。
@@ -137,7 +172,7 @@ Release 产物提供 Linux、macOS、Windows 的 `amd64`/`arm64` 包和对应的
 
 ## 致谢
 
-工具集中的 `replace`、`insert`、`delete`、`batch` 等操作灵感来自 [includewudi/fast-edit](https://github.com/includewudi/fast-edit)。
+工具集中的 `replace`、`insert`、`delete` 等操作灵感来自 [includewudi/fast-edit](https://github.com/includewudi/fast-edit)。
 
 ## 许可证
 
