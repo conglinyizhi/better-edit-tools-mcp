@@ -187,11 +187,11 @@ v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作
 
 ## 我想给 Pi agent 做专门集成
 
-目前**没有专门为 Pi 做集成**，但欢迎以 skill 文档或高层 CLI 命令的形式改进。
+目前**没有专门为 Pi 做集成**，但您可以用 skill 或高层 CLI 命令的形式改进。
 
 已知问题：
 
-- Pi 直接生成精确 shell 命令容易出错（引号、空格、`$()`、反引号等 shell 元字符）。
+- Pi 直接生成精确 shell 命令容易出错（引号、空格、`$()`、反引号等 shell 元字符），同时因为这会在 shell 层识别为其他指令，我们无法通过软件层面干预……？
 - CLI 当前缺少 `--content-file` / `--old-file` 这类避开 shell 引号问题的参数。
 
 如果你希望改进 Pi 集成，建议方向：
@@ -215,10 +215,13 @@ v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作
 
 - 默认英文是对全球用户最安全的假设。
 - 中文用户不应依赖自动检测，因为 `LANG` 不一定反映 MCP client 的语言环境。
+- 但如果您有更好的策略，欢迎发起 issue
 
 ---
 
 ## 我想修改版本号策略或 Release 流程
+
+目前该项目处于高度迭代状态，因此我们暂时不打算迭代主版本号（即 major）
 
 根据 `.github/workflows/build.yml` 和 commit 历史，当前策略：
 
