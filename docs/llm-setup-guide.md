@@ -20,7 +20,7 @@ Download the correct release binary, verify it, place it in a stable location, a
    - Base: `https://github.com/conglinyizhi/better-edit-tools-mcp/releases/latest/download/`
    - Archive: `better-edit-tools-${OS}-${ARCH}.tar.gz`
    - Checksums: `checksums.txt`
-   - For a specific version, replace `latest` with the tag (e.g. `v0.11.0`).
+   - For a specific version, replace `latest` with the tag (e.g. `v0.12.0`).
 
 3. **Download and verify**
    - Download both the archive and `checksums.txt`.
