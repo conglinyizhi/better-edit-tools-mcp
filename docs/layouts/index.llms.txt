@@ -6,7 +6,6 @@
 
 {{ range hugo.Sites }}
 {{ range .RegularPages }}
-- [{{ .Title }}]({{ .Permalink }}): {{ .Params.description | default (.Summary | plainify | truncate 160) }}
-  - [Markdown source]({{ .Permalink }}index.md)
+- [{{ .Title }}]({{ .Permalink }}index.md): {{ .Params.description | default (.Summary | plainify | truncate 160) }}
 {{ end }}
 {{ end }}
