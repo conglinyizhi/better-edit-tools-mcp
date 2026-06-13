@@ -227,11 +227,23 @@ v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作
 - 中文用户不应依赖自动检测，因为 `LANG` 不一定反映 MCP client 的语言环境。
 - 但如果您有更好的策略，欢迎发起 issue
 
+附：这是一台我们开发环境中的中文语言的 ArchLinux 执行 `export | rg LANG` 的结果：
+
+```shell
+CSF_LANGUAGE=us
+LANG=zh_CN.UTF-8
+LANGUAGE=''
+```
+
+LC 的过滤结果没有放出来，是因为完全没有可以放出来的内容 (exit 1)
+
 ---
 
 ## 我想修改版本号策略或 Release 流程
 
 目前该项目处于高度迭代状态，因此我们暂时不打算迭代主版本号（即 major）
+
+但是如果您有对于这个方案的提议，也可以发起 issue 一起讨论
 
 根据 `.github/workflows/build.yml` 和 commit 历史，当前策略：
 
