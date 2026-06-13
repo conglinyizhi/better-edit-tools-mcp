@@ -1,6 +1,7 @@
 ---
 title: "better-edit-tools 文档"
 weight: 1
+description: "better-edit-tools 文档站：面向开发者、维护者和 AI Agent 的文件精确编辑工具集使用指南。"
 ---
 
 # better-edit-tools 文档

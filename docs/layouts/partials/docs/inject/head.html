@@ -2,3 +2,22 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+
+<!-- SEO enhancements -->
+<meta name="robots" content="index, follow">
+<meta name="author" content="better-edit-tools contributors">
+{{ with .Keywords }}
+<meta name="keywords" content="{{ delimit . ", " }}">
+{{ else }}
+<meta name="keywords" content="MCP, file editing, AI Agent, Go, CLI, better-edit-tools">
+{{ end }}
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{{ partial "docs/html-head-title" . }}">
+<meta name="twitter:description" content="{{ or .Description .Summary | plainify | htmlUnescape | truncate 160 }}">
+
+<!-- Explicit description fallback to avoid long summaries -->
+{{ if not .Description }}
+<meta name="description" content="{{ .Site.Params.description }}">
+{{ end }}

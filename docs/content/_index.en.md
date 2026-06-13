@@ -1,6 +1,7 @@
 ---
 title: "better-edit-tools Documentation"
 weight: 2
+description: "Documentation site for better-edit-tools: a file-editing toolkit for developers, maintainers, and AI Agents."
 ---
 
 # better-edit-tools Documentation
