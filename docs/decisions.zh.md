@@ -27,7 +27,7 @@
 原因：
 
 - `be-batch` 的 `spec` 是 JSON string 而非结构化参数，模型在构造 JSON string 时非常容易出错（tool confusion）。
-- 维护者实测数据：3 次调用全部失败，全部卡在 spec 的 JSON string 构造上。
+- 我们将该工具落实到 Agent（Hermes）实测数据：3 次调用全部失败，全部卡在 spec 的 JSON string 构造上。
 - 同样的场景可以用 `be-read` / `be-replace` / `be-insert` / `be-write` 串行完成，低阶工具在实际工作流中覆盖了 batch 原本要做的所有事。
 - 当前一次 tool call 中模型可以发起多次 function call，不需要把所有操作塞进一个 JSON string。
 
