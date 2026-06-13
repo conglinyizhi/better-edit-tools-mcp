@@ -6,6 +6,7 @@ theme = 'hugo-book'
 
 [params]
   description = 'better-edit-tools 文档站：面向开发者和 AI Agent 的文件精确编辑工具文档。'
+  BookTheme = 'auto'
   BookRepo = 'https://github.com/conglinyizhi/better-edit-tools-mcp'
   BookEditPath = 'edit/main/docs'
   BookComments = false

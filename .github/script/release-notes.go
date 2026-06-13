@@ -74,6 +74,10 @@ func runReleaseNotes(args []string) error {
 	items := make([]commitItem, 0, len(commits))
 	for _, line := range commits {
 		item := parseCommit(line)
+		// 文档站点改动（type 或 scope 为 docs）不进入二进制 Release 的 changelog
+		if item.Type == "docs" || strings.EqualFold(item.Scope, "docs") {
+			continue
+		}
 		items = append(items, item)
 	}
 
