@@ -57,8 +57,7 @@ If you really need batch editing, please use a combination of single tools, or c
 
 ## I Want to Simplify or Extend `be-delete` / `be-insert` Parameters
 
-Based on [issue #35](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/35) and commit
-`8ae2b2f`, we decided to **keep parameters minimal and not easily add aliases**.
+Based on [issue #35](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/35) and commit `8ae2b2f`, we decided to **keep parameters minimal and not easily add aliases**.
 
 Current conventions:
 

@@ -1,5 +1,6 @@
 {{- if not .IsHome -}}
 {{- $llms := site.Home.OutputFormats.Get "llms" -}}
+{{- $repo := site.Params.BookRepo | default "https://github.com/conglinyizhi/better-edit-tools-mcp" -}}
 <hr>
 <p class="book-post-meta">
   <a href="{{ .Permalink }}index.md" target="_blank" rel="noopener">
@@ -12,4 +13,42 @@
   </a>
   {{ end }}
 </p>
+<script>
+(function() {
+  const repo = {{ $repo | jsonify }};
+  function replaceInline(text) {
+    return text
+      .replace(/\bissue\s+#(\d+)\b/gi, function(m, n) {
+        return '<a href="' + repo + '/issues/' + n + '" target="_blank" rel="noopener">' + m + '</a>';
+      })
+      .replace(/\bcommit\s+`([a-f0-9]{7,40})`/gi, function(m, hash) {
+        return '<a href="' + repo + '/commit/' + hash + '" target="_blank" rel="noopener">' + m + '</a>';
+      });
+  }
+  function linkify(node) {
+    if (node.nodeType === 3) {
+      let html = replaceInline(node.textContent);
+      const next = node.nextSibling;
+      // Handle "commit <code>HASH</code>" where the code element follows this text node.
+      if (next && next.nodeType === 1 && next.tagName === 'CODE') {
+        const hash = next.textContent.trim();
+        const match = html.match(/\bcommit\s+$/i);
+        if (match && /^[a-f0-9]{7,40}$/i.test(hash)) {
+          const before = html.slice(0, match.index);
+          html = before + '<a href="' + repo + '/commit/' + hash + '" target="_blank" rel="noopener">commit <code>' + hash + '</code></a>';
+          next.remove();
+        }
+      }
+      if (html === node.textContent) return;
+      const span = document.createElement('span');
+      span.innerHTML = html;
+      node.parentNode.replaceChild(span, node);
+    } else if (node.nodeType === 1 && !['A', 'CODE', 'PRE'].includes(node.tagName)) {
+      Array.from(node.childNodes).forEach(linkify);
+    }
+  }
+  const article = document.querySelector('article.markdown');
+  if (article) linkify(article);
+})();
+</script>
 {{- end -}}

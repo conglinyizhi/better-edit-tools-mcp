@@ -37,3 +37,6 @@ theme = 'hugo-book'
 
 [outputs]
   home = ["HTML", "RSS", "llms"]
+
+[markup.goldmark.renderer]
+  unsafe = true
