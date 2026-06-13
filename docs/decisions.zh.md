@@ -137,7 +137,7 @@
 原因：
 
 - `be-trx-rollback` 依赖内存中的 snapshot 队列，其可靠性受外部因素影响（例如文件被外部修改后 rollback 可能不一致）。
-- snapshot 队列有 `MaxSnapshots = 30` 容量限制，且会 evict 最旧的快照，返回的 event_id 可能很快失效。
+- snapshot 队列有 `MaxSnapshots = 30` 容量限制，且会删除最旧的快照，返回的 event_id 可能很快失效。
 - 过度承诺 rollback 的可靠性会误导 LLM。
 - 当前工具描述已包含基本功能说明，保持现状即可。
 
