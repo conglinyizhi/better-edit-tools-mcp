@@ -8,7 +8,7 @@
 
 ## 我想增加 `be-batch` / 批量编辑工具
 
-根据 issue #13、#24、#35、#54 以及 commit `8ae2b2f`，我们决定**不保留 `be-batch` 这个 MCP 工具**。
+根据 [issue #13](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/13)、[#24](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/24)、[#35](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/35)、[#54](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/54) 以及 commit `8ae2b2f`，我们决定**不保留 `be-batch` 这个 MCP 工具**。
 
 原因：
 - `be-batch` 的 `spec` 是 JSON string 而非结构化参数，模型在构造 JSON string 时非常容易出错（tool confusion）。
@@ -16,7 +16,7 @@
 - 同样的场景可以用 `be-read` / `be-replace` / `be-insert` / `be-write` 串行完成，低阶工具在实际工作流中覆盖了 batch 原本要做的所有事。
 - 当前一次 tool call 中模型可以发起多次 function call，不需要把所有操作塞进一个 JSON string。
 
-因此，README 和 Go API 文档中残留的 `be-batch` 描述已在 v0.11.0 清理完毕（#54）。
+因此，README 和 Go API 文档中残留的 `be-batch` 描述已在 v0.11.0 清理完毕（[#54](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/54)）。
 
 如果你确实需要批量编辑，请使用单工具组合，或考虑在 CLI 模式下用脚本编排（v0.11.0 已提供 CLI 子命令）。
 
@@ -24,14 +24,14 @@
 
 ## 我想简化或扩展 `be-delete` / `be-insert` 的参数
 
-根据 issue #35 以及 commit `8ae2b2f`，我们决定**保持参数精简，不轻易增加别名**。
+根据 [issue #35](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/35) 以及 commit `8ae2b2f`，我们决定**保持参数精简，不轻易增加别名**。
 
 当前约定：
 - `be-delete`：只保留 `start` / `end` + `target`，已移除 `start_line` / `end_line` / `line` / `lines` 等别名。
 - `be-insert`：只保留 `after_line`（CLI 中为 `--after-line`，兼容 `--after`），已移除隐含 -1 换算的 `line` 参数。
 
 原因：
-- 同一件事有太多表达方式会让模型产生 tool confusion（issue #35 的核心观点）。
+- 同一件事有太多表达方式会让模型产生 tool confusion（[issue #35](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/35) 的核心观点）。
 - 参数别名越多，文档、测试、schema 维护成本越高。
 
 如果你想新增参数别名，需要有非常强的证据表明当前参数确实让模型频繁出错，且新参数能显著降低错误率。
@@ -40,7 +40,7 @@
 
 ## 我想让工具名更短或改名
 
-根据 issue #2，我们决定**工具名统一使用 `be-` 前缀**，并保持名称稳定。
+根据 [issue #2](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/2)，我们决定**工具名统一使用 `be-` 前缀**，并保持名称稳定。
 
 当前工具名：
 - `be-read`、`be-replace`、`be-insert`、`be-delete`、`be-write`
@@ -59,7 +59,7 @@
 
 ## 我想增加格式化 / 类型检查 / test hook 等后处理
 
-根据 issue #1 的讨论，我们决定**不引入依赖外部环境的 post-edit validation hooks**。
+根据 [issue #1](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/1) 的讨论，我们决定**不引入依赖外部环境的 post-edit validation hooks**。
 
 原因：
 - 格式化（gofmt、prettier 等）、类型检查、测试运行都依赖项目外部的工具链和语言运行时。
@@ -72,14 +72,14 @@
 
 ## 我想把工具描述 / InputSchema 外置化
 
-根据 issue #48，我们决定**当前阶段不把工具元数据外置到配置文件**。
+根据 [issue #48](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/48)，我们决定**当前阶段不把工具元数据外置到配置文件**。
 
 原因：
 - 当前只有 8 个工具，InputSchema 和 description 变动不频繁。
 - 外置化会增加加载校验、向后兼容和分发复杂度，收益不足以抵消成本。
 - 项目仍处于实验性阶段，工具参数可能继续调整，过早做复杂配置机制是过度设计。
 
-作为折中，v0.11.0 已经把**翻译文案**外置到 `internal/server/i18n/*.json` 并通过 `//go:embed` 嵌入（#52），这样改文案不需要改 Go 源码，但 schema 仍保留在代码中。
+作为折中，v0.11.0 已经把**翻译文案**外置到 `internal/server/i18n/*.json` 并通过 `//go:embed` 嵌入（[#52](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/52)），这样改文案不需要改 Go 源码，但 schema 仍保留在代码中。
 
 如果你认为应该外置 schema，请提供证据：工具数量是否已显著增加、是否有真实场景需要运行时覆盖 schema。
 
@@ -87,7 +87,7 @@
 
 ## 我想运行时覆盖或禁用某个工具
 
-根据 issue #49，我们决定**不实现运行时工具覆盖 / 禁用机制**。
+根据 [issue #49](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/49)，我们决定**不实现运行时工具覆盖 / 禁用机制**。
 
 原因：
 - 当前只有 8 个工具，规模不大，不需要复杂的运行时配置。
@@ -100,10 +100,10 @@
 
 ## 我想把 `listTools` 改成工厂模式
 
-根据 issue #50，我们决定**不把 `listTools` 重构为 Tool Factory**。
+根据 [issue #50](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/50)，我们决定**不把 `listTools` 重构为 Tool Factory**。
 
 原因：
-- 在 #48 / #49 已关闭的前提下，工厂模式的主要收益（支撑外置配置）已经不存在。
+- 在 [#48](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/48) / [#49](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/49) 已关闭的前提下，工厂模式的主要收益（支撑外置配置）已经不存在。
 - 当前 `server.go` 中工具定义虽然集中，但规模可控，改为工厂模式会增加不必要的抽象层。
 - 保持简单直接更符合项目当前阶段。
 
@@ -113,7 +113,7 @@
 
 ## 我想让事务 / 快照和编辑工作流深度结合
 
-根据 issue #53，我们决定**不在工具描述中过度强调事务 / 快照工作流**。
+根据 [issue #53](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/53)，我们决定**不在工具描述中过度强调事务 / 快照工作流**。
 
 原因：
 - `be-trx-rollback` 依赖内存中的 snapshot 队列，其可靠性受外部因素影响（例如文件被外部修改后 rollback 可能不一致）。
@@ -127,7 +127,7 @@
 
 ## 我想增加 `be-apply` 或原子多文件编辑
 
-根据 issue #24，我们决定**不实现 `be-apply` 工具**，并计划在需要时用"单调用两阶段提交"的完全不同设计重新审视。
+根据 [issue #24](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/24)，我们决定**不实现 `be-apply` 工具**，并计划在需要时用"单调用两阶段提交"的完全不同设计重新审视。
 
 原因：
 - `be-apply` 的提案和 `be-batch` 有重叠，而当时 `be-batch` 正准备删除。
@@ -139,7 +139,7 @@
 
 ## 我想增加 CLI 子命令
 
-根据 issue #55，我们决定**增加 8 个核心编辑工具的 CLI 子命令**（v0.11.0）。
+根据 [issue #55](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/55)，我们决定**增加 8 个核心编辑工具的 CLI 子命令**（v0.11.0）。
 
 已实现的命令：
 - `read`、`replace`、`insert`、`delete`、`write`
@@ -158,7 +158,7 @@
 
 ## 我想让 `install.sh` 自动配置 MCP 客户端
 
-根据 issue #46 的讨论，我们决定**install.sh 只负责下载、校验、放置二进制，并把绝对路径和 `--lang` 参数返回给用户 / agent**，不主动修改用户的 MCP 客户端配置文件。
+根据 [issue #46](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/46) 的讨论，我们决定**install.sh 只负责下载、校验、放置二进制，并把绝对路径和 `--lang` 参数返回给用户 / agent**，不主动修改用户的 MCP 客户端配置文件。
 
 原因：
 - 自动修改用户配置文件不安全，且用户看不到 agent 的行为。
@@ -187,7 +187,7 @@ v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作
 
 ## 我想修改 `--lang` 的默认值或自动检测逻辑
 
-根据 issue #45，我们决定：
+根据 [issue #45](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/45)，我们决定：
 - 保持当前 `--lang` 默认回退到 `LANG` 环境变量、最终默认英文的行为。
 - 在 README 顶部增加显式提示，提醒中文用户手动添加 `"args": ["--lang", "zh"]`。
 - `install.sh` 会检测 `LANG`，中文系统下默认输出的配置示例包含 `--lang zh`。
