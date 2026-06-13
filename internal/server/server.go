@@ -172,13 +172,13 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":    map[string]any{"type": "string"},
-					"start":   map[string]any{"type": "integer", "minimum": 1},
-					"end":     map[string]any{"type": "integer", "minimum": 1},
-					"old":     map[string]any{"type": "string", "description": localizedDescription(s.lang, "be-replace-old")},
-					"content": map[string]any{"type": "string"},
-					"format":  map[string]any{"type": "string"},
-					"preview": map[string]any{"type": "boolean"},
+					"file":           map[string]any{"type": "string"},
+					"start":          map[string]any{"type": "integer", "minimum": 1},
+					"end":            map[string]any{"type": "integer", "minimum": 1},
+					"old":            map[string]any{"type": "string", "description": localizedDescription(s.lang, "be-replace-old")},
+					"content":        map[string]any{"type": "string"},
+					"format":         map[string]any{"type": "string"},
+					"preview":        map[string]any{"type": "boolean"},
 					"brief":          map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 					"viewed_code_id": map[string]any{"type": "string", "description": localizedDescription(s.lang, "be-replace-viewed-code-id")},
 					"target": map[string]any{
