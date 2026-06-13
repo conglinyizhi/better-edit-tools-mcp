@@ -3,4 +3,5 @@
 > {{ .Site.Params.description }}
 
 ## Pages
-{{ range hugo.Sites }}{{ range .RegularPages }}- [{{ .Title }}]({{ .Permalink }}index.md): {{ .Params.description | default (.Summary | plainify | truncate 160) }}{{ end }}{{ end }}
+{{ range hugo.Sites }}{{ range .RegularPages }}
+- [{{ .Title }}]({{ .Permalink }}index.md): {{ .Params.description | default (.Summary | plainify | truncate 160) }}{{ end }}{{ end }}
