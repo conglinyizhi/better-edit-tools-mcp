@@ -209,7 +209,7 @@ kimi 2.7 对我们说过的：
 - 不同 MCP 客户端的配置路径和格式差异大，且变化快，维护成本高。
 - 各 agent 通常有自己的 system prompt 或 skill 来指导如何配置 MCP，这部分应交给 agent 自己处理。
 
-v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作为给 AI Agent 看的工作流文档。
+考虑到实际上 `install.sh` 只对 Linux 和 macOS 系统用户友好，后期可能需要提供其他方式来对 Windows 用户提供相应的安装方式，但也因为上面的原因，我们不能也无法提供一键安装的方式，不过，v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作为给 AI Agent 看的工作流文档。
 
 ---
 
