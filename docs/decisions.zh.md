@@ -100,31 +100,19 @@
 
 ## 我想把工具描述 / InputSchema 外置化
 
-根据 [issue #48](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/48)，我们决定**当前阶段不把工具元数据外置到配置文件**。
+根据 [issue #48](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/48)，我们决定**当前阶段不把工具元数据外置到配置文件**。根据 [issue #49](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/49)，我们决定**不实现运行时工具覆盖 / 禁用机制**。
 
 原因：
 
-- 当前只有 8 个工具，InputSchema 和 description 变动不频繁。
+- 当前只有 8 个工具，InputSchema 和 description 变动不频繁，并且规模不大，不需要复杂的运行时配置。
 - 外置化会增加加载校验、向后兼容和分发复杂度，收益不足以抵消成本。
 - 项目仍处于实验性阶段，工具参数可能继续调整，过早做复杂配置机制是过度设计。
+- 禁用核心工具可能导致 LLM 工作流断裂（例如禁用 `be-read` 后 `viewed_code_id` 机制失效），此时部分参数大模型可能无法理解。
+- 这属于过度设计，和项目当前阶段不匹配。
 
 作为折中，v0.11.0 已经把**翻译文案**外置到 `internal/server/i18n/*.json` 并通过 `//go:embed` 嵌入（[#52](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/52)），这样改文案不需要改 Go 源码，但 schema 仍保留在代码中。
 
-如果你认为应该外置 schema，请提供证据：工具数量是否已显著增加、是否有真实场景需要运行时覆盖 schema。
-
----
-
-## 我想运行时覆盖或禁用某个工具
-
-根据 [issue #49](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/49)，我们决定**不实现运行时工具覆盖 / 禁用机制**。
-
-原因：
-
-- 当前只有 8 个工具，规模不大，不需要复杂的运行时配置。
-- 禁用核心工具可能导致 LLM 工作流断裂（例如禁用 `be-read` 后 `viewed_code_id` 机制失效）。
-- 这属于过度设计，和项目当前阶段不匹配。
-
-如果你确实需要禁用工具，可以在 MCP client 侧配置，这是更合理的分层。
+如果你想在外置 / 内置之间做选择，请在 issue 中说明：你遇到的具体维护痛点是什么、你愿意承担多少额外复杂度。
 
 ---
 
