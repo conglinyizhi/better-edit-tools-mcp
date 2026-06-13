@@ -15,7 +15,7 @@
 </p>
 <script>
 (function() {
-  const repo = {{ $repo | jsonify }};
+  const repo = "{{ $repo | safeJS }}";
   function replaceInline(text) {
     return text
       .replace(/\bissue\s+#(\d+)\b/gi, function(m, n) {
