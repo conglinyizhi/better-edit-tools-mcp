@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -28,9 +29,11 @@ type ToolConfig struct {
 	Line    int
 
 	// Content/matching flags
-	Content string
-	Old     string
-	Format  string
+	Content     string
+	ContentFile string
+	Old         string
+	OldFile     string
+	Format      string
 
 	// Balance-specific
 	Verbose bool
@@ -107,10 +110,18 @@ func ParseToolArgs(args []string) (ToolConfig, bool) {
 			cfg.Content = nextArg(args, &i, "--content")
 		case strings.HasPrefix(arg, "--content="):
 			cfg.Content = strings.TrimPrefix(arg, "--content=")
+		case arg == "--content-file":
+			cfg.ContentFile = nextArg(args, &i, "--content-file")
+		case strings.HasPrefix(arg, "--content-file="):
+			cfg.ContentFile = strings.TrimPrefix(arg, "--content-file=")
 		case arg == "--old":
 			cfg.Old = nextArg(args, &i, "--old")
 		case strings.HasPrefix(arg, "--old="):
 			cfg.Old = strings.TrimPrefix(arg, "--old=")
+		case arg == "--old-file":
+			cfg.OldFile = nextArg(args, &i, "--old-file")
+		case strings.HasPrefix(arg, "--old-file="):
+			cfg.OldFile = strings.TrimPrefix(arg, "--old-file=")
 		case arg == "--format":
 			cfg.Format = nextArg(args, &i, "--format")
 		case strings.HasPrefix(arg, "--format="):
@@ -199,12 +210,19 @@ func runRead(cfg ToolConfig) error {
 }
 
 func runReplace(cfg ToolConfig) error {
+	content, err := resolveContent(cfg.Content, cfg.ContentFile)
+	if err != nil {
+		return err
+	}
 	var old *string
-	if cfg.Old != "" {
-		o := cfg.Old
+	if cfg.Old != "" || cfg.OldFile != "" {
+		o, err := resolveContent(cfg.Old, cfg.OldFile)
+		if err != nil {
+			return err
+		}
 		old = &o
 	}
-	res, err := betools.Replace(cfg.File, cfg.Start, cfg.End, old, cfg.Content, cfg.Format, cfg.Preview, "", cfg.Brief)
+	res, err := betools.Replace(cfg.File, cfg.Start, cfg.End, old, content, cfg.Format, cfg.Preview, "", cfg.Brief)
 	if err != nil {
 		return err
 	}
@@ -212,7 +230,11 @@ func runReplace(cfg ToolConfig) error {
 }
 
 func runInsert(cfg ToolConfig) error {
-	res, err := betools.Insert(cfg.File, cfg.After, cfg.Content, cfg.Format, cfg.Preview, cfg.Brief)
+	content, err := resolveContent(cfg.Content, cfg.ContentFile)
+	if err != nil {
+		return err
+	}
+	res, err := betools.Insert(cfg.File, cfg.After, content, cfg.Format, cfg.Preview, cfg.Brief)
 	if err != nil {
 		return err
 	}
@@ -230,13 +252,17 @@ func runDelete(cfg ToolConfig) error {
 func runWrite(cfg ToolConfig) error {
 	spec := cfg.Spec
 	if spec == "" && cfg.File != "" {
+		content, err := resolveContent(cfg.Content, cfg.ContentFile)
+		if err != nil {
+			return err
+		}
 		spec = mustJSON(map[string]any{
 			"file":    cfg.File,
-			"content": normalizeLineBreaks(cfg.Content),
+			"content": normalizeLineBreaks(content),
 		})
 	}
 	if spec == "" {
-		return fmt.Errorf("write: 需要 --spec 或 --file 与 --content")
+		return fmt.Errorf("write: 需要 --spec 或 --file 与 --content/--content-file")
 	}
 	res, err := betools.Write(spec, cfg.Preview, cfg.Brief)
 	if err != nil {
@@ -271,6 +297,33 @@ func runTagRange(cfg ToolConfig) error {
 		return err
 	}
 	return printResult(res, cfg.Output)
+}
+
+// resolveContent returns content from --content, --content-file, or stdin.
+// If content is non-empty, it is used directly. If contentFile is "-",
+// content is read from stdin. Otherwise contentFile is read as a file.
+func resolveContent(content, contentFile string) (string, error) {
+	if content != "" && contentFile != "" {
+		return "", fmt.Errorf("--content 和 --content-file 不能同时使用")
+	}
+	if content != "" {
+		return content, nil
+	}
+	if contentFile == "" {
+		return "", nil
+	}
+	if contentFile == "-" {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", fmt.Errorf("读取 stdin 失败: %w", err)
+		}
+		return string(data), nil
+	}
+	data, err := os.ReadFile(contentFile)
+	if err != nil {
+		return "", fmt.Errorf("读取 content file 失败: %w", err)
+	}
+	return string(data), nil
 }
 
 func printResult(v any, output string) error {
@@ -409,7 +462,9 @@ func printToolHelp(name string) {
 		fmt.Println("  --start, -s <n>       起始行号")
 		fmt.Println("  --end, -e <n>         结束行号")
 		fmt.Println("  --content, -c <text>  替换内容")
+		fmt.Println("  --content-file <path> 从文件读取替换内容（path 为 - 时从 stdin 读取）")
 		fmt.Println("  --old <text>          旧内容（必须完全匹配）")
+		fmt.Println("  --old-file <path>     从文件读取旧内容（path 为 - 时从 stdin 读取）")
 		fmt.Println("  --preview             只输出 diff，不写入文件")
 		fmt.Println("  --brief               返回精简结果")
 		fmt.Println("  --output, -o text|json  输出格式")
@@ -418,6 +473,7 @@ func printToolHelp(name string) {
 		fmt.Println("  --file, -f <path>     要修改的文件")
 		fmt.Println("  --after, --after-line <n>  在此行后插入（0 表示文件开头）")
 		fmt.Println("  --content, -c <text>  插入内容")
+		fmt.Println("  --content-file <path> 从文件读取插入内容（path 为 - 时从 stdin 读取）")
 		fmt.Println("  --preview             只输出 diff，不写入文件")
 		fmt.Println("  --brief               返回精简结果")
 		fmt.Println("  --output, -o text|json  输出格式")
@@ -433,7 +489,8 @@ func printToolHelp(name string) {
 		fmt.Println("Options:")
 		fmt.Println("  --file, -f <path>     要写入的文件")
 		fmt.Println("  --content, -c <text>  文件内容")
-		fmt.Println("  --spec <json>         JSON 规格（优先于 file/content）")
+		fmt.Println("  --content-file <path> 从文件读取内容（path 为 - 时从 stdin 读取）")
+		fmt.Println("  --spec <json>         JSON 规格（优先于 file/content/content-file）")
 		fmt.Println("  --preview             只输出结果，不写入文件")
 		fmt.Println("  --brief               返回精简结果")
 		fmt.Println("  --output, -o text|json  输出格式")

@@ -154,8 +154,8 @@
 
 已实现的命令：
 
-- `read`、`replace`、`insert`、`delete`、`write`
-- `balance`、`func-range`、`tag-range`
+- 文本编辑：`read`、`replace`、`insert`、`delete`、`write`
+- 范围/结构识别：`balance`、`func-range`、`tag-range`
 
 设计要点：
 
@@ -164,10 +164,27 @@
 - CLI 参数尽量与 MCP schema 保持一致。
 - `--output json` 输出与 Go API 对应的结构化 JSON。
 - `viewed_code_id` 和事务 / 快照工具为 MCP-only，因为依赖进程内 session 状态。
+- `replace` / `insert` / `write` 支持 `--content-file` 和 `--old-file`（`replace` 专属），路径传 `-` 时从 stdin 读取，以规避 shell 引号/转义问题。
 
-注意：CLI 模式不是专门为 Pi agent 设计的。Pi 等 agent 直接生成精确 shell 命令容易出错（引号、空格、命令替换等，不过准确来说这多数是 LLM 本身的问题──无法正确的保证 JSON 生成有效。这个问题在指令上出现问题我们设计的二进制软件无法拦截，因为在 bash/shell 层会被识别为多条指令等问题），如果需要 Pi 集成，请优先写 Pi skill 文档或增加更适合 Pi 的高层包装命令，而不是要求废弃 CLI。
+CLI 子命令主要面向 shell 脚本和普通终端用户，不是专门为 Pi agent 设计的。
 
-我个人推荐优先使用 MCP 包装的方式接入，尤其是对于 CLI 编辑代码的场景和 Pi Agent 场景。
+---
+
+## 我想给 Pi agent 做专门集成
+
+目前**没有专门为 Pi 做集成**，但可以通过 Pi skill 文档或高层 CLI 命令来改进。
+
+已知问题：
+
+- Pi 直接生成精确 shell 命令容易出错（引号、空格、`$()`、反引号等 shell 元字符）。这些问题发生在 shell 解析层，CLI 二进制本身无法拦截。
+- 为了降低风险，已增加 `--content-file` / `--old-file` 参数，让 Pi 可以先把内容写入临时文件，再通过文件路径传入，避开复杂引号。
+
+建议方向：
+
+1. 先写 `docs/pi.md` skill 文档，教会 Pi 使用现有 CLI 的工作流（优先用 `--content-file`，复杂路径加引号）。
+2. 如果 Pi 仍然困难，再考虑新增更自然的"old / new"高层命令。
+
+不要因此废弃整个 CLI 功能：CLI 对 shell 脚本和普通终端用户仍然有价值。
 
 ---
 
@@ -185,24 +202,6 @@ v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作
 
 ---
 
-## 我想给 Pi agent 做专门集成
-
-目前**没有专门为 Pi 做集成**，但您可以用 skill 或高层 CLI 命令的形式改进。
-
-已知问题：
-
-- Pi 直接生成精确 shell 命令容易出错（引号、空格、`$()`、反引号等 shell 元字符），同时因为这会在 shell 层识别为其他指令，我们无法通过软件层面干预……？
-- CLI 当前缺少 `--content-file` / `--old-file` 这类避开 shell 引号问题的参数。
-
-如果你希望改进 Pi 集成，建议方向：
-
-1. 先写 `docs/pi.md` skill 文档，教会 Pi 使用现有 CLI 的工作流。
-2. 如果 Pi 仍然困难，再考虑增加 `--content-file` 或更自然的"old / new"高层命令。
-
-不要因此废弃整个 CLI 功能：CLI 对 shell 脚本和普通终端用户仍然有价值。
-
----
-
 ## 我想修改 `--lang` 的默认值或自动检测逻辑
 
 根据 [issue #45](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/45)，我们决定：
@@ -215,7 +214,6 @@ v0.11.0 新增了 `docs/llm-setup-guide.zh.md` / `docs/llm-setup-guide.md`，作
 
 - 默认英文是对全球用户最安全的假设。
 - 中文用户不应依赖自动检测，因为 `LANG` 不一定反映 MCP client 的语言环境。
-- 但如果您有更好的策略，欢迎发起 issue
 
 ---
 
