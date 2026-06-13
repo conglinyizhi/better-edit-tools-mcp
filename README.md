@@ -76,14 +76,6 @@ Finds the enclosing XML/HTML/Vue tag pair for a line. The markup-oriented counte
 
 ——Locate the surrounding tag pair that defines the real editing boundary.
 
-### `be-balance`
-
-Structural sanity check for brackets, braces, parentheses, HTML/XML tag closure, and quote parity. The scanner avoids interference from strings and comments. The `verbose` parameter controls output detail:
-
-- `false` (default): only outputs unmatched items.
-- `true`: outputs all matched pairs.
-
-——Catch structural mistakes early, even when the file mixes code, markup, and strings.
 ## Design highlights
 
 - **Atomic writes**: File modifications go through a temp-file-then-rename cycle, preventing data corruption if the process crashes mid-write.
@@ -140,7 +132,7 @@ Release assets are published for Linux, macOS, and Windows on both `amd64` and `
 
 ## Acknowledgements
 
-The `replace`, `insert`, `delete`, and `batch` operations are inspired by [includewudi/fast-edit](https://github.com/includewudi/fast-edit).
+The `replace`, `insert`, and `delete` operations are inspired by [includewudi/fast-edit](https://github.com/includewudi/fast-edit).
 
 ## License
 

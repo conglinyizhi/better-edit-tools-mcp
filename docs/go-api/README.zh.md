@@ -70,31 +70,6 @@ func Delete(path string, start, end int, format string, preview bool, brief bool
 - `start`、`end`：行范围（闭区间），二者均不可省略
 - `format`、`preview`、`brief`：与 `Replace` 语义一致
 
-#### `Batch`
-
-```go
-func Batch(spec string, preview bool, opts ...Option) (BatchResult, error)
-```
-
-多步编辑入口。传入 JSON 字符串，格式如下：
-
-```json
-{
-  "files": [
-    {
-      "file": "/path/to/file.go",
-      "edits": [
-        {"action": "replace", "start": 3, "end": 5, "content": "new content"},
-        {"action": "insert", "line": 10, "content": "inserted line"},
-        {"action": "delete", "line": 20}
-      ]
-    }
-  ]
-}
-```
-
-自动从下往上排序以避免行号偏移。
-
 #### `Write`
 
 ```go
@@ -231,9 +206,7 @@ func ListChips() []int
 | `ReplaceResult` | Status, File, Removed, Added, Total, Diff, Balance, Affected, Preview, Warning | 替换结果。Warning 由 session 校验产生 |
 | `InsertResult` | Status, File, After, Added, Total, Diff, Balance, Affected, Preview | 插入结果 |
 | `DeleteResult` | Status, File, Total, Diff, Balance, Affected, Preview | 删除结果 |
-| `BatchResult` | Status, Files, Results([]BatchFileResult), Preview | 批量操作结果 |
 | `WriteResult` | Status, Files, Results([]WriteFileResult), Degraded, Warning, Preview | 写入结果。Degraded 表示是否启用了降级解析 |
-| `BatchFileResult` | File, Edits, Total | 批量操作的单文件结果 |
 | `WriteFileResult` | File, Lines, Bytes | 写入的单文件结果 |
 | `FunctionRangeResult` | Start, End | 函数范围结果 |
 | `TagRangeResult` | Start, End, Kind, Tag | 标签范围结果。Tag 在单行标签时返回 |
@@ -250,9 +223,6 @@ func ListChips() []int
 
 | 类型 | 字段 | 说明 |
 |------|------|------|
-| `BatchEditSpec` | Action, Start, End, Line, Content | 单条编辑描述 |
-| `BatchFileSpec` | File, Edits([]BatchEditSpec) | 单文件编辑列表 |
-
 ### Session 相关
 
 | 类型 | 字段 | 说明 |

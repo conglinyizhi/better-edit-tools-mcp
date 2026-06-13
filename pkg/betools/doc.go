@@ -1,10 +1,9 @@
 // Package betools provides file editing primitives for MCP-powered editors and
 // AI agent frameworks.
 //
-// It offers atomic write operations, batch editing with automatic bottom-to-top
-// sorting, structural balance checking, function- and tag-scope detection, and
-// a session bridge that lets an agent validate file consistency between a read
-// and a subsequent write.
+// It offers atomic write operations, structural balance checking, function- and
+// tag-scope detection, and a session bridge that lets an agent validate file
+// consistency between a read and a subsequent write.
 //
 // All write operations use a temp-file-then-rename cycle, so a crash during a
 // write never corrupts the original file.

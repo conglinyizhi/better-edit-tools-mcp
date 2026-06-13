@@ -6,7 +6,7 @@
 import "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
 ```
 
-`betools` is the core editing library extracted from better-edit-tools, designed to be embedded directly in Go agent frameworks. It provides read, replace, insert, delete, batch, write, function-range detection, and tag-range detection primitives — all write operations are protected by atomic file writes (temp file + rename).
+`betools` is the core editing library extracted from better-edit-tools, designed to be embedded directly in Go agent frameworks. It provides read, replace, insert, delete, write, function-range detection, and tag-range detection primitives — all write operations are protected by atomic file writes (temp file + rename).
 
 **Minimum Go version**: Go 1.26+
 
@@ -68,31 +68,6 @@ Deletes lines in the specified range.
 
 - `start`, `end`: line range (inclusive), both required
 - `format`, `preview`, `brief`: same semantics as `Replace`
-
-#### `Batch`
-
-```go
-func Batch(spec string, preview bool, opts ...Option) (BatchResult, error)
-```
-
-Multi-operation editing entry point. Accepts a JSON string:
-
-```json
-{
-  "files": [
-    {
-      "file": "/path/to/file.go",
-      "edits": [
-        {"action": "replace", "start": 3, "end": 5, "content": "new content"},
-        {"action": "insert", "line": 10, "content": "inserted line"},
-        {"action": "delete", "line": 20}
-      ]
-    }
-  ]
-}
-```
-
-Edits are automatically sorted bottom-to-top to prevent line-number drift.
 
 #### `Write`
 
@@ -228,9 +203,7 @@ Returns all in-memory chip IDs in insertion order (oldest first).
 | `ReplaceResult` | Status, File, Removed, Added, Total, Diff, Balance, Affected, Preview, Warning | Replace result. Warning from session validation |
 | `InsertResult` | Status, File, After, Added, Total, Diff, Balance, Affected, Preview | Insert result |
 | `DeleteResult` | Status, File, Total, Diff, Balance, Affected, Preview | Delete result |
-| `BatchResult` | Status, Files, Results([]BatchFileResult), Preview | Batch operation result |
 | `WriteResult` | Status, Files, Results([]WriteFileResult), Degraded, Warning, Preview | Write result. Degraded indicates fallback parser was used |
-| `BatchFileResult` | File, Edits, Total | Per-file batch result |
 | `WriteFileResult` | File, Lines, Bytes | Per-file write result |
 | `FunctionRangeResult` | Start, End | Function scope result |
 | `TagRangeResult` | Start, End, Kind, Tag | Tag pair result. Tag is set for single-line tags |
@@ -242,13 +215,6 @@ Returns all in-memory chip IDs in insertion order (oldest first).
 | `MatchedPair` | Symbol, OpenLine, CloseLine, Depth | Matched symbol pair |
 | `UnbalancedItem` | Symbol, Line, Expected | Unmatched symbol |
 | `QuoteWarning` | Symbol, Count, Lines | Quote parity warning |
-
-### Batch Operation Inputs
-
-| Type | Fields | Description |
-|------|--------|-------------|
-| `BatchEditSpec` | Action, Start, End, Line, Content | Single edit description |
-| `BatchFileSpec` | File, Edits([]BatchEditSpec) | Per-file edit list |
 
 ### Session
 
