@@ -16,4 +16,8 @@ Every page on this site is available in two raw formats for easy fetching and an
   - Markdown source: `/en/decisions/index.md`
 - **Site summary `llms.txt`**: Visit {{< llms-link >}} for titles, descriptions, and Markdown source links of all pages.
 
-If you find an error in the documentation or want to discuss a historical decision, click the **Open issue** button on the page; it will automatically include the `docs` label.
+If you find an error in the documentation or want to discuss a historical decision, click the **Open issue** button on the page; it will automatically include the `docs:talk` label.
+
+## Project README
+
+{{< readme file="assets/README.md" base="/en/" >}}

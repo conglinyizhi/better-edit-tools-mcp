@@ -52,7 +52,7 @@ description: "本文档面向后续开发者、维护者和 AI Agent，记录项
 如果你确实需要批量编辑，请使用单工具组合，或考虑在CLI模式下用脚本编排（v0.11.0已提供CLI子命令）。
 
 
-{{< issue title="反馈：我想增加 `be-batch` / 批量编辑工具" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想增加 `be-batch` / 批量编辑工具" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -76,7 +76,7 @@ description: "本文档面向后续开发者、维护者和 AI Agent，记录项
 如果你想新增参数别名，需要有非常强的证据表明当前参数确实让模型频繁出错，且新参数能显著降低错误率。
 
 
-{{< issue title="反馈：我想简化或扩展 `be-delete` / `be-insert` 的参数" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想简化或扩展 `be-delete` / `be-insert` 的参数" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -110,7 +110,7 @@ description: "本文档面向后续开发者、维护者和 AI Agent，记录项
 但我们仍然略带谨慎的看重兼容性避免更新影响扩展性）……至少给用户一个方便的迁移指南
 
 
-{{< issue title="反馈：我想让工具名更短或改名" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想让工具名更短或改名" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -128,7 +128,7 @@ description: "本文档面向后续开发者、维护者和 AI Agent，记录项
 如果你希望增加某种validation，请说明它为什么必须由better-edit-tools内部完成，而不是由调用方完成。
 
 
-{{< issue title="反馈：我想增加格式化 / 类型检查 / test hook 等后处理" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想增加格式化 / 类型检查 / test hook 等后处理" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -154,7 +154,7 @@ schema仍保留在代码中。
 如果你想在外置/内置之间做选择，请在issue中说明：你遇到的具体维护痛点是什么、你愿意承担多少额外复杂度。
 
 
-{{< issue title="反馈：我想把工具描述 / InputSchema 外置化" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想把工具描述 / InputSchema 外置化" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -174,7 +174,7 @@ schema仍保留在代码中。
 如果未来工具数量显著增加或需要支持多组schema，可以再重新评估。
 
 
-{{< issue title="反馈：我想把 `listTools` 改成工厂模式" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想把 `listTools` 改成工厂模式" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -193,7 +193,7 @@ schema仍保留在代码中。
 如果你希望改进事务机制，建议先解决snapshot的持久化/跨进程问题，而不是改描述。
 
 
-{{< issue title="反馈：我想让事务 / 快照和编辑工作流深度结合" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想让事务 / 快照和编辑工作流深度结合" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -210,7 +210,7 @@ schema仍保留在代码中。
 如果你对此有强烈需求，请先说明你的场景为什么无法通过现有工具组合+ snapshot回滚来满足。
 
 
-{{< issue title="反馈：我想增加 `be-apply` 或原子多文件编辑" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想增加 `be-apply` 或原子多文件编辑" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -259,7 +259,7 @@ kimi 2.7对我们说过的：
 这我实在无能为力了，于是发起一次功能提交（详见提交`2e4d97a`），尽可能的让CLI也能尽可能的使用这种功能
 
 
-{{< issue title="反馈：我想增加 CLI 子命令 / 我想给 Pi agent 做专门集成" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想增加 CLI 子命令 / 我想给 Pi agent 做专门集成" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -279,7 +279,7 @@ kimi 2.7对我们说过的：
 AI Agent看的工作流文档。
 
 
-{{< issue title="反馈：我想让 `install.sh` 自动配置 MCP 客户端" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想让 `install.sh` 自动配置 MCP 客户端" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -308,7 +308,7 @@ LANGUAGE=''
 LC的过滤结果没有放出来，是因为完全没有可以放出来的内容(exit 1)
 
 
-{{< issue title="反馈：我想修改 `--lang` 的默认值或自动检测逻辑" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想修改 `--lang` 的默认值或自动检测逻辑" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 
@@ -332,7 +332,7 @@ LC的过滤结果没有放出来，是因为完全没有可以放出来的内容
 - major版本保留给未来稳定的1.0发布。
 
 
-{{< issue title="反馈：我想修改版本号策略或 Release 流程" body="请描述你的建议、问题或新证据。" labels="docs" text="📝 发起 issue" >}}
+{{< issue title="反馈：我想修改版本号策略或 Release 流程" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}
 
 ---
 

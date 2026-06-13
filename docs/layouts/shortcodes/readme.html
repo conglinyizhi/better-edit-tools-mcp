@@ -1,0 +1,6 @@
+{{ $file := .Get "file" }}
+{{ $base := .Get "base" | default ("/" | relURL) }}
+{{ $content := readFile $file }}
+{{ $content = replaceRE `\bdocs/([a-z0-9-]+)/README\.([a-z]{2})\.md\b` (printf "%s$1/readme/" $base) $content }}
+{{ $content = replaceRE `\bdocs/([a-z0-9-]+)\.([a-z]{2})\.md\b` (printf "%s$1/" $base) $content }}
+{{ $content | markdownify }}

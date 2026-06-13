@@ -16,4 +16,8 @@ weight: 1
   - Markdown 源：`/decisions/index.md`
 - **站点摘要 `llms.txt`**：访问根目录的 {{< llms-link >}}，可获取所有页面的标题、描述及对应的 Markdown 源链接。
 
-如果你发现文档有误或希望讨论某条历史决策，请点击页面中的 **发起 issue** 按钮，会自动带上 `docs` 标签。
+如果你发现文档有误或希望讨论某条历史决策，请点击页面中的 **发起 issue** 按钮，会自动带上 `docs:talk` 标签。
+
+## 项目 README
+
+{{< readme file="assets/README.zh.md" >}}

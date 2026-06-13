@@ -1,0 +1,27 @@
+name: Docs Talk
+about: 反馈文档问题、讨论历史决策或提出文档改进建议 / Feedback on documentation, discuss historical decisions, or suggest doc improvements
+title: "[docs:talk] "
+labels: ["docs:talk"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        <!--
+        If you came here via the "发起 issue / Open issue" button on a documentation page,
+        please keep the source comment at the beginning of the body so maintainers know which page and button you clicked.
+        -->
+  - type: input
+    id: source-page
+    attributes:
+      label: Source page
+      description: Which documentation page did this feedback come from?
+      placeholder: e.g. /decisions/
+    validations:
+      required: false
+  - type: textarea
+    id: content
+    attributes:
+      label: Content
+      description: Please describe your suggestion, question, or new evidence.
+    validations:
+      required: true
