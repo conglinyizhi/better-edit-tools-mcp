@@ -285,34 +285,24 @@ func (s *Server) listTools() []Tool {
 			},
 		},
 		{
-			Name:        "be-trx-commit",
-			Description: localizedDescription(s.lang, "be-trx-commit"),
-			InputSchema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
-		},
-		{
-			Name:        "be-trx-rollback",
-			Description: localizedDescription(s.lang, "be-trx-rollback"),
+			Name:        "be-trx",
+			Description: localizedDescription(s.lang, "be-trx"),
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"action": map[string]any{
+						"type":        "string",
+						"enum":        []string{"commit", "rollback", "status"},
+						"description": localizedDescription(s.lang, "be-trx-action"),
+					},
 					"step": map[string]any{
 						"type":        "integer",
 						"minimum":     1,
 						"default":     1,
-						"description": "number of snapshots to roll back from most recent",
+						"description": localizedDescription(s.lang, "be-trx-step"),
 					},
 				},
-			},
-		},
-		{
-			Name:        "be-trx-status",
-			Description: localizedDescription(s.lang, "be-trx-status"),
-			InputSchema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
+				"required": []string{"action"},
 			},
 		},
 	}
@@ -653,50 +643,56 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		return mustJSON(res), nil
-	case "be-trx-commit":
-		n := betools.CommitSnapshots()
-		return mustJSON(map[string]any{
-			"status":    "ok",
-			"committed": n,
-		}), nil
-	case "be-trx-rollback":
+	case "be-trx":
 		var p struct {
-			Step int `json:"step"`
+			Action string `json:"action"`
+			Step   int    `json:"step"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		if p.Step < 1 {
-			p.Step = 1
-		}
-		count, errs := betools.RollbackSnapshots(p.Step)
-		if len(errs) > 0 {
-			errStrs := make([]string, len(errs))
-			for i, e := range errs {
-				errStrs[i] = e.Error()
+		switch p.Action {
+		case "commit":
+			n := betools.CommitSnapshots()
+			return mustJSON(map[string]any{
+				"status":    "ok",
+				"committed": n,
+			}), nil
+		case "rollback":
+			if p.Step < 1 {
+				p.Step = 1
 			}
-			status := "ok"
-			if count < p.Step {
-				status = "partial"
+			count, errs := betools.RollbackSnapshots(p.Step)
+			if len(errs) > 0 {
+				errStrs := make([]string, len(errs))
+				for i, e := range errs {
+					errStrs[i] = e.Error()
+				}
+				status := "ok"
+				if count < p.Step {
+					status = "partial"
+				}
+				return mustJSON(map[string]any{
+					"status":      status,
+					"rolled_back": count,
+					"errors":      errStrs,
+				}), nil
 			}
 			return mustJSON(map[string]any{
-				"status":      status,
+				"status":      "ok",
 				"rolled_back": count,
-				"errors":      errStrs,
 			}), nil
+		case "status":
+			stats := betools.SnapshotQueueStats()
+			pending := betools.ListSnapshots()
+			return mustJSON(map[string]any{
+				"status":    "ok",
+				"queue":     stats,
+				"snapshots": pending,
+			}), nil
+		default:
+			return "", fmt.Errorf("unknown trx action: %s", p.Action)
 		}
-		return mustJSON(map[string]any{
-			"status":      "ok",
-			"rolled_back": count,
-		}), nil
-	case "be-trx-status":
-		stats := betools.SnapshotQueueStats()
-		pending := betools.ListSnapshots()
-		return mustJSON(map[string]any{
-			"status":    "ok",
-			"queue":     stats,
-			"snapshots": pending,
-		}), nil
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
