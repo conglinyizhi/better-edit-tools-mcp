@@ -96,6 +96,7 @@ EOF
 - `--preview`: Return the diff without writing to disk.
 - `--brief`: Return a brief result.
 - `--lang <zh|en>`: Set tool description language (MCP server mode only).
+- `--no-prefix`: Strip the `be-` prefix from tool names (MCP server mode only).
 
 ## Notes
 

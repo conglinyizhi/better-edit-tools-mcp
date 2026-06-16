@@ -109,6 +109,8 @@ go build -o better-edit-tools ./cmd/better-edit-tools
 
 不传 `--lang` 时从 `LANG` 环境变量推断，失败则默认英文。
 
+添加 `--no-prefix` 可隐藏工具名的 `be-` 前缀（如 `be-read` 变为 `read`），适用于无法重新编辑工具名的 MCP 控制器。
+
 ### 在 MCP 客户端中注册
 
 添加到 MCP 客户端配置：

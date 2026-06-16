@@ -109,6 +109,8 @@ The binary will be at `./better-edit-tools`.
 
 If `--lang` is not provided, the server tries to infer the language from the `LANG` environment variable and defaults to English.
 
+Add `--no-prefix` to strip the `be-` prefix from tool names (e.g., `be-read` becomes `read`). This is useful for MCP controllers that cannot re-edit tool names.
+
 ### Register in an MCP client
 
 Add to your MCP client configuration:

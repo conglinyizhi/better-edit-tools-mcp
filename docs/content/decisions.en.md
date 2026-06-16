@@ -103,6 +103,8 @@ Because implementation on the large-model side is not very standardized, directl
 
 Other acquisition methods are fine but the names are still long. We worry that if an agent does not deliberately distinguish them, `be-read` may conflict with the agent's built-in read tool, so we intentionally added this prefix.
 
+**Update (v0.13.0)**: Per [issue #56](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/56), a `--no-prefix` CLI option has been added. When enabled, tool names returned by `tools/list` have the `be-` prefix stripped (e.g., `be-read` → `read`), and `tools/call` automatically prepends `be-` before dispatching unprefixed names. This resolves the issue where some Agent MCP controllers cannot re-edit tool names through configuration.
+
 If you want to rename, please explain in the issue: what specific problem the current name causes, how much confusion the new name can reduce, and whether it is worth a breaking change (although we have not reached a major version > 0, we still cautiously value compatibility to avoid updates affecting extensibility)... at least provide users with a convenient migration guide.
 
 

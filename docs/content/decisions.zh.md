@@ -102,6 +102,8 @@ description: "本文档面向后续开发者、维护者和 AI Agent，记录项
 
 其他方式获取没问题但名称仍然很长，我们担心 `be-read` 如果某个 agent 不进行刻意区分，可能会和 agent 自带的 read 工具冲突，因此有意的添加了这个前缀
 
+**更新（v0.13.0）**：根据[issue #56](https://github.com/conglinyizhi/better-edit-tools-mcp/issues/56)，新增 `--no-prefix` CLI 选项。启用后 `tools/list` 返回的工具名会自动去除 `be-` 前缀（如 `be-read` → `read`），`tools/call` 接收无前缀名称时自动补回 `be-` 再分发。这解决了部分 Agent 的 MCP 控制器无法通过配置重新编辑工具名的问题。
+
 如果你想改名，请在 issue 中说明：当前名字具体造成了什么问题、新名字能降低多少混淆、是否值得 breaking change（虽然没有到主版本>0 的阶段，但我们仍然略带谨慎的看重兼容性避免更新影响扩展性）……至少给用户一个方便的迁移指南
 
 {{< issue title="反馈：我想让工具名更短或改名" body="请描述你的建议、问题或新证据。" labels="docs:talk" text="📝 发起 issue" >}}

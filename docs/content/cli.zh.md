@@ -96,6 +96,7 @@ EOF
 - `--preview`：只返回 diff，不写入文件。
 - `--brief`：返回精简结果。
 - `--lang <zh|en>`：设置工具描述语言（仅影响 MCP server 模式）。
+- `--no-prefix`：隐藏工具名的 `be-` 前缀（仅影响 MCP server 模式）
 
 ## 注意事项
 
