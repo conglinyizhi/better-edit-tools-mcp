@@ -9,7 +9,7 @@
   "be-tag-range": "Find the enclosing XML/HTML/Vue tag pair for a given line.",
   "be-balance": "Check bracket, brace, parenthesis, tag, and quote balance.",
   "be-insert-chip": "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
-  "be-trx-commit": "Commit all pending edit snapshots (clear the queue).",
-  "be-trx-rollback": "Roll back the last N edit snapshots from the queue.",
-  "be-trx-status": "Show pending edit snapshots and queue usage."
+  "be-trx": "Transaction management: commit, rollback, or inspect pending edit snapshots.",
+  "be-trx-action": "Transaction action: commit, rollback, or status.",
+  "be-trx-step": "Only used for rollback. Number of recent snapshots to roll back; defaults to 1."
 }

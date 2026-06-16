@@ -476,7 +476,7 @@ func TestToolCall_InsertChip_EmptyFrom_ReturnsChipList(t *testing.T) {
 
 func TestToolCall_TrxStatus_ReturnsQueue(t *testing.T) {
 	srv := New("en", false)
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-trx-status","arguments":{}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-trx","arguments":{"action":"status"}}}`
 	out := callServer(t, srv, req)
 	var result map[string]any
 	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {

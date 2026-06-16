@@ -9,7 +9,7 @@
   "be-tag-range": "定位某一行所在的 XML/HTML/Vue 标签配对范围。",
   "be-balance": "检查括号、标签和引号的配对情况。",
   "be-insert-chip": "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
-  "be-trx-commit": "提交所有待确认的编辑快照（清空队列）。",
-  "be-trx-rollback": "回滚最近 N 个编辑快照。step 从 1 开始，表示回滚最近几个操作。",
-  "be-trx-status": "查看待处理的编辑快照及队列使用情况。"
+  "be-trx": "事务管理：提交、回滚或查看编辑快照队列。",
+  "be-trx-action": "事务操作类型：commit（提交）、rollback（回滚）或 status（查看队列）。",
+  "be-trx-step": "仅 rollback 生效，表示回滚最近几个快照，默认 1。"
 }
