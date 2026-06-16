@@ -26,16 +26,17 @@ type Tool struct {
 }
 
 type Server struct {
-	lang string
-	opts []betools.Option
+	lang     string
+	opts     []betools.Option
+	noPrefix bool
 }
 
 func Run(cfg app.Config) error {
-	return New(cfg.Lang).Serve(os.Stdin, os.Stdout)
+	return New(cfg.Lang, cfg.NoPrefix).Serve(os.Stdin, os.Stdout)
 }
 
-func New(lang string, opts ...betools.Option) *Server {
-	return &Server{lang: lang, opts: opts}
+func New(lang string, noPrefix bool, opts ...betools.Option) *Server {
+	return &Server{lang: lang, noPrefix: noPrefix, opts: opts}
 }
 
 func (s *Server) Serve(r io.Reader, w io.Writer) error {
@@ -135,7 +136,11 @@ func (s *Server) handleToolCall(req rpcRequest) rpcResponse {
 	out, err := s.callTool(params.Name, args)
 	if err != nil {
 		// Save a chip on error if the args were substantial
-		betools.SaveChip(params.Name, args, err.Error())
+		chipName := params.Name
+		if s.noPrefix && !strings.HasPrefix(chipName, "be-") {
+			chipName = "be-" + chipName
+		}
+		betools.SaveChip(chipName, args, err.Error())
 		return s.ok(req.ID, map[string]any{
 			"isError": true,
 			"content": []map[string]any{{
@@ -346,6 +351,11 @@ func (s *Server) listTools() []Tool {
 			},
 		},
 	}
+	if s.noPrefix {
+		for i := range specs {
+			specs[i].Name = strings.TrimPrefix(specs[i].Name, "be-")
+		}
+	}
 	return specs
 }
 
@@ -412,6 +422,10 @@ func localizedDescription(lang, name string) string {
 }
 
 func (s *Server) callTool(name string, args map[string]any) (string, error) {
+	// When noPrefix is active, clients send unprefixed names; normalize back
+	if s.noPrefix && !strings.HasPrefix(name, "be-") {
+		name = "be-" + name
+	}
 	b, _ := json.Marshal(args)
 	switch name {
 	case "be-read":

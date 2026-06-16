@@ -12,7 +12,7 @@ import (
 )
 
 func TestToolsListAndCall(t *testing.T) {
-	srv := New(app.LangFromEnv())
+	srv := New(app.LangFromEnv(), false)
 	req := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
@@ -50,7 +50,7 @@ func TestToolsListAndCall(t *testing.T) {
 }
 
 func TestInitializedNotificationNoResponse(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(`{"jsonrpc":"2.0","method":"notifications/initialized"}`+"\n"), &out); err != nil {
 		t.Fatalf("serve: %v", err)
@@ -61,7 +61,7 @@ func TestInitializedNotificationNoResponse(t *testing.T) {
 }
 
 func TestToolCallRunsEdit(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/a.txt"
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
@@ -97,7 +97,7 @@ func TestToolCallRunsEdit(t *testing.T) {
 }
 
 func TestToolCallSupportsReadAlias(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/read.txt"
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
@@ -126,7 +126,7 @@ func TestToolCallSupportsReadAlias(t *testing.T) {
 }
 
 func TestToolCallSupportsShowCompatibilityAlias(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/show.txt"
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
@@ -155,7 +155,7 @@ func TestToolCallSupportsShowCompatibilityAlias(t *testing.T) {
 }
 
 func TestToolCallSupportsInsertAliasAndWriteDirectContent(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	insertPath := dir + "/insert.txt"
 	writePath := dir + "/write.txt"
@@ -211,7 +211,7 @@ func TestToolCallSupportsInsertAliasAndWriteDirectContent(t *testing.T) {
 }
 
 func TestToolCallSupportsDeleteAliasesAndReplaceOld(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	deletePath := dir + "/delete.txt"
 	replacePath := dir + "/replace.txt"
@@ -284,7 +284,7 @@ func mustReadFile(t *testing.T, path string) string {
 // ──────────────────────────────────────────────
 
 func TestToolCall_MissingFile_ReturnsError(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"start":1}}}`
 	out := callServer(t, srv, req)
 	resp := parseResp(t, out)
@@ -298,7 +298,7 @@ func TestToolCall_MissingFile_ReturnsError(t *testing.T) {
 }
 
 func TestToolCall_UnknownTool_ReturnsError(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-nonexistent","arguments":{}}}`
 	out := callServer(t, srv, req)
 	resp := parseResp(t, out)
@@ -312,7 +312,7 @@ func TestToolCall_UnknownTool_ReturnsError(t *testing.T) {
 }
 
 func TestToolCall_ReadBrief_HasEmptyContent(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/brief.txt"
 	os.WriteFile(path, []byte("a\nb\n"), 0o644)
@@ -331,7 +331,7 @@ func TestToolCall_ReadBrief_HasEmptyContent(t *testing.T) {
 }
 
 func TestToolCall_ReplacePreview_FileUnchanged(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/preview.txt"
 	os.WriteFile(path, []byte("keep\n"), 0o644)
@@ -345,7 +345,7 @@ func TestToolCall_ReplacePreview_FileUnchanged(t *testing.T) {
 }
 
 func TestToolCall_BalanceVerbose_HasMatchedPairs(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/balanced.js"
 	os.WriteFile(path, []byte("function a() {}\n"), 0o644)
@@ -361,7 +361,7 @@ func TestToolCall_BalanceVerbose_HasMatchedPairs(t *testing.T) {
 }
 
 func TestToolCall_FuncRange_ReturnsRange(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/demofunc.go"
 	os.WriteFile(path, []byte("package main\n\nfunc demo() {\n\tx := 1\n}\n"), 0o644)
@@ -380,7 +380,7 @@ func TestToolCall_FuncRange_ReturnsRange(t *testing.T) {
 }
 
 func TestToolCall_TagRange_ReturnsTag(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	path := dir + "/tagtest.html"
 	os.WriteFile(path, []byte("<div>\n<p>text</p>\n</div>\n"), 0o644)
@@ -396,7 +396,7 @@ func TestToolCall_TagRange_ReturnsTag(t *testing.T) {
 }
 
 func TestToolCall_InsertChip_EmptyFrom_ReturnsChipList(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert-chip","arguments":{}}}`
 	out := callServer(t, srv, req)
 	var result map[string]any
@@ -409,7 +409,7 @@ func TestToolCall_InsertChip_EmptyFrom_ReturnsChipList(t *testing.T) {
 }
 
 func TestToolCall_TrxStatus_ReturnsQueue(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-trx-status","arguments":{}}}`
 	out := callServer(t, srv, req)
 	var result map[string]any
@@ -425,7 +425,7 @@ func TestToolCall_TrxStatus_ReturnsQueue(t *testing.T) {
 }
 
 func TestToolCall_Write_MultiFile_ReturnsResults(t *testing.T) {
-	srv := New("en")
+	srv := New("en", false)
 	dir := t.TempDir()
 	p1 := dir + "/a.txt"
 	p2 := dir + "/b.txt"
@@ -513,4 +513,95 @@ func keysOf(m map[string]any) []string {
 		ks = append(ks, k)
 	}
 	return ks
+}
+
+// ──────────────────────────────────────────────
+// --no-prefix 功能测试
+// ──────────────────────────────────────────────
+
+func TestNoPrefix_ToolNamesStripped(t *testing.T) {
+	srv := New("en", true)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
+	var out bytes.Buffer
+	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	scanner := bufio.NewScanner(&out)
+	if !scanner.Scan() {
+		t.Fatalf("no response")
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing result: %#v", resp)
+	}
+	tools := result["tools"].([]any)
+	for _, item := range tools {
+		m := item.(map[string]any)
+		name := m["name"].(string)
+		if strings.HasPrefix(name, "be-") {
+			t.Fatalf("expected no be- prefix with --no-prefix, got %q", name)
+		}
+	}
+}
+
+func TestNoPrefix_ToolCallWorks(t *testing.T) {
+	srv := New("en", true)
+	dir := t.TempDir()
+	path := dir + "/noprefix.txt"
+	os.WriteFile(path, []byte("a\nb\n"), 0o644)
+	// Call with unprefixed name "read" instead of "be-read"
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read","arguments":{"file":"` + path + `","start":1,"end":"auto"}}}`
+	var out bytes.Buffer
+	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	scanner := bufio.NewScanner(&out)
+	if !scanner.Scan() {
+		t.Fatalf("no response")
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	result, ok := resp["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing result: %#v", resp)
+	}
+	if isError, _ := result["isError"].(bool); isError {
+		t.Fatalf("unexpected error: %#v", result)
+	}
+}
+
+func TestNoPrefix_False_KeepsBePrefix(t *testing.T) {
+	srv := New("en", false)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
+	var out bytes.Buffer
+	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	scanner := bufio.NewScanner(&out)
+	if !scanner.Scan() {
+		t.Fatalf("no response")
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	result := resp["result"].(map[string]any)
+	tools := result["tools"].([]any)
+	found := false
+	for _, item := range tools {
+		m := item.(map[string]any)
+		name := m["name"].(string)
+		if name == "be-read" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected be-read tool with prefix enabled")
+	}
 }
