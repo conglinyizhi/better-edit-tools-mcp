@@ -490,13 +490,11 @@ func TestToolCall_TrxStatus_ReturnsQueue(t *testing.T) {
 	}
 }
 
-func TestToolCall_Write_MultiFile_ReturnsResults(t *testing.T) {
+func TestToolCall_Write_FileContent_ReturnsResult(t *testing.T) {
 	srv := New("en", false)
 	dir := t.TempDir()
 	p1 := dir + "/a.txt"
-	p2 := dir + "/b.txt"
-	spec := `{"files":[{"file":"` + p1 + `","content":"hello"},{"file":"` + p2 + `","content":"world"}]}`
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-write","arguments":` + spec + `}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-write","arguments":{"file":"` + p1 + `","content":"hello"}}}`
 	out := callServer(t, srv, req)
 	var result map[string]any
 	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
@@ -505,8 +503,8 @@ func TestToolCall_Write_MultiFile_ReturnsResults(t *testing.T) {
 	if result["status"] != "ok" {
 		t.Fatalf("expected status=ok, got %v", result["status"])
 	}
-	if files, _ := result["files"].(float64); files != 2 {
-		t.Fatalf("expected 2 files, got %v", files)
+	if files, _ := result["files"].(float64); files != 1 {
+		t.Fatalf("expected 1 file, got %v", files)
 	}
 	if got := mustReadFile(t, p1); got != "hello" {
 		t.Fatalf("expected 'hello', got %q", got)

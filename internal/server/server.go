@@ -223,23 +223,12 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"spec":    map[string]any{"type": "string", "description": "Raw JSON write spec; takes precedence over file/content/files"},
-					"file":    map[string]any{"type": "string"},
-					"content": map[string]any{"type": "string"},
-					"files": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"file":    map[string]any{"type": "string"},
-								"content": map[string]any{"type": "string"},
-							},
-							"required": []string{"file", "content"},
-						},
-					},
+					"file":    map[string]any{"type": "string", "description": "File path to write"},
+					"content": map[string]any{"type": "string", "description": "File content"},
 					"preview": map[string]any{"type": "boolean"},
 					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit per-file details)"},
 				},
+				"required": []string{"file", "content"},
 			},
 		},
 		{
@@ -411,13 +400,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		
+
 		// Parse file path with optional line range (e.g., file.go:23 or file.go:1-3)
 		filePath, start, endLine, parseErr := betools.ParseFileRange(p.File)
 		if parseErr != nil {
 			return "", parseErr
 		}
-		
+
 		if p.Target != nil {
 			span, err := betools.ResolveTargetSpan(filePath, p.Target.toContentTarget(), s.opts...)
 			if err != nil {
@@ -426,7 +415,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			start = span.Start
 			endLine = span.End
 		}
-		
+
 		// If no line range specified and no target, read entire file
 		if start == 0 && endLine == 0 && p.Target == nil {
 			start = 1
@@ -435,7 +424,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			// Single line specified
 			endLine = start
 		}
-		
+
 		res, sessionID, err := betools.Read(filePath, start, endLine, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
@@ -533,38 +522,25 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		var p struct {
 			File    string `json:"file"`
 			Content string `json:"content"`
-			Spec    string `json:"spec"`
-			Files   []struct {
-				File    string `json:"file"`
-				Content string `json:"content"`
-			} `json:"files"`
-			Preview bool `json:"preview"`
-			Brief   bool `json:"brief"`
+			Preview bool   `json:"preview"`
+			Brief   bool   `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		var spec string
-		switch {
-		case p.Spec != "":
-			spec = p.Spec
-		case p.Content != "" && strings.HasPrefix(p.Content, "{"):
-			spec = p.Content
-		case p.File != "" || p.Content != "":
-			spec = mustJSON(map[string]any{
-				"file":    p.File,
-				"content": p.Content,
-			})
-		case len(p.Files) > 0:
-			files := make([]map[string]any, 0, len(p.Files))
-			for _, item := range p.Files {
-				files = append(files, map[string]any{
-					"file":    item.File,
-					"content": item.Content,
-				})
-			}
-			spec = mustJSON(map[string]any{"files": files})
+		if _, hasFile := args["file"]; !hasFile {
+			return "", fmt.Errorf("write: missing file argument")
 		}
+		if _, hasContent := args["content"]; !hasContent {
+			return "", fmt.Errorf("write: missing content argument")
+		}
+		if p.File == "" {
+			return "", fmt.Errorf("write: file argument is empty")
+		}
+		spec := mustJSON(map[string]any{
+			"file":    p.File,
+			"content": p.Content,
+		})
 		res, err := betools.Write(spec, p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
