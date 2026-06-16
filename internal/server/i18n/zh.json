@@ -11,5 +11,14 @@
   "be-insert-chip": "插入内容，支持从文件（file://）或 chip 缓存（chip://）读取。不传 from 参数时列出所有 chip ID。",
   "be-trx": "事务管理：提交、回滚或查看编辑快照队列。",
   "be-trx-action": "事务操作类型：commit（提交）、rollback（回滚）或 status（查看队列）。",
-  "be-trx-step": "仅 rollback 生效，表示回滚最近几个快照，默认 1。"
+  "be-trx-step": "仅 rollback 生效，表示回滚最近几个快照，默认 1。",
+  "error.replace.range.required": "replace：文件必须包含行范围，例如 file.go:10 或 file.go:5-15",
+  "error.insert.line.required": "insert：文件必须包含行号，例如 file.go:10",
+  "error.insert.single.line": "insert：文件必须指定单行，例如 file.go:10",
+  "error.delete.range.required": "delete：文件必须包含行范围，例如 file.go:10 或 file.go:5-15",
+  "error.from.format": "from 格式无效：请使用 file:///path 或 chip://{id}",
+  "error.to.format": "to 格式无效：请使用 file:///absolute/path:line_number",
+  "error.to.missing.line": "to 格式无效：file:///path 后缺少 :line_number",
+  "error.invalid.line.number": "行号无效：%s",
+  "error.unknown.tool": "未知工具：%s"
 }
