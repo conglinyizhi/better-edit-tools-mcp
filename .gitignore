@@ -25,3 +25,6 @@ docs/.hugo_build.lock
 # Superpowers planning docs (not committed)
 docs/superpowers/
 
+# Parallel development worktrees
+/.worktree/
+

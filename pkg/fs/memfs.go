@@ -175,7 +175,7 @@ func (w *memWriteCloser) Close() error {
 	f, ok := w.fs.files[w.path]
 	if !ok {
 		// File was deleted (e.g. Remove called while writing) — discard.
-		return writePath(w.path, fmt.Errorf("memfs: file was removed during write"))
+		return fmt.Errorf("memfs: write %s: file was removed during write", w.path)
 	}
 	data := make([]byte, w.buf.Len())
 	copy(data, w.buf.Bytes())
