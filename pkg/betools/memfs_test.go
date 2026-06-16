@@ -256,8 +256,10 @@ func TestWriteAtomicWithMemFS(t *testing.T) {
 		t.Fatalf("expected 'replacement\\n', got %q", string(data))
 	}
 	// No temp files should remain in MemFS
-	if _, ok := m.files[".betmp"]; ok {
-		t.Fatal("expected no temp files remaining in MemFS")
+	for _, name := range m.List() {
+		if strings.HasPrefix(name, ".fe-") {
+			t.Fatalf("expected no temp files remaining in MemFS, found %q", name)
+		}
 	}
 }
 

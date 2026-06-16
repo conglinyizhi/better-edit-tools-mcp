@@ -1,8 +1,7 @@
-package betools
+package fs
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -146,6 +145,18 @@ func (m *MemFS) Create(name string) (io.WriteCloser, error) {
 	return &memWriteCloser{fs: m, path: p, buf: new(bytes.Buffer)}, nil
 }
 
+// List returns a snapshot of all stored file paths.
+// It is intended for tests that need to inspect the MemFS state.
+func (m *MemFS) List() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make([]string, 0, len(m.files))
+	for name := range m.files {
+		out = append(out, name)
+	}
+	return out
+}
+
 // ── memWriteCloser ─────────────────────────────────────
 
 type memWriteCloser struct {
@@ -194,7 +205,3 @@ var _ fs.FileInfo = (*memFileInfo)(nil)
 
 // Ensure MemFS implements FileSystem.
 var _ FileSystem = (*MemFS)(nil)
-
-// ErrNotExist is a convenience alias so test code can check
-// path errors from MemFS the same way as os.
-var ErrNotExist = errors.New("file does not exist")
