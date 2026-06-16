@@ -366,9 +366,7 @@ func (s *Server) readTool(name, description string) Tool {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"file":    map[string]any{"type": "string"},
-				"start":   map[string]any{"type": "integer", "minimum": 1},
-				"end":     map[string]any{"oneOf": []any{map[string]any{"type": "integer"}, map[string]any{"type": "string", "enum": []string{"auto"}}}},
+				"file":    map[string]any{"type": "string", "description": "File path with optional line range, e.g. file.go, file.go:23, file.go:1-3"},
 				"preview": map[string]any{"type": "boolean"},
 				"brief":   map[string]any{"type": "boolean", "description": "return only metadata, no content"},
 				"target": map[string]any{
@@ -379,7 +377,7 @@ func (s *Server) readTool(name, description string) Tool {
 					},
 				},
 			},
-			"required": []string{"file", "start"},
+			"required": []string{"file"},
 		},
 	}
 }
@@ -431,8 +429,6 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 	case "be-read":
 		var p struct {
 			File    string         `json:"file"`
-			Start   int            `json:"start"`
-			End     any            `json:"end"`
 			Target  *editTargetArg `json:"target"`
 			Preview bool           `json:"preview"`
 			Brief   bool           `json:"brief"`
@@ -440,29 +436,32 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		start := p.Start
-		if start < 1 {
-			start = 1
+		
+		// Parse file path with optional line range (e.g., file.go:23 or file.go:1-3)
+		filePath, start, endLine, parseErr := betools.ParseFileRange(p.File)
+		if parseErr != nil {
+			return "", parseErr
 		}
-		var endLine int
+		
 		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
+			span, err := betools.ResolveTargetSpan(filePath, p.Target.toContentTarget(), s.opts...)
 			if err != nil {
 				return "", err
 			}
 			start = span.Start
 			endLine = span.End
-		} else {
-			switch v := p.End.(type) {
-			case string:
-				if v == "auto" {
-					endLine = -1
-				}
-			case float64:
-				endLine = int(v)
-			}
 		}
-		res, sessionID, err := betools.Read(p.File, start, endLine, p.Brief, s.opts...)
+		
+		// If no line range specified and no target, read entire file
+		if start == 0 && endLine == 0 && p.Target == nil {
+			start = 1
+			endLine = -1 // auto mode
+		} else if start > 0 && endLine == 0 {
+			// Single line specified
+			endLine = start
+		}
+		
+		res, sessionID, err := betools.Read(filePath, start, endLine, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}

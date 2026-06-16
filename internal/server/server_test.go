@@ -103,7 +103,7 @@ func TestToolCallSupportsReadAlias(t *testing.T) {
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `","start":1,"end":"auto"}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `"}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve read: %v", err)
@@ -132,7 +132,7 @@ func TestToolCallSupportsShowCompatibilityAlias(t *testing.T) {
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `","start":1,"end":"auto"}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `"}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve show: %v", err)
@@ -285,7 +285,7 @@ func mustReadFile(t *testing.T, path string) string {
 
 func TestToolCall_MissingFile_ReturnsError(t *testing.T) {
 	srv := New("en", false)
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"start":1}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":""}}}`
 	out := callServer(t, srv, req)
 	resp := parseResp(t, out)
 	result, ok := resp["result"].(map[string]any)
@@ -316,7 +316,7 @@ func TestToolCall_ReadBrief_HasEmptyContent(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/brief.txt"
 	os.WriteFile(path, []byte("a\nb\n"), 0o644)
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `","start":1,"end":2,"brief":true}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-read","arguments":{"file":"` + path + `:1-2","brief":true}}}`
 	out := callServer(t, srv, req)
 	var result map[string]any
 	if err := json.Unmarshal([]byte(mustTextResult(t, out)), &result); err != nil {
