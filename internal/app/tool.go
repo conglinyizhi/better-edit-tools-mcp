@@ -37,9 +37,6 @@ type ToolConfig struct {
 
 	// Balance-specific
 	Verbose bool
-
-	// Write-specific
-	Spec string
 }
 
 // KnownToolCommands lists the subcommands supported in CLI mode.
@@ -126,10 +123,6 @@ func ParseToolArgs(args []string) (ToolConfig, bool) {
 			cfg.Format = nextArg(args, &i, "--format")
 		case strings.HasPrefix(arg, "--format="):
 			cfg.Format = strings.TrimPrefix(arg, "--format=")
-		case arg == "--spec":
-			cfg.Spec = nextArg(args, &i, "--spec")
-		case strings.HasPrefix(arg, "--spec="):
-			cfg.Spec = strings.TrimPrefix(arg, "--spec=")
 		case arg == "--preview":
 			cfg.Preview = true
 		case arg == "--brief":
@@ -281,20 +274,20 @@ func runDelete(cfg ToolConfig) error {
 }
 
 func runWrite(cfg ToolConfig) error {
-	spec := cfg.Spec
-	if spec == "" && cfg.File != "" {
-		content, err := resolveContent(cfg.Content, cfg.ContentFile)
-		if err != nil {
-			return err
-		}
-		spec = mustJSON(map[string]any{
-			"file":    cfg.File,
-			"content": normalizeLineBreaks(content),
-		})
+	if cfg.File == "" {
+		return fmt.Errorf("write: 需要 --file")
 	}
-	if spec == "" {
-		return fmt.Errorf("write: 需要 --spec 或 --file 与 --content/--content-file")
+	content, err := resolveContent(cfg.Content, cfg.ContentFile)
+	if err != nil {
+		return err
 	}
+	if cfg.Content == "" && cfg.ContentFile == "" {
+		return fmt.Errorf("write: 需要 --content 或 --content-file")
+	}
+	spec := mustJSON(map[string]any{
+		"file":    cfg.File,
+		"content": normalizeLineBreaks(content),
+	})
 	res, err := betools.Write(spec, cfg.Preview, cfg.Brief)
 	if err != nil {
 		return err
@@ -516,7 +509,6 @@ func printToolHelp(name string) {
 		fmt.Println("  --file, -f <path>     要写入的文件")
 		fmt.Println("  --content, -c <text>  文件内容")
 		fmt.Println("  --content-file <path> 从文件读取内容（path 为 - 时从 stdin 读取）")
-		fmt.Println("  --spec <json>         JSON 规格（优先于 file/content/content-file）")
 		fmt.Println("  --preview             只输出结果，不写入文件")
 		fmt.Println("  --brief               返回精简结果")
 		fmt.Println("  --output, -o text|json  输出格式")

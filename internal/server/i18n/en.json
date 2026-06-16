@@ -4,7 +4,7 @@
   "be-replace-old": "Optional. If provided, must match the current file content exactly; otherwise the tool returns an error.",
   "be-replace-viewed-code-id": "Obtained from the most recent be-read result, used to detect whether the target range has changed.",
   "be-insert": "Insert content after a specific line.",
-  "be-write": "Write raw content to file(s), with a degraded parser for malformed JSON payloads.",
+  "be-write": "Write raw content to a file, with a degraded parser for malformed JSON payloads.",
   "be-func-range": "Find the enclosing function or brace block for a given line.",
   "be-tag-range": "Find the enclosing XML/HTML/Vue tag pair for a given line.",
   "be-balance": "Check bracket, brace, parenthesis, tag, and quote balance.",
