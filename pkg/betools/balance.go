@@ -60,7 +60,7 @@ func CheckStructureBalance(path string, verbose bool, opts ...Option) (string, e
 	}
 	data, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("json.Marshal: %w", err)
+		return "", fmt.Errorf("%w: json.Marshal: %v", ErrWrite, err)
 	}
 	return string(data), nil
 }

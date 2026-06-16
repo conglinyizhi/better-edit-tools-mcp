@@ -161,7 +161,7 @@ func persistChip(record ChipRecord) {
 	}
 	path := filepath.Join(ChipDir(), fmt.Sprintf("chip-%s.json", record.ID))
 	// Ignore write errors — chip storage is best-effort
-	_ = os.WriteFile(path, data, 0644)
+	_ = os.WriteFile(path, data, 0o644)
 }
 
 func removeChipFile(id string) {
@@ -184,11 +184,11 @@ func GetChip(id string) (*ChipRecord, error) {
 	path := filepath.Join(ChipDir(), fmt.Sprintf("chip-%s.json", id))
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("chip %s not found", id)
+		return nil, fmt.Errorf("%w: chip %s not found", ErrInvalid, id)
 	}
 	var rec ChipRecord
 	if err := json.Unmarshal(data, &rec); err != nil {
-		return nil, fmt.Errorf("chip %s corrupt: %v", id, err)
+		return nil, fmt.Errorf("%w: chip %s corrupt: %v", ErrRead, id, err)
 	}
 	return &rec, nil
 }

@@ -116,7 +116,7 @@ func RollbackSnapshots(step int) (count int, errors []error) {
 
 		data, err := os.ReadFile(rec.File)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("read %s: %w", rec.File, err))
+			errors = append(errors, readPath(rec.File, err))
 			continue
 		}
 
@@ -128,7 +128,7 @@ func RollbackSnapshots(step int) (count int, errors []error) {
 		beforeEnd := rec.Before.End
 
 		if beforeStart < 1 || beforeStart > len(lines) {
-			errors = append(errors, fmt.Errorf("%s: before start %d out of current range (1-%d)", rec.File, beforeStart, len(lines)))
+			errors = append(errors, invalidArg(fmt.Sprintf("%s: before start %d out of current range (1-%d)", rec.File, beforeStart, len(lines))))
 			continue
 		}
 		if beforeEnd < beforeStart {
@@ -145,7 +145,7 @@ func RollbackSnapshots(step int) (count int, errors []error) {
 
 		newContent := strings.Join(newLines, "")
 		if err := os.WriteFile(rec.File, []byte(newContent), 0o644); err != nil {
-			errors = append(errors, fmt.Errorf("write %s: %w", rec.File, err))
+			errors = append(errors, writePath(rec.File, err))
 			continue
 		}
 

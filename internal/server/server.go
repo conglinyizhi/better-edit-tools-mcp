@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -313,7 +314,7 @@ func (s *Server) listTools() []Tool {
 						"type":        "integer",
 						"minimum":     1,
 						"default":     1,
-						"description": "number of snapshots to roll back from most recent",
+						"description": localizedDescription(s.lang, "be-trx-step"),
 					},
 				},
 			},
@@ -394,6 +395,23 @@ func localizedDescription(lang, name string) string {
 	return ""
 }
 
+// localizedError looks up an error message by key. If the key is missing, it
+// returns the fallback string. Dynamic values can be interpolated by the caller
+// with fmt.Sprintf when the message contains placeholders.
+func localizedError(lang, key, fallback string) string {
+	if m, ok := i18nData[lang]; ok {
+		if v, ok := m[key]; ok {
+			return v
+		}
+	}
+	if m, ok := i18nData["en"]; ok {
+		if v, ok := m[key]; ok {
+			return v
+		}
+	}
+	return fallback
+}
+
 func (s *Server) callTool(name string, args map[string]any) (string, error) {
 	// When noPrefix is active, clients send unprefixed names; normalize back
 	if s.noPrefix && !strings.HasPrefix(name, "be-") {
@@ -411,13 +429,13 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		
+
 		// Parse file path with optional line range (e.g., file.go:23 or file.go:1-3)
 		filePath, start, endLine, parseErr := betools.ParseFileRange(p.File)
 		if parseErr != nil {
 			return "", parseErr
 		}
-		
+
 		if p.Target != nil {
 			span, err := betools.ResolveTargetSpan(filePath, p.Target.toContentTarget(), s.opts...)
 			if err != nil {
@@ -426,7 +444,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			start = span.Start
 			endLine = span.End
 		}
-		
+
 		// If no line range specified and no target, read entire file
 		if start == 0 && endLine == 0 && p.Target == nil {
 			start = 1
@@ -435,7 +453,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			// Single line specified
 			endLine = start
 		}
-		
+
 		res, sessionID, err := betools.Read(filePath, start, endLine, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
@@ -458,7 +476,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		if !betools.HasFileRange(p.File) {
-			return "", fmt.Errorf("replace: file must include a line range, e.g. file.go:10 or file.go:5-15")
+			return "", errors.New(localizedError(s.lang, "error.replace.range.required", "replace: file must include a line range, e.g. file.go:10 or file.go:5-15"))
 		}
 		filePath, start, end, parseErr := betools.ParseFileRange(p.File)
 		if parseErr != nil {
@@ -485,14 +503,14 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		if !betools.HasFileRange(p.File) {
-			return "", fmt.Errorf("insert: file must include a line number, e.g. file.go:10")
+			return "", errors.New(localizedError(s.lang, "error.insert.line.required", "insert: file must include a line number, e.g. file.go:10"))
 		}
 		filePath, after, endLine, parseErr := betools.ParseFileRange(p.File)
 		if parseErr != nil {
 			return "", parseErr
 		}
 		if endLine != after {
-			return "", fmt.Errorf("insert: file must specify a single line, e.g. file.go:10")
+			return "", errors.New(localizedError(s.lang, "error.insert.single.line", "insert: file must specify a single line, e.g. file.go:10"))
 		}
 		res, err := betools.Insert(filePath, after, p.Content, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
 		if err != nil {
@@ -510,7 +528,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			return "", err
 		}
 		if !betools.HasFileRange(p.File) {
-			return "", fmt.Errorf("delete: file must include a line range, e.g. file.go:10 or file.go:5-15")
+			return "", errors.New(localizedError(s.lang, "error.delete.range.required", "delete: file must include a line range, e.g. file.go:10 or file.go:5-15"))
 		}
 		filePath, start, end, parseErr := betools.ParseFileRange(p.File)
 		if parseErr != nil {
@@ -652,23 +670,23 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			argsJSON, _ := json.MarshalIndent(rec.Args, "", "  ")
 			content = fmt.Sprintf("// Chip %s from tool %q\n// Original arguments:\n%s", rec.ID, rec.Tool, string(argsJSON))
 		default:
-			return "", fmt.Errorf("invalid from format: use file:///path or chip://{id}")
+			return "", errors.New(localizedError(s.lang, "error.from.format", "invalid from format: use file:///path or chip://{id}"))
 		}
 
 		// Resolve to: file:///path:line
 		if !strings.HasPrefix(p.To, "file://") {
-			return "", fmt.Errorf("invalid to format: use file:///absolute/path:line_number")
+			return "", errors.New(localizedError(s.lang, "error.to.format", "invalid to format: use file:///absolute/path:line_number"))
 		}
 		rest := strings.TrimPrefix(p.To, "file://")
 		colonIdx := strings.LastIndex(rest, ":")
 		if colonIdx < 0 {
-			return "", fmt.Errorf("invalid to format: missing :line_number after file:///path")
+			return "", errors.New(localizedError(s.lang, "error.to.missing.line", "invalid to format: missing :line_number after file:///path"))
 		}
 		targetFile := rest[:colonIdx]
 		lineStr := rest[colonIdx+1:]
 		lineNum, convErr := strconv.Atoi(lineStr)
 		if convErr != nil {
-			return "", fmt.Errorf("invalid line number: %s", lineStr)
+			return "", errors.New(fmt.Sprintf(localizedError(s.lang, "error.invalid.line.number", "invalid line number: %s"), lineStr))
 		}
 
 		// Use the core betools.Insert with resolved content
@@ -722,7 +740,7 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			"snapshots": pending,
 		}), nil
 	default:
-		return "", fmt.Errorf("unknown tool: %s", name)
+		return "", errors.New(fmt.Sprintf(localizedError(s.lang, "error.unknown.tool", "unknown tool: %s"), name))
 	}
 }
 

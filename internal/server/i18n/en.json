@@ -11,5 +11,15 @@
   "be-insert-chip": "Insert content from a file (file://) or chip cache (chip://). Omit from to list all chip IDs.",
   "be-trx-commit": "Commit all pending edit snapshots (clear the queue).",
   "be-trx-rollback": "Roll back the last N edit snapshots from the queue.",
-  "be-trx-status": "Show pending edit snapshots and queue usage."
+  "be-trx-status": "Show pending edit snapshots and queue usage.",
+  "be-trx-step": "Number of snapshots to roll back from the most recent one.",
+  "error.replace.range.required": "replace: file must include a line range, e.g. file.go:10 or file.go:5-15",
+  "error.insert.line.required": "insert: file must include a line number, e.g. file.go:10",
+  "error.insert.single.line": "insert: file must specify a single line, e.g. file.go:10",
+  "error.delete.range.required": "delete: file must include a line range, e.g. file.go:10 or file.go:5-15",
+  "error.from.format": "invalid from format: use file:///path or chip://{id}",
+  "error.to.format": "invalid to format: use file:///absolute/path:line_number",
+  "error.to.missing.line": "invalid to format: missing :line_number after file:///path",
+  "error.invalid.line.number": "invalid line number: %s",
+  "error.unknown.tool": "unknown tool: %s"
 }
