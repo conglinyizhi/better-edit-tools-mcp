@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
 
 const (
 	maxChips = 30
-	chipDir  = "/tmp/bet-chips"
 )
 
 // ChipRecord stores the original arguments from a failed tool call.
@@ -31,12 +32,80 @@ var (
 	chipDirInit sync.Once
 )
 
-func init() {
-	chipDirInit.Do(ensureChipDir)
+// ChipDir returns the platform-appropriate chip cache directory.
+//   - Windows: %LOCALAPPDATA%/better-edit-tools-mcp/chips
+//   - Linux/macOS: $XDG_CACHE_HOME/better-edit-tools-mcp/chips
+//     or ~/.cache/better-edit-tools-mcp/chips
+//   - Fallback: /tmp/better-edit-tools-mcp-chips
+func ChipDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			return filepath.Join(localAppData, "better-edit-tools-mcp", "chips")
+		}
+	default:
+		if xdgCache := os.Getenv("XDG_CACHE_HOME"); xdgCache != "" {
+			return filepath.Join(xdgCache, "better-edit-tools-mcp", "chips")
+		}
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, ".cache", "better-edit-tools-mcp", "chips")
+		}
+	}
+	return "/tmp/better-edit-tools-mcp-chips"
 }
 
-func ensureChipDir() {
-	_ = os.MkdirAll(chipDir, 0755)
+func init() {
+	chipDirInit.Do(func() {
+		dir := ChipDir()
+		_ = os.MkdirAll(dir, 0755)
+		loadChipsFromDisk()
+	})
+}
+
+// loadChipsFromDisk reads all chip JSON files from the cache directory
+// into the in-memory store, restoring state from a previous process run.
+func loadChipsFromDisk() {
+	dir := ChipDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	if chipIDSet == nil {
+		chipIDSet = make(map[string]struct{}, maxChips)
+	}
+	var loaded []ChipRecord
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		data, readErr := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if readErr != nil {
+			continue
+		}
+		var rec ChipRecord
+		if jsonErr := json.Unmarshal(data, &rec); jsonErr != nil {
+			continue
+		}
+		loaded = append(loaded, rec)
+		chipIDSet[rec.ID] = struct{}{}
+	}
+	// Sort by CreatedAt to preserve chronological order
+	for i := 0; i < len(loaded); i++ {
+		for j := i + 1; j < len(loaded); j++ {
+			if loaded[j].CreatedAt < loaded[i].CreatedAt {
+				loaded[i], loaded[j] = loaded[j], loaded[i]
+			}
+		}
+	}
+	// Trim to maxChips if too many on disk
+	if len(loaded) > maxChips {
+		for _, r := range loaded[:len(loaded)-maxChips] {
+			delete(chipIDSet, r.ID)
+			removeChipFile(r.ID)
+		}
+		loaded = loaded[len(loaded)-maxChips:]
+	}
+	chipStore = loaded
 }
 
 // chipIDExists checks whether an ID is already in use.
@@ -90,13 +159,13 @@ func persistChip(record ChipRecord) {
 	if err != nil {
 		return
 	}
-	path := filepath.Join(chipDir, fmt.Sprintf("chip-%s.json", record.ID))
+	path := filepath.Join(ChipDir(), fmt.Sprintf("chip-%s.json", record.ID))
 	// Ignore write errors — chip storage is best-effort
 	_ = os.WriteFile(path, data, 0644)
 }
 
 func removeChipFile(id string) {
-	path := filepath.Join(chipDir, fmt.Sprintf("chip-%s.json", id))
+	path := filepath.Join(ChipDir(), fmt.Sprintf("chip-%s.json", id))
 	_ = os.Remove(path)
 }
 
@@ -112,7 +181,7 @@ func GetChip(id string) (*ChipRecord, error) {
 	}
 	chipMu.Unlock()
 
-	path := filepath.Join(chipDir, fmt.Sprintf("chip-%s.json", id))
+	path := filepath.Join(ChipDir(), fmt.Sprintf("chip-%s.json", id))
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("chip %s not found", id)

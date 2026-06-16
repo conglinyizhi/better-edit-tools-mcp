@@ -277,6 +277,68 @@ func TestRollbackSnapshots_Zero_Noop(t *testing.T) {
 	}
 }
 
+// ──────────────────────────────────────────────
+// Chip 持久化恢复测试
+// ──────────────────────────────────────────────
+
+func TestChipPersistence_LoadsFromDisk(t *testing.T) {
+	// Save a chip
+	args := map[string]any{"file": "/tmp/persist.txt", "content": strings.Repeat("data", 50)}
+	id := SaveChip("be-write", args, "persist error")
+	if id == "" {
+		t.Skip("chip not saved")
+	}
+
+	// Verify it exists on disk
+	path := filepath.Join(ChipDir(), fmt.Sprintf("chip-%s.json", id))
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("chip file not found on disk: %v", err)
+	}
+
+	// Simulate restart: clear memory, reload from disk
+	chipMu.Lock()
+	chipStore = nil
+	chipIDSet = nil
+	chipMu.Unlock()
+
+	loadChipsFromDisk()
+
+	// Should be accessible via memory now
+	ids := ListChips()
+	found := false
+	for _, cid := range ids {
+		if cid == id {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("chip %s not found in ListChips after reload, got: %v", id, ids)
+	}
+
+	// Should be readable
+	rec, err := GetChip(id)
+	if err != nil {
+		t.Fatalf("GetChip after reload: %v", err)
+	}
+	if rec.Tool != "be-write" {
+		t.Fatalf("expected tool 'be-write', got %q", rec.Tool)
+	}
+	if rec.ErrMsg != "persist error" {
+		t.Fatalf("expected errMsg 'persist error', got %q", rec.ErrMsg)
+	}
+}
+
+func TestChipDir_NotTmp(t *testing.T) {
+	dir := ChipDir()
+	if dir == "" {
+		t.Fatal("ChipDir() returned empty string")
+	}
+	if dir == "/tmp/bet-chips" {
+		t.Fatal("ChipDir() should not return the old hardcoded /tmp/bet-chips path")
+	}
+}
+
 func TestRollbackSnapshots_ExceedsQueue_Clamped(t *testing.T) {
 	CommitSnapshots()
 	path := filepath.Join(t.TempDir(), "rollback_clamp.txt")
