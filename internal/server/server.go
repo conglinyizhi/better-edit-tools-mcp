@@ -177,24 +177,15 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":           map[string]any{"type": "string"},
-					"start":          map[string]any{"type": "integer", "minimum": 1},
-					"end":            map[string]any{"type": "integer", "minimum": 1},
+					"file":           map[string]any{"type": "string", "description": "File path with line range, e.g. file.go:10 or file.go:5-15"},
 					"old":            map[string]any{"type": "string", "description": localizedDescription(s.lang, "be-replace-old")},
 					"content":        map[string]any{"type": "string"},
-					"format":         map[string]any{"type": "string"},
+					"format":         map[string]any{"type": "string", "enum": []string{"plain", "diff"}, "description": "Diff output format; omit or use plain for default"},
 					"preview":        map[string]any{"type": "boolean"},
 					"brief":          map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 					"viewed_code_id": map[string]any{"type": "string", "description": localizedDescription(s.lang, "be-replace-viewed-code-id")},
-					"target": map[string]any{
-						"type": "object",
-						"properties": map[string]any{
-							"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
-							"value": map[string]any{"type": "string"},
-						},
-					},
 				},
-				"required": []string{"file", "start", "end"},
+				"required": []string{"file"},
 			},
 		},
 		{
@@ -203,21 +194,13 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":       map[string]any{"type": "string"},
-					"after_line": map[string]any{"type": "integer", "minimum": 0},
-					"content":    map[string]any{"type": "string"},
-					"format":     map[string]any{"type": "string"},
-					"preview":    map[string]any{"type": "boolean"},
-					"brief":      map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
-					"target": map[string]any{
-						"type": "object",
-						"properties": map[string]any{
-							"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
-							"value": map[string]any{"type": "string"},
-						},
-					},
+					"file":    map[string]any{"type": "string", "description": "File path with insert position, e.g. file.go:10 (insert after line 10)"},
+					"content": map[string]any{"type": "string"},
+					"format":  map[string]any{"type": "string", "enum": []string{"plain", "diff"}, "description": "Diff output format; omit or use plain for default"},
+					"preview": map[string]any{"type": "boolean"},
+					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 				},
-				"required": []string{"file", "after_line", "content"},
+				"required": []string{"file", "content"},
 			},
 		},
 		{
@@ -226,20 +209,12 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"file":  map[string]any{"type": "string"},
-					"start": map[string]any{"type": "integer", "minimum": 1},
-					"end":   map[string]any{"type": "integer", "minimum": 1},
-					"target": map[string]any{
-						"type": "object",
-						"properties": map[string]any{
-							"kind":  map[string]any{"type": "string", "enum": []string{"line", "function", "marker", "tag"}},
-							"value": map[string]any{"type": "string"},
-						},
-					},
-					"format":  map[string]any{"type": "string"},
+					"file":    map[string]any{"type": "string", "description": "File path with line range, e.g. file.go:10, file.go:5-15, or file.go:ALL"},
+					"format":  map[string]any{"type": "string", "enum": []string{"plain", "diff"}, "description": "Diff output format; omit or use plain for default"},
 					"preview": map[string]any{"type": "boolean"},
 					"brief":   map[string]any{"type": "boolean", "description": "return minimal response (omit diff)"},
 				},
+				"required": []string{"file"},
 			},
 		},
 		{
@@ -248,6 +223,7 @@ func (s *Server) listTools() []Tool {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"spec":    map[string]any{"type": "string", "description": "Raw JSON write spec; takes precedence over file/content/files"},
 					"file":    map[string]any{"type": "string"},
 					"content": map[string]any{"type": "string"},
 					"files": map[string]any{
@@ -299,6 +275,7 @@ func (s *Server) listTools() []Tool {
 					"file":    map[string]any{"type": "string"},
 					"verbose": map[string]any{"type": "boolean", "description": "false: show only unbalanced items; true: full report including matched pairs"},
 				},
+				"required": []string{"file"},
 			},
 		},
 		{
@@ -339,7 +316,6 @@ func (s *Server) listTools() []Tool {
 						"description": "number of snapshots to roll back from most recent",
 					},
 				},
-				"required": []string{"step"},
 			},
 		},
 		{
@@ -366,9 +342,8 @@ func (s *Server) readTool(name, description string) Tool {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"file":    map[string]any{"type": "string", "description": "File path with optional line range, e.g. file.go, file.go:23, file.go:1-3"},
-				"preview": map[string]any{"type": "boolean"},
-				"brief":   map[string]any{"type": "boolean", "description": "return only metadata, no content"},
+				"file":  map[string]any{"type": "string", "description": "File path with optional line range, e.g. file.go, file.go:23, file.go:1-3"},
+				"brief": map[string]any{"type": "boolean", "description": "return only metadata, no content"},
 				"target": map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -470,103 +445,86 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		return mustJSON(resultMap), nil
 	case "be-replace":
 		var p struct {
-			File         string         `json:"file"`
-			Start        int            `json:"start"`
-			End          int            `json:"end"`
-			StartLn      int            `json:"start_line"`
-			EndLn        int            `json:"end_line"`
-			Old          *string        `json:"old"`
-			OldText      *string        `json:"old_text"`
-			Content      string         `json:"content"`
-			Format       string         `json:"format"`
-			Target       *editTargetArg `json:"target"`
-			Preview      bool           `json:"preview"`
-			ViewedCodeID string         `json:"viewed_code_id"`
-			Brief        bool           `json:"brief"`
+			File         string  `json:"file"`
+			Old          *string `json:"old"`
+			OldText      *string `json:"old_text"`
+			Content      string  `json:"content"`
+			Format       string  `json:"format"`
+			Preview      bool    `json:"preview"`
+			ViewedCodeID string  `json:"viewed_code_id"`
+			Brief        bool    `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		start, end := p.Start, p.End
-		if p.StartLn != 0 {
-			start = p.StartLn
+		if !betools.HasFileRange(p.File) {
+			return "", fmt.Errorf("replace: file must include a line range, e.g. file.go:10 or file.go:5-15")
 		}
-		if p.EndLn != 0 {
-			end = p.EndLn
-		}
-		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
-			if err != nil {
-				return "", err
-			}
-			start, end = span.Start, span.End
+		filePath, start, end, parseErr := betools.ParseFileRange(p.File)
+		if parseErr != nil {
+			return "", parseErr
 		}
 		old := p.Old
 		if old == nil {
 			old = p.OldText
 		}
-		res, err := betools.Replace(p.File, start, end, old, p.Content, defaultFormat(p.Format), p.Preview, p.ViewedCodeID, p.Brief, s.opts...)
+		res, err := betools.Replace(filePath, start, end, old, p.Content, defaultFormat(p.Format), p.Preview, p.ViewedCodeID, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
 		return mustJSON(res), nil
 	case "be-insert":
 		var p struct {
-			File    string         `json:"file"`
-			After   *int           `json:"after_line"`
-			Content string         `json:"content"`
-			Format  string         `json:"format"`
-			Target  *editTargetArg `json:"target"`
-			Preview bool           `json:"preview"`
-			Brief   bool           `json:"brief"`
+			File    string `json:"file"`
+			Content string `json:"content"`
+			Format  string `json:"format"`
+			Preview bool   `json:"preview"`
+			Brief   bool   `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		after := 0
-		if p.After != nil {
-			after = *p.After
+		if !betools.HasFileRange(p.File) {
+			return "", fmt.Errorf("insert: file must include a line number, e.g. file.go:10")
 		}
-		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
-			if err != nil {
-				return "", err
-			}
-			after = span.End
+		filePath, after, endLine, parseErr := betools.ParseFileRange(p.File)
+		if parseErr != nil {
+			return "", parseErr
 		}
-		res, err := betools.Insert(p.File, after, p.Content, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
+		if endLine != after {
+			return "", fmt.Errorf("insert: file must specify a single line, e.g. file.go:10")
+		}
+		res, err := betools.Insert(filePath, after, p.Content, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}
 		return mustJSON(res), nil
 	case "be-delete":
 		var p struct {
-			File    string         `json:"file"`
-			Start   *int           `json:"start"`
-			End     *int           `json:"end"`
-			Format  string         `json:"format"`
-			Target  *editTargetArg `json:"target"`
-			Preview bool           `json:"preview"`
-			Brief   bool           `json:"brief"`
+			File    string `json:"file"`
+			Format  string `json:"format"`
+			Preview bool   `json:"preview"`
+			Brief   bool   `json:"brief"`
 		}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return "", err
 		}
-		var start, end int
-		if p.Start != nil {
-			start = *p.Start
+		if !betools.HasFileRange(p.File) {
+			return "", fmt.Errorf("delete: file must include a line range, e.g. file.go:10 or file.go:5-15")
 		}
-		if p.End != nil {
-			end = *p.End
+		filePath, start, end, parseErr := betools.ParseFileRange(p.File)
+		if parseErr != nil {
+			return "", parseErr
 		}
-		if p.Target != nil {
-			span, err := betools.ResolveTargetSpan(p.File, p.Target.toContentTarget(), s.opts...)
+		if start < 0 || end < 0 {
+			// :ALL means delete the whole file.
+			showRes, _, err := betools.Read(filePath, 1, -1, true, s.opts...)
 			if err != nil {
 				return "", err
 			}
-			start, end = span.Start, span.End
+			start, end = 1, showRes.Total
 		}
-		res, err := betools.Delete(p.File, start, end, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
+		res, err := betools.Delete(filePath, start, end, defaultFormat(p.Format), p.Preview, p.Brief, s.opts...)
 		if err != nil {
 			return "", err
 		}

@@ -67,7 +67,7 @@ func TestToolCallRunsEdit(t *testing.T) {
 	if err := os.WriteFile(path, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + path + `","after_line":0,"content":"x","preview":false}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + path + `:0","content":"x","preview":false}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve: %v", err)
@@ -162,7 +162,7 @@ func TestToolCallSupportsInsertAliasAndWriteDirectContent(t *testing.T) {
 	if err := os.WriteFile(insertPath, []byte("a\nb\n"), 0o644); err != nil {
 		t.Fatalf("write insert file: %v", err)
 	}
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + insertPath + `","after_line":1,"content":"x","preview":false}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-insert","arguments":{"file":"` + insertPath + `:1","content":"x","preview":false}}}`
 	var out bytes.Buffer
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve insert: %v", err)
@@ -223,7 +223,7 @@ func TestToolCallSupportsDeleteAliasesAndReplaceOld(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-delete","arguments":{"file":"` + deletePath + `","start":2,"end":3,"preview":false}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-delete","arguments":{"file":"` + deletePath + `:2-3","preview":false}}}`
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve delete: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestToolCallSupportsDeleteAliasesAndReplaceOld(t *testing.T) {
 	}
 
 	out.Reset()
-	req = `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"be-replace","arguments":{"file":"` + replacePath + `","start":2,"end":2,"old":"b\n","content":"x\n","preview":false}}}`
+	req = `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"be-replace","arguments":{"file":"` + replacePath + `:2","old":"b\n","content":"x\n","preview":false}}}`
 	if err := srv.Serve(strings.NewReader(req+"\n"), &out); err != nil {
 		t.Fatalf("serve replace: %v", err)
 	}
@@ -267,6 +267,72 @@ func TestToolCallSupportsDeleteAliasesAndReplaceOld(t *testing.T) {
 	}
 	if got := mustReadFile(t, replacePath); got != "a\nx\nc\n" {
 		t.Fatalf("unexpected replace file content: %q", got)
+	}
+}
+
+func TestToolCall_DeleteAll_ClearsFileAndSavesChip(t *testing.T) {
+	srv := New("en", false)
+	dir := t.TempDir()
+	path := dir + "/delete_all.txt"
+	if err := os.WriteFile(path, []byte("1\n2\n3\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-delete","arguments":{"file":"` + path + `:ALL","preview":false}}}`
+	out := callServer(t, srv, req)
+	text := mustTextResult(t, out)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+
+	if got := mustReadFile(t, path); got != "" {
+		t.Fatalf("expected empty file after :ALL delete, got %q", got)
+	}
+
+	warnings, _ := result["warnings"].([]any)
+	hasChipWarning := false
+	for _, w := range warnings {
+		if s, ok := w.(string); ok && strings.HasPrefix(s, "deleted content saved as chip://") {
+			hasChipWarning = true
+			break
+		}
+	}
+	if !hasChipWarning {
+		t.Fatalf("expected deleted content saved as chip warning, got warnings: %v", warnings)
+	}
+}
+
+func TestToolCall_DeleteRange_SavesChip(t *testing.T) {
+	srv := New("en", false)
+	dir := t.TempDir()
+	path := dir + "/delete_range.txt"
+	if err := os.WriteFile(path, []byte("1\n2\n3\n4\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-delete","arguments":{"file":"` + path + `:2-3","preview":false}}}`
+	out := callServer(t, srv, req)
+	text := mustTextResult(t, out)
+	var result map[string]any
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+
+	if got := mustReadFile(t, path); got != "1\n4\n" {
+		t.Fatalf("expected remaining content \"1\\n4\\n\", got %q", got)
+	}
+
+	warnings, _ := result["warnings"].([]any)
+	hasChipWarning := false
+	for _, w := range warnings {
+		if s, ok := w.(string); ok && strings.HasPrefix(s, "deleted content saved as chip://") {
+			hasChipWarning = true
+			break
+		}
+	}
+	if !hasChipWarning {
+		t.Fatalf("expected deleted content saved as chip warning, got warnings: %v", warnings)
 	}
 }
 
@@ -335,7 +401,7 @@ func TestToolCall_ReplacePreview_FileUnchanged(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/preview.txt"
 	os.WriteFile(path, []byte("keep\n"), 0o644)
-	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-replace","arguments":{"file":"` + path + `","start":1,"end":1,"content":"changed\n","preview":true}}}`
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"be-replace","arguments":{"file":"` + path + `:1","content":"changed\n","preview":true}}}`
 	out := callServer(t, srv, req)
 	mustSuccess(t, out)
 	got := mustReadFile(t, path)

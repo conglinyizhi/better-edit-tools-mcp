@@ -2,6 +2,7 @@ package betools
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -37,13 +38,16 @@ func ParseFileRange(input string) (file string, start int, end int, err error) {
 	parts := strings.SplitN(rangePart, "-", 2)
 	
 	if len(parts) == 1 {
-		// Single line number like ":23"
+		// Single line number like ":23" or the special ":ALL" marker.
+		if parts[0] == "ALL" {
+			return file, -1, -1, nil
+		}
 		line, parseErr := strconv.Atoi(parts[0])
 		if parseErr != nil {
 			return input, 0, 0, fmt.Errorf("invalid line number: %s", parts[0])
 		}
-		if line < 1 {
-			return input, 0, 0, fmt.Errorf("line number must be >= 1, got %d", line)
+		if line < 0 {
+			return input, 0, 0, fmt.Errorf("line number must be >= 0, got %d", line)
 		}
 		return file, line, line, nil
 	}
@@ -59,8 +63,8 @@ func ParseFileRange(input string) (file string, start int, end int, err error) {
 		return input, 0, 0, fmt.Errorf("invalid end line: %s", parts[1])
 	}
 	
-	if startLine < 1 {
-		return input, 0, 0, fmt.Errorf("start line must be >= 1, got %d", startLine)
+	if startLine < 0 {
+		return input, 0, 0, fmt.Errorf("start line must be >= 0, got %d", startLine)
 	}
 	
 	if endLine < startLine {
@@ -68,4 +72,13 @@ func ParseFileRange(input string) (file string, start int, end int, err error) {
 	}
 	
 	return file, startLine, endLine, nil
+}
+
+// fileRangeSuffix matches an explicit line range suffix such as :10, :5-15 or :ALL.
+var fileRangeSuffix = regexp.MustCompile(`:(?:\d+(-\d+)?|ALL)$`)
+
+// HasFileRange reports whether the input string ends with an explicit line
+// range suffix like :10, :5-15 or :ALL.
+func HasFileRange(file string) bool {
+	return fileRangeSuffix.MatchString(file)
 }

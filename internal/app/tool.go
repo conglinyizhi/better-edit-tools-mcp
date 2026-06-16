@@ -222,7 +222,14 @@ func runReplace(cfg ToolConfig) error {
 		}
 		old = &o
 	}
-	res, err := betools.Replace(cfg.File, cfg.Start, cfg.End, old, content, cfg.Format, cfg.Preview, "", cfg.Brief)
+	if !betools.HasFileRange(cfg.File) {
+		return fmt.Errorf("replace: --file 必须包含行范围，例如 file.go:10 或 file.go:5-15")
+	}
+	filePath, start, end, err := betools.ParseFileRange(cfg.File)
+	if err != nil {
+		return err
+	}
+	res, err := betools.Replace(filePath, start, end, old, content, cfg.Format, cfg.Preview, "", cfg.Brief)
 	if err != nil {
 		return err
 	}
@@ -234,7 +241,17 @@ func runInsert(cfg ToolConfig) error {
 	if err != nil {
 		return err
 	}
-	res, err := betools.Insert(cfg.File, cfg.After, content, cfg.Format, cfg.Preview, cfg.Brief)
+	if !betools.HasFileRange(cfg.File) {
+		return fmt.Errorf("insert: --file 必须包含行号，例如 file.go:10")
+	}
+	filePath, after, end, err := betools.ParseFileRange(cfg.File)
+	if err != nil {
+		return err
+	}
+	if end != after {
+		return fmt.Errorf("insert: --file 只能指定单行，例如 file.go:10")
+	}
+	res, err := betools.Insert(filePath, after, content, cfg.Format, cfg.Preview, cfg.Brief)
 	if err != nil {
 		return err
 	}
@@ -242,7 +259,21 @@ func runInsert(cfg ToolConfig) error {
 }
 
 func runDelete(cfg ToolConfig) error {
-	res, err := betools.Delete(cfg.File, cfg.Start, cfg.End, cfg.Format, cfg.Preview, cfg.Brief)
+	if !betools.HasFileRange(cfg.File) {
+		return fmt.Errorf("delete: --file 必须包含行范围，例如 file.go:10 或 file.go:5-15")
+	}
+	filePath, start, end, err := betools.ParseFileRange(cfg.File)
+	if err != nil {
+		return err
+	}
+	if start < 0 || end < 0 {
+		showRes, _, err := betools.Read(filePath, 1, -1, true)
+		if err != nil {
+			return err
+		}
+		start, end = 1, showRes.Total
+	}
+	res, err := betools.Delete(filePath, start, end, cfg.Format, cfg.Preview, cfg.Brief)
 	if err != nil {
 		return err
 	}
@@ -458,9 +489,7 @@ func printToolHelp(name string) {
 		fmt.Println("  --output, -o text|json  输出格式")
 	case "replace":
 		fmt.Println("Options:")
-		fmt.Println("  --file, -f <path>     要修改的文件")
-		fmt.Println("  --start, -s <n>       起始行号")
-		fmt.Println("  --end, -e <n>         结束行号")
+		fmt.Println("  --file, -f <path>     要修改的文件，例如 file.go:10 或 file.go:5-15")
 		fmt.Println("  --content, -c <text>  替换内容")
 		fmt.Println("  --content-file <path> 从文件读取替换内容（path 为 - 时从 stdin 读取）")
 		fmt.Println("  --old <text>          旧内容（必须完全匹配）")
@@ -470,8 +499,7 @@ func printToolHelp(name string) {
 		fmt.Println("  --output, -o text|json  输出格式")
 	case "insert":
 		fmt.Println("Options:")
-		fmt.Println("  --file, -f <path>     要修改的文件")
-		fmt.Println("  --after, --after-line <n>  在此行后插入（0 表示文件开头）")
+		fmt.Println("  --file, -f <path>     要修改的文件，例如 file.go:10（在第 10 行后插入）")
 		fmt.Println("  --content, -c <text>  插入内容")
 		fmt.Println("  --content-file <path> 从文件读取插入内容（path 为 - 时从 stdin 读取）")
 		fmt.Println("  --preview             只输出 diff，不写入文件")
@@ -479,9 +507,7 @@ func printToolHelp(name string) {
 		fmt.Println("  --output, -o text|json  输出格式")
 	case "delete":
 		fmt.Println("Options:")
-		fmt.Println("  --file, -f <path>     要修改的文件")
-		fmt.Println("  --start, -s <n>       起始行号")
-		fmt.Println("  --end, -e <n>         结束行号")
+		fmt.Println("  --file, -f <path>     要修改的文件，例如 file.go:10、file.go:5-15 或 file.go:ALL")
 		fmt.Println("  --preview             只输出 diff，不写入文件")
 		fmt.Println("  --brief               返回精简结果")
 		fmt.Println("  --output, -o text|json  输出格式")
