@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"runtime"
 )
 
 // FileSystem defines the file operations used by better-edit-tools.
@@ -54,6 +55,24 @@ func (OSFileSystem) Open(name string) (io.ReadCloser, error) {
 
 func (OSFileSystem) Create(name string) (io.WriteCloser, error) {
 	return os.Create(name)
+}
+
+// Sync flushes file or directory metadata to the underlying storage.
+// On POSIX systems this calls fsync on the opened path; on Windows it is a
+// no-op for directories because Windows does not support directory fsync.
+func (OSFileSystem) Sync(name string) error {
+	if runtime.GOOS == "windows" {
+		info, err := os.Stat(name)
+		if err == nil && info.IsDir() {
+			return nil
+		}
+	}
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }
 
 // ErrNotExist is a convenience alias so test code can check
