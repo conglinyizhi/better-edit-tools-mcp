@@ -10,13 +10,13 @@ import (
 
 func TestParseToolArgs_ReadRangeFlagsTracked(t *testing.T) {
 	cases := []struct {
-		name          string
-		args          []string
-		wantStart     int
-		wantStartSet  bool
-		wantEnd       int
-		wantEndSet    bool
-		wantEndAuto   bool
+		name         string
+		args         []string
+		wantStart    int
+		wantStartSet bool
+		wantEnd      int
+		wantEndSet   bool
+		wantEndAuto  bool
 	}{
 		{
 			name:         "no range flags",
