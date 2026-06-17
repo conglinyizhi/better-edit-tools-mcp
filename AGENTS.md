@@ -67,15 +67,16 @@ cmd/
 └── better-edit-tools/main.go     # 启动入口：CLI 解析后进入 server.Run()
 internal/
 ├── app/                          # 命令行和语言协商
-├── edit/                         # 核心编辑库（show/replace/insert/delete/write）
 └── server/                       # MCP/stdio 适配层
+pkg/
+└── betools/                      # 核心编辑库（show/replace/insert/delete/write）
 ```
 
 关键入口点：
 
 - `cmd/better-edit-tools/main.go:main()` — 解析 CLI 参数后调用 `server.Run(cfg)`
 - `internal/server/server.go:Server` — 统一处理 stdio JSON-RPC、工具注册和工具调用
-- `internal/edit/*.go` — 每个编辑原语对应一个可直接嵌入 Go agent 框架调用的库函数
+- `pkg/betools/*.go` — 每个编辑原语对应一个可直接嵌入 Go agent 框架调用的库函数
 
 ## 工具说明
 
@@ -86,8 +87,8 @@ MCP 工具对外返回 JSON 字符串内容；错误时响应体会包含 `isErr
 - **实验性项目**：工具名称、参数和行为可能继续调整。不要在 prompt 或自动化脚本里写死具体工具名，优先使用能力描述或动态解析的方式选择工具。
 - **多语言描述**：工具名和参数保持稳定，`--lang <zh|en>` 只影响 tool description 和文档文本，不改变执行语义。
 - **测试**：修改编辑逻辑和协议层时，优先补 Go 测试，不要只靠手工验证。
-- **原子写入**：`internal/edit.WriteFileAtomic()` 先写临时文件再 rename，防崩溃
-- **JSON 降级解析**：`internal/edit.Write()` 先尝试标准 JSON，失败则调用降级提取逻辑。
+- **原子写入**：`pkg/betools` 中的写操作先写临时文件再 rename，并在 rename 前后 fsync 文件与目录，崩溃后数据不丢失。
+- **JSON 降级解析**：`pkg/betools.Write()` 先尝试标准 JSON，失败则调用降级提取逻辑。
 
 - **语言协商**：启动时可通过 `--lang <zh|en>` 指定 tool description 语言；未指定时回退到 `LANG` 环境变量，最终默认英文
 - **受限于文件系统**：所有工具操作本地文件，无网络/数据库能力
