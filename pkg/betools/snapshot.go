@@ -37,11 +37,18 @@ type SnapshotRange struct {
 // MaxSnapshots is the maximum number of pending snapshots in the queue.
 const MaxSnapshots = 30
 
+// MaxSnapshotTotalBytes is the maximum total disk space used by snapshots.
+const MaxSnapshotTotalBytes = 100 * 1024 * 1024 // 100MB
+
 var (
 	snapshotMu     sync.Mutex
 	snapshots      []SnapshotRecord
 	snapshotIDs    map[string]struct{}
 	snapshotLoaded bool
+
+	// maxSnapshotTotalBytes is mutable so tests can exercise capacity limits
+	// without writing hundreds of megabytes to disk.
+	maxSnapshotTotalBytes = MaxSnapshotTotalBytes
 )
 
 // SnapshotDir returns the platform-appropriate snapshot cache directory.
@@ -137,6 +144,35 @@ func loadSnapshotsFromDiskLocked() {
 	}
 
 	snapshots = loaded
+
+	// Enforce total disk capacity after loading from disk.
+	evictSnapshotsByCapacityLocked()
+}
+
+// snapshotDiskBytesLocked returns the total on-disk size of all pending
+// snapshot files. The caller must hold snapshotMu.
+func snapshotDiskBytesLocked() int64 {
+	var total int64
+	dir := SnapshotDir()
+	for _, s := range snapshots {
+		info, err := os.Stat(filepath.Join(dir, fmt.Sprintf("snapshot-%s.json", s.ID)))
+		if err == nil {
+			total += info.Size()
+		}
+	}
+	return total
+}
+
+// evictSnapshotsByCapacityLocked removes the oldest snapshots until the total
+// on-disk size is within maxSnapshotTotalBytes. It deletes both the in-memory
+// record and the persisted file. The caller must hold snapshotMu.
+func evictSnapshotsByCapacityLocked() {
+	for snapshotDiskBytesLocked() > int64(maxSnapshotTotalBytes) && len(snapshots) > 0 {
+		removed := snapshots[0]
+		delete(snapshotIDs, removed.ID)
+		snapshots = snapshots[1:]
+		removeSnapshotFile(removed.ID)
+	}
 }
 
 // PushSnapshot pushes a record onto the queue. If full, evicts oldest.
@@ -167,6 +203,16 @@ func PushSnapshot(rec SnapshotRecord) (id string, queueWarning string) {
 
 	snapshots = append(snapshots, rec)
 	persistSnapshot(rec)
+
+	beforeCap := len(snapshots)
+	evictSnapshotsByCapacityLocked()
+	if len(snapshots) < beforeCap {
+		if queueWarning != "" {
+			queueWarning += " "
+		}
+		queueWarning += fmt.Sprintf("snapshot queue exceeded maximum disk capacity (%d bytes); oldest snapshot(s) evicted. The file was written successfully.", maxSnapshotTotalBytes)
+	}
+
 	return id, queueWarning
 }
 

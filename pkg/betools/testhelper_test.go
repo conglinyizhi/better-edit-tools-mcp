@@ -35,6 +35,9 @@ func resetSnapshotStore(t *testing.T) {
 	snapshots = nil
 	snapshotIDs = nil
 	snapshotMu.Unlock()
+
+	// Reset any per-test capacity override back to the default.
+	maxSnapshotTotalBytes = MaxSnapshotTotalBytes
 }
 
 // sandboxFS is a FileSystem rooted at a temp directory, optionally
