@@ -261,6 +261,52 @@ func TestReplaceRejectsOldWithDegradedNewlines_AfterNormalize(t *testing.T) {
 	}
 }
 
+func TestShowBareFilePathReturnsFullText(t *testing.T) {
+	// A file with more than the ~11 line context window so we can verify
+	// that start=1, endLine=-1 returns the whole file instead of context.
+	content := "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n"
+	m, opt := withFS(map[string]string{"long.txt": content})
+	res, _, err := Show("long.txt", 1, -1, false, opt)
+	if err != nil {
+		t.Fatalf("show bare file: %v", err)
+	}
+	if res.Start != 1 || res.End != 15 {
+		t.Fatalf("expected full range 1..15, got %d..%d", res.Start, res.End)
+	}
+	if res.Total != 15 {
+		t.Fatalf("expected total 15, got %d", res.Total)
+	}
+	if !strings.Contains(res.Content, "15\tline15") {
+		t.Fatalf("expected full content including line 15, got: %q", res.Content)
+	}
+	_ = m
+}
+
+func TestReplaceRejectsMissingTrailingEmptyLine(t *testing.T) {
+	// File has an empty line between b and c (lines 2 and 3).
+	m, opt := withFS(map[string]string{"a.txt": "a\nb\n\nc\n"})
+	old := "b\n" // missing the trailing empty line in the actual block lines 2-3
+	_, err := Replace("a.txt", 2, 3, &old, "x\n", "plain", true, "", false, opt)
+	if err == nil {
+		t.Fatalf("expected mismatch error for old content missing trailing empty line")
+	}
+	if got := readFS(t, m, "a.txt"); got != "a\nb\n\nc\n" {
+		t.Fatalf("file changed unexpectedly: %q", got)
+	}
+}
+
+func TestReplaceRejectsExtraTrailingEmptyLine(t *testing.T) {
+	m, opt := withFS(map[string]string{"a.txt": "a\nb\nc\n"})
+	old := "b\n\n" // extra trailing empty line not present in actual block line 2
+	_, err := Replace("a.txt", 2, 2, &old, "x\n", "plain", true, "", false, opt)
+	if err == nil {
+		t.Fatalf("expected mismatch error for old content with extra trailing empty line")
+	}
+	if got := readFS(t, m, "a.txt"); got != "a\nb\nc\n" {
+		t.Fatalf("file changed unexpectedly: %q", got)
+	}
+}
+
 func TestWriteNormalizeLineBreaks_LiteralNewlines(t *testing.T) {
 	m, opt := withFS(nil)
 	content := "line1\\nline2\\n"
