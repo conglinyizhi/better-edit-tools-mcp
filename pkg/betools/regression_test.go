@@ -446,6 +446,61 @@ func TestTagRange_SingleLinePaired(t *testing.T) {
 	_ = m
 }
 
+// TagRange 应与 balance 共用 tag tokenizer，避免属性字符串、注释、CDATA 中的 > 造成误判。
+
+func TestTagRange_SkipsGreaterThanInAttributeString(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+	}{
+		{
+			name:    "double-quoted",
+			content: "<div data-x=\"a>b\">\nhello\n</div>\n",
+		},
+		{
+			name:    "single-quoted",
+			content: "<div data-x='a>b'>\nhello\n</div>\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m, opt := withFS(map[string]string{"attr.html": tc.content})
+			res, err := TagRange("attr.html", 2, opt)
+			if err != nil {
+				t.Fatalf("tag-range with > in attribute: %v", err)
+			}
+			if res.Tag != "div" || res.Start != 1 || res.End != 3 {
+				t.Fatalf("expected div 1..3, got %v", res)
+			}
+			_ = m
+		})
+	}
+}
+
+func TestTagRange_SkipsHTMLComment(t *testing.T) {
+	m, opt := withFS(map[string]string{"comment.html": "<div>\n<!-- <span> inside comment -->\nhello\n</div>\n"})
+	res, err := TagRange("comment.html", 3, opt)
+	if err != nil {
+		t.Fatalf("tag-range with comment: %v", err)
+	}
+	if res.Tag != "div" || res.Start != 1 || res.End != 4 {
+		t.Fatalf("expected div 1..4, got %v", res)
+	}
+	_ = m
+}
+
+func TestTagRange_SkipsCDATA(t *testing.T) {
+	m, opt := withFS(map[string]string{"cdata.xml": "<root>\n<![CDATA[ <child> inside cdata ]]>\nhello\n</root>\n"})
+	res, err := TagRange("cdata.xml", 4, opt)
+	if err != nil {
+		t.Fatalf("tag-range with CDATA: %v", err)
+	}
+	if res.Tag != "root" || res.Start != 1 || res.End != 4 {
+		t.Fatalf("expected root 1..4, got %v", res)
+	}
+	_ = m
+}
+
 // ──────────────────────────────────────────────
 // #4: be-balance 应跳过字符串/注释中的括号
 // ──────────────────────────────────────────────

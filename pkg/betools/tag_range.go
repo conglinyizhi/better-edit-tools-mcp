@@ -33,48 +33,40 @@ func TagRange(path string, line int, opts ...Option) (TagRangeResult, error) {
 			if chars[cursor] != '<' {
 				continue
 			}
-			j := cursor + 1
-			if j < len(chars) && chars[j] == '!' {
-				for j < len(chars) && chars[j] != '>' {
-					j++
-				}
-				cursor = j
+			fullTag, nextIndex, ok := readFullTag(chars, cursor)
+			if !ok {
 				continue
 			}
-			if j < len(chars) && chars[j] == '/' {
-				j++
-				tag := readTagName(chars, &j)
-				for j < len(chars) && chars[j] != '>' {
-					j++
+			cursor = nextIndex
+			if strings.HasPrefix(fullTag, "<!") || strings.HasPrefix(fullTag, "<?") {
+				continue
+			}
+			if strings.HasPrefix(fullTag, "</") {
+				tagName := extractTagName(fullTag, true)
+				if tagName == "" {
+					continue
 				}
+				tagName = strings.ToLower(tagName)
 				if len(stack) > 0 {
 					last := stack[len(stack)-1]
-					if last.name == tag {
+					if last.name == tagName {
 						stack = stack[:len(stack)-1]
 						openRanges = append(openRanges, TagRangeResult{Start: last.line, End: lineNo, Kind: last.name, Tag: last.name})
 					}
 				}
-				cursor = j
 				continue
 			}
-			tag := readTagName(chars, &j)
-			if tag != "" {
-				trimmed := strings.TrimRight(string(chars[cursor:]), " \t")
-				if strings.HasSuffix(trimmed, "/>") {
-					for j < len(chars) && chars[j] != '>' {
-						j++
-					}
-					cursor = j
-					continue
-				}
-				if _, ok := voidElements[strings.ToLower(tag)]; !ok {
-					stack = append(stack, tagEntry{name: strings.ToLower(tag), line: lineNo})
-				}
+			tagName := extractTagName(fullTag, false)
+			if tagName == "" {
+				continue
 			}
-			for j < len(chars) && chars[j] != '>' {
-				j++
+			trimmed := strings.TrimSpace(fullTag)
+			if strings.HasSuffix(trimmed, "/>") {
+				continue
 			}
-			cursor = j
+			if _, ok := voidElements[strings.ToLower(tagName)]; !ok {
+				stack = append(stack, tagEntry{name: strings.ToLower(tagName), line: lineNo})
+			}
 		}
 	}
 
@@ -86,18 +78,3 @@ func TagRange(path string, line int, opts ...Option) (TagRangeResult, error) {
 	return TagRangeResult{}, invalidArg(fmt.Sprintf("line %d is not inside any paired tag", line))
 }
 
-func readTagName(chars []byte, idx *int) string {
-	j := *idx
-	var tag strings.Builder
-	for j < len(chars) {
-		ch := chars[j]
-		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == ':' {
-			tag.WriteByte(ch)
-			j++
-			continue
-		}
-		break
-	}
-	*idx = j
-	return tag.String()
-}
