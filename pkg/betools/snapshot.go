@@ -370,7 +370,7 @@ func RollbackSnapshots(step int) (count int, errors []error) {
 			mode = info.Mode().Perm()
 		}
 
-		if err := os.WriteFile(rec.File, []byte(content), mode); err != nil {
+		if err := writeFileAtomicWithMode(rec.File, content, mode, WithFileSystem(OSFileSystem{})); err != nil {
 			errors = append(errors, writePath(rec.File, err))
 			continue
 		}

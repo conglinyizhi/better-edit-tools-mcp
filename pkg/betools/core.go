@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"unicode/utf8"
@@ -52,7 +53,58 @@ func splitKeepLineEnding(content, le string) []string {
 	return lines
 }
 
+type syncer interface {
+	Sync(name string) error
+}
+
+// filePlan describes a single target file in a multi-file atomic write.
+type filePlan struct {
+	file     string
+	tmp      string
+	backup   string
+	existed  bool
+	original []byte
+	mode     fs.FileMode
+}
+
+// restorePlan describes a single target file during crash-safe rollback.
+type restorePlan struct {
+	file       string
+	restoreTmp string
+	deleteTmp  string
+	existed    bool
+}
+
+func syncFile(path string, fsys FileSystem) error {
+	if s, ok := fsys.(syncer); ok {
+		return s.Sync(path)
+	}
+	return nil
+}
+
+func syncParentDir(path string, fsys FileSystem) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	parent := filepath.Dir(path)
+	if parent == path {
+		return nil
+	}
+	return syncFile(parent, fsys)
+}
+
+func writeAndSyncFile(path string, data []byte, perm fs.FileMode, fsys FileSystem) error {
+	if err := fsys.WriteFile(path, data, perm); err != nil {
+		return err
+	}
+	return syncFile(path, fsys)
+}
+
 func writeFileAtomic(path, content string, opts ...Option) error {
+	return writeFileAtomicWithMode(path, content, 0o644, opts...)
+}
+
+func writeFileAtomicWithMode(path, content string, mode fs.FileMode, opts ...Option) error {
 	cfg := withCallConfig(opts...)
 	abs := path
 	parent := filepath.Dir(abs)
@@ -63,14 +115,14 @@ func writeFileAtomic(path, content string, opts ...Option) error {
 	counter := atomic.AddUint64(&tmpCounter, 1) - 1
 	tmpName := fmt.Sprintf(".fe-%s-%d.tmp", stem, counter)
 	tmpPath := filepath.Join(parent, tmpName)
-	if err := cfg.fs.WriteFile(tmpPath, []byte(content), 0o644); err != nil {
+	if err := writeAndSyncFile(tmpPath, []byte(content), mode, cfg.fs); err != nil {
 		return err
 	}
 	if err := cfg.fs.Rename(tmpPath, abs); err != nil {
 		_ = cfg.fs.Remove(tmpPath)
 		return err
 	}
-	return nil
+	return syncParentDir(abs, cfg.fs)
 }
 
 func writeFilesAtomic(writes []WriteSpecItem, opts ...Option) error {
@@ -78,79 +130,174 @@ func writeFilesAtomic(writes []WriteSpecItem, opts ...Option) error {
 		return nil
 	}
 	cfg := withCallConfig(opts...)
-	type tmpItem struct {
-		file string
-		tmp  string
-	}
-	type backupItem struct {
-		file   string
-		backup string
-		exists bool
-	}
-	var tmps []tmpItem
-	var backups []backupItem
 
+	plans := make([]filePlan, 0, len(writes))
+
+	// Phase 1: write all content temp files and backup temp files, fsync each.
+	// Existing files keep their original mode through the atomic rename.
 	for _, w := range writes {
-		parent := filepath.Dir(w.File)
-		stem := strings.TrimSuffix(filepath.Base(w.File), filepath.Ext(w.File))
-		if stem == "" {
-			stem = "tmp"
-		}
-		counter := atomic.AddUint64(&tmpCounter, 1) - 1
-		tmpName := fmt.Sprintf(".fe-%s-%d.tmp", stem, counter)
-		tmpPath := filepath.Join(parent, tmpName)
-		if err := cfg.fs.WriteFile(tmpPath, []byte(w.Content), 0o644); err != nil {
+		info, err := cfg.fs.Stat(w.File)
+		var existed bool
+		var mode fs.FileMode = 0o644
+		var original []byte
+		if err == nil {
+			existed = true
+			mode = info.Mode().Perm()
+			data, readErr := cfg.fs.ReadFile(w.File)
+			if readErr != nil {
+				cleanupPlans(plans, cfg.fs)
+				return readErr
+			}
+			original = data
+		} else if errors.Is(err, fs.ErrNotExist) {
+			existed = false
+		} else {
+			cleanupPlans(plans, cfg.fs)
 			return err
 		}
-		tmps = append(tmps, tmpItem{file: w.File, tmp: tmpPath})
 
-		if _, err := cfg.fs.Stat(w.File); err == nil {
-			backupPath := filepath.Join(parent, fmt.Sprintf(".fe-%s-%d.bak", stem, counter))
-			if err := copyFile(w.File, backupPath, WithFileSystem(cfg.fs)); err != nil {
+		tmpPath := makeTempPath(w.File, "tmp")
+		if err := writeAndSyncFile(tmpPath, []byte(w.Content), mode, cfg.fs); err != nil {
+			cleanupPlans(plans, cfg.fs)
+			return err
+		}
+
+		if existed {
+			backupPath := makeTempPath(w.File, "bak")
+			if err := writeAndSyncFile(backupPath, original, mode, cfg.fs); err != nil {
+				cleanupPlans(plans, cfg.fs)
 				return err
 			}
-			backups = append(backups, backupItem{file: w.File, backup: backupPath, exists: true})
-		} else if errors.Is(err, fs.ErrNotExist) {
-			backups = append(backups, backupItem{file: w.File, exists: false})
+			plans = append(plans, filePlan{
+				file:     w.File,
+				tmp:      tmpPath,
+				backup:   backupPath,
+				existed:  true,
+				original: original,
+				mode:     mode,
+			})
 		} else {
+			plans = append(plans, filePlan{
+				file:    w.File,
+				tmp:     tmpPath,
+				existed: false,
+			})
+		}
+	}
+
+	// Phase 2: commit all temp files to their targets with atomic renames.
+	for i, p := range plans {
+		if err := cfg.fs.Rename(p.tmp, p.file); err != nil {
+			if rbErr := rollbackCommitted(plans[:i], cfg.fs); rbErr != nil {
+				cleanupPlans(plans, cfg.fs)
+				return fmt.Errorf("commit %s failed: %v; rollback failed: %v", p.file, err, rbErr)
+			}
+			cleanupPlans(plans, cfg.fs)
 			return err
 		}
 	}
 
-	var committed []string
-	for _, item := range tmps {
-		if err := cfg.fs.Rename(item.tmp, item.file); err != nil {
-			for i := len(committed) - 1; i >= 0; i-- {
-				target := committed[i]
-				for _, bk := range backups {
-					if bk.file == target {
-						if bk.exists {
-							_ = cfg.fs.Rename(bk.backup, bk.file)
-						} else {
-							_ = cfg.fs.Remove(bk.file)
-						}
-					}
-				}
-			}
-			for _, it := range tmps {
-				_ = cfg.fs.Remove(it.tmp)
-			}
-			for _, bk := range backups {
-				if bk.exists {
-					_ = cfg.fs.Remove(bk.backup)
-				}
-			}
-			return err
-		}
-		committed = append(committed, item.file)
-	}
-
-	for _, bk := range backups {
-		if bk.exists {
-			_ = cfg.fs.Remove(bk.backup)
-		}
-	}
+	// Phase 3: fsync parent directories and clean up backup files.
+	syncParentDirs(plans, cfg.fs)
+	cleanupPlans(plans, cfg.fs)
 	return nil
+}
+
+func makeTempPath(file, suffix string) string {
+	parent := filepath.Dir(file)
+	stem := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+	if stem == "" {
+		stem = "tmp"
+	}
+	counter := atomic.AddUint64(&tmpCounter, 1) - 1
+	return filepath.Join(parent, fmt.Sprintf(".fe-%s-%d.%s.tmp", stem, counter, suffix))
+}
+
+// rollbackCommitted rolls back files that have already been renamed to their
+// targets. To stay crash-safe, it writes original contents to restore temp
+// files (or prepares delete temps for newly-created files) and performs a
+// unified rename wave before syncing parent directories and cleaning up.
+func rollbackCommitted(plans []filePlan, fsys FileSystem) error {
+	if len(plans) == 0 {
+		return nil
+	}
+
+	var rps []restorePlan
+	for _, p := range plans {
+		if p.existed {
+			restoreTmp := makeTempPath(p.file, "restore")
+			if err := writeAndSyncFile(restoreTmp, p.original, p.mode, fsys); err != nil {
+				cleanupRestorePlans(rps, fsys)
+				return err
+			}
+			rps = append(rps, restorePlan{file: p.file, restoreTmp: restoreTmp, existed: true})
+		} else {
+			deleteTmp := makeTempPath(p.file, "del")
+			rps = append(rps, restorePlan{file: p.file, deleteTmp: deleteTmp, existed: false})
+		}
+	}
+
+	// Unified rename wave: restore originals and remove newly-created files.
+	for _, rp := range rps {
+		if rp.existed {
+			if err := fsys.Rename(rp.restoreTmp, rp.file); err != nil {
+				cleanupRestorePlans(rps, fsys)
+				return err
+			}
+		} else {
+			if err := fsys.Rename(rp.file, rp.deleteTmp); err != nil {
+				cleanupRestorePlans(rps, fsys)
+				return err
+			}
+		}
+	}
+
+	syncParentDirsOfRestore(rps, fsys)
+	cleanupRestorePlans(rps, fsys)
+	return nil
+}
+
+func cleanupPlans(plans []filePlan, fsys FileSystem) {
+	for _, p := range plans {
+		_ = fsys.Remove(p.tmp)
+		if p.backup != "" {
+			_ = fsys.Remove(p.backup)
+		}
+	}
+}
+
+func cleanupRestorePlans(rps []restorePlan, fsys FileSystem) {
+	for _, rp := range rps {
+		if rp.existed {
+			_ = fsys.Remove(rp.restoreTmp)
+		} else {
+			_ = fsys.Remove(rp.deleteTmp)
+		}
+	}
+}
+
+func syncParentDirs(plans []filePlan, fsys FileSystem) {
+	seen := make(map[string]struct{})
+	for _, p := range plans {
+		parent := filepath.Dir(p.file)
+		if _, ok := seen[parent]; ok {
+			continue
+		}
+		seen[parent] = struct{}{}
+		_ = syncParentDir(p.file, fsys)
+	}
+}
+
+func syncParentDirsOfRestore(rps []restorePlan, fsys FileSystem) {
+	seen := make(map[string]struct{})
+	for _, rp := range rps {
+		parent := filepath.Dir(rp.file)
+		if _, ok := seen[parent]; ok {
+			continue
+		}
+		seen[parent] = struct{}{}
+		_ = syncParentDir(rp.file, fsys)
+	}
 }
 
 func copyFile(src, dst string, opts ...Option) error {
