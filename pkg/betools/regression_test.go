@@ -805,3 +805,72 @@ func TestShowStartOutOfRange(t *testing.T) {
 		t.Fatal("expected error for start > total")
 	}
 }
+
+// ──────────────────────────────────────────────
+// persist: 可配置磁盘持久化
+// ──────────────────────────────────────────────
+
+func TestSnapshotPersistDisabled_NoDiskWrite(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", dir)
+	t.Setenv("BETTER_EDIT_SNAPSHOT_PERSIST", "false")
+	resetSnapshotStore(t)
+	CommitSnapshots()
+	path := filepath.Join(t.TempDir(), "no_persist.txt")
+	if err := os.WriteFile(path, []byte("original\ncontent\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := Replace(path, 2, 2, nil, "modified\n", "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read snapshot dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected no snapshot files when persistence disabled, got %d", len(entries))
+	}
+
+	// Rollback should still work from memory.
+	count, errs := RollbackSnapshots(1)
+	if len(errs) > 0 {
+		t.Fatalf("rollback errors: %v", errs)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 rollback, got %d", count)
+	}
+	if readFile(t, path) != "original\ncontent\n" {
+		t.Fatalf("expected in-memory rollback to work, got: %q", readFile(t, path))
+	}
+	CommitSnapshots()
+}
+
+func TestSnapshotPersistDisabled_RestartLosesSnapshots(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", dir)
+	t.Setenv("BETTER_EDIT_SNAPSHOT_PERSIST", "false")
+	resetSnapshotStore(t)
+	CommitSnapshots()
+	path := filepath.Join(t.TempDir(), "restart_no_persist.txt")
+	if err := os.WriteFile(path, []byte("original\ncontent\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := Replace(path, 2, 2, nil, "modified\n", "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+
+	// Simulate process restart.
+	resetSnapshotStore(t)
+
+	// Rollback should not find any snapshots after restart.
+	count, _ := RollbackSnapshots(1)
+	if count != 0 {
+		t.Fatalf("expected 0 rollbacks after restart without persistence, got %d", count)
+	}
+	if readFile(t, path) != "original\nmodified\n" {
+		t.Fatalf("expected file to remain modified after restart without persistence, got: %q", readFile(t, path))
+	}
+}

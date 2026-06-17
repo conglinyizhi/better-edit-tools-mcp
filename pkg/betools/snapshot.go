@@ -44,6 +44,18 @@ var (
 	snapshotLoaded bool
 )
 
+// snapshotPersistEnabled returns true if disk persistence should be used.
+// BETTER_EDIT_SNAPSHOT_PERSIST defaults to true; only the literal value
+// "false" (case-insensitive) disables persistence. An empty value also
+// counts as true.
+func snapshotPersistEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("BETTER_EDIT_SNAPSHOT_PERSIST")))
+	if v == "" {
+		return true
+	}
+	return v != "false"
+}
+
 // SnapshotDir returns the platform-appropriate snapshot cache directory.
 //   - BETTER_EDIT_SNAPSHOT_DIR env var overrides everything (useful for tests).
 //   - Windows: %LOCALAPPDATA%/better-edit-tools-mcp/snapshots
@@ -94,6 +106,10 @@ func ensureSnapshotStore() {
 // loadSnapshotsFromDiskLocked reads all snapshot JSON files from the cache
 // directory into the in-memory store. The caller must hold snapshotMu.
 func loadSnapshotsFromDiskLocked() {
+	if !snapshotPersistEnabled() {
+		return
+	}
+
 	dir := SnapshotDir()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -166,7 +182,9 @@ func PushSnapshot(rec SnapshotRecord) (id string, queueWarning string) {
 	}
 
 	snapshots = append(snapshots, rec)
-	persistSnapshot(rec)
+	if snapshotPersistEnabled() {
+		persistSnapshot(rec)
+	}
 	return id, queueWarning
 }
 
