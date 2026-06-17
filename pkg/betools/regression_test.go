@@ -931,3 +931,105 @@ func TestShowStartOutOfRange(t *testing.T) {
 		t.Fatal("expected error for start > total")
 	}
 }
+
+// ──────────────────────────────────────────────
+// snapshot isolation: workspace-scoped snapshot directories
+// ──────────────────────────────────────────────
+
+func TestWorkspaceID_StableAndShort(t *testing.T) {
+	id1 := WorkspaceID()
+	id2 := WorkspaceID()
+	if id1 != id2 {
+		t.Fatalf("WorkspaceID should be stable, got %q vs %q", id1, id2)
+	}
+	if len(id1) != 16 {
+		t.Fatalf("expected 16-char hex workspace id, got %q (len=%d)", id1, len(id1))
+	}
+}
+
+func TestSnapshotDir_IsolatesWorkspaces(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", "")
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+
+	t.Setenv("BETTER_EDIT_WORKSPACE", "workspace-a")
+	dirA := SnapshotDir()
+
+	t.Setenv("BETTER_EDIT_WORKSPACE", "workspace-b")
+	dirB := SnapshotDir()
+
+	if dirA == dirB {
+		t.Fatalf("expected different snapshot dirs for different workspaces, both %q", dirA)
+	}
+	baseA := filepath.Dir(dirA)
+	baseB := filepath.Dir(dirB)
+	if baseA != baseB {
+		t.Fatalf("snapshot dirs should share the same base cache dir, got %q and %q", baseA, baseB)
+	}
+}
+
+func TestSnapshotIsolation_RollbackDoesNotAffectOtherWorkspace(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", "")
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+
+	// Workspace A: make an edit and leave the snapshot pending.
+	t.Setenv("BETTER_EDIT_WORKSPACE", "ws-a")
+	resetSnapshotStore(t)
+	CommitSnapshots()
+	pathA := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(pathA, []byte("a-original\n"), 0o644); err != nil {
+		t.Fatalf("write a: %v", err)
+	}
+	if _, err := Replace(pathA, 1, 1, nil, "a-modified\n", "plain", false, "", false); err != nil {
+		t.Fatalf("replace a: %v", err)
+	}
+	if readFile(t, pathA) != "a-modified\n" {
+		t.Fatalf("unexpected content for a before rollback")
+	}
+
+	// Workspace B: make an unrelated edit.
+	t.Setenv("BETTER_EDIT_WORKSPACE", "ws-b")
+	resetSnapshotStore(t)
+	CommitSnapshots()
+	pathB := filepath.Join(t.TempDir(), "b.txt")
+	if err := os.WriteFile(pathB, []byte("b-original\n"), 0o644); err != nil {
+		t.Fatalf("write b: %v", err)
+	}
+	if _, err := Replace(pathB, 1, 1, nil, "b-modified\n", "plain", false, "", false); err != nil {
+		t.Fatalf("replace b: %v", err)
+	}
+
+	// Rollback workspace A only.
+	t.Setenv("BETTER_EDIT_WORKSPACE", "ws-a")
+	resetSnapshotStore(t)
+	count, errs := RollbackSnapshots(1)
+	if len(errs) > 0 {
+		t.Fatalf("rollback a errors: %v", errs)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 rollback in workspace a, got %d", count)
+	}
+	if readFile(t, pathA) != "a-original\n" {
+		t.Fatalf("workspace a should be restored, got: %q", readFile(t, pathA))
+	}
+
+	// Workspace B should still have its pending snapshot and be unaffected.
+	t.Setenv("BETTER_EDIT_WORKSPACE", "ws-b")
+	resetSnapshotStore(t)
+	if len(ListSnapshots()) != 1 {
+		t.Fatalf("workspace b should still have 1 pending snapshot, got %d", len(ListSnapshots()))
+	}
+	count, errs = RollbackSnapshots(1)
+	if len(errs) > 0 {
+		t.Fatalf("rollback b errors: %v", errs)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 rollback in workspace b, got %d", count)
+	}
+	if readFile(t, pathB) != "b-original\n" {
+		t.Fatalf("workspace b should be restored, got: %q", readFile(t, pathB))
+	}
+
+	CommitSnapshots()
+}

@@ -1,9 +1,12 @@
 package betools
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -53,28 +56,69 @@ var (
 
 // SnapshotDir returns the platform-appropriate snapshot cache directory.
 //   - BETTER_EDIT_SNAPSHOT_DIR env var overrides everything (useful for tests).
-//   - Windows: %LOCALAPPDATA%/better-edit-tools-mcp/snapshots
-//   - Linux/macOS: $XDG_CACHE_HOME/better-edit-tools-mcp/snapshots
-//     or ~/.cache/better-edit-tools-mcp/snapshots
-//   - Fallback: /tmp/better-edit-tools-mcp-snapshots
+//   - Otherwise the base directory is chosen per platform and appended with
+//     a workspace-specific subdirectory so different projects do not share
+//     snapshot state.
+//   - Windows: %LOCALAPPDATA%/better-edit-tools-mcp/snapshots/<workspace-id>
+//   - Linux/macOS: $XDG_CACHE_HOME/better-edit-tools-mcp/snapshots/<workspace-id>
+//     or ~/.cache/better-edit-tools-mcp/snapshots/<workspace-id>
+//   - Fallback: /tmp/better-edit-tools-mcp-snapshots/<workspace-id>
 func SnapshotDir() string {
 	if dir := os.Getenv("BETTER_EDIT_SNAPSHOT_DIR"); dir != "" {
 		return dir
 	}
+
+	var base string
 	switch runtime.GOOS {
 	case "windows":
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
-			return filepath.Join(localAppData, "better-edit-tools-mcp", "snapshots")
+			base = filepath.Join(localAppData, "better-edit-tools-mcp", "snapshots")
 		}
 	default:
 		if xdgCache := os.Getenv("XDG_CACHE_HOME"); xdgCache != "" {
-			return filepath.Join(xdgCache, "better-edit-tools-mcp", "snapshots")
+			base = filepath.Join(xdgCache, "better-edit-tools-mcp", "snapshots")
 		}
-		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, ".cache", "better-edit-tools-mcp", "snapshots")
+		if base == "" {
+			if home, err := os.UserHomeDir(); err == nil {
+				base = filepath.Join(home, ".cache", "better-edit-tools-mcp", "snapshots")
+			}
 		}
 	}
-	return "/tmp/better-edit-tools-mcp-snapshots"
+	if base == "" {
+		base = "/tmp/better-edit-tools-mcp-snapshots"
+	}
+	return filepath.Join(base, WorkspaceID())
+}
+
+// WorkspaceID returns a stable, 16-character hexadecimal identifier for the
+// current project/workspace. It is used to isolate snapshot directories.
+// Resolution order:
+//   1. BETTER_EDIT_WORKSPACE environment variable.
+//   2. Root of the current git repository (git rev-parse --show-toplevel).
+//   3. Current working directory.
+func WorkspaceID() string {
+	if id := os.Getenv("BETTER_EDIT_WORKSPACE"); id != "" {
+		return hashWorkspaceID(id)
+	}
+
+	if out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output(); err == nil {
+		root := strings.TrimSpace(string(out))
+		if root != "" {
+			return hashWorkspaceID(root)
+		}
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		wd = "."
+	}
+	return hashWorkspaceID(wd)
+}
+
+// hashWorkspaceID returns a stable 16-character hex hash of s.
+func hashWorkspaceID(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:8])
 }
 
 // ensureSnapshotStore lazily initializes the snapshot directory and loads
