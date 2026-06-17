@@ -44,8 +44,11 @@ func Show(path string, start int, endLine int, brief bool, opts ...Option) (Show
 		if e < 1 {
 			e = 1
 		}
+	} else if endLine == -1 && s == 1 {
+		// bare file path (no target, no explicit range): return entire file
+		e = total
 	} else if endLine <= 0 {
-		// auto mode (-1 or 0): detect function range or show context
+		// auto mode (-1 with start>1, or 0): detect function range or show context
 		if rs, re, err := functionRangeRaw(path, s, opts...); err == nil {
 			s = rs
 			e = re
@@ -132,8 +135,10 @@ func Replace(path string, start, end int, old *string, content string, format st
 	}
 	if old != nil {
 		normalizedOld := normalizeLineBreaks(*old)
-		current := normalizeLineBlock(strings.Join(lines[start-1:end], ""))
-		expected := normalizeLineBlock(normalizedOld)
+		// Compare raw line blocks after normalizing CRLF to LF so that line
+		// ending differences do not matter, but trailing empty line counts do.
+		current := strings.ReplaceAll(strings.Join(lines[start-1:end], ""), "\r\n", "\n")
+		expected := strings.ReplaceAll(normalizedOld, "\r\n", "\n")
 		if current != expected {
 			return ReplaceResult{}, invalidArg(fmt.Sprintf("replace: old content does not match (line %d-%d)", start, end))
 		}
@@ -207,10 +212,6 @@ func Replace(path string, start, end int, old *string, content string, format st
 		res.QueueFull = queueFull
 	}
 	return res, nil
-}
-
-func normalizeLineBlock(content string) string {
-	return strings.TrimRight(strings.ReplaceAll(content, "\r\n", "\n"), "\r\n")
 }
 
 // Insert adds content after the specified line number (0 = beginning of file).
