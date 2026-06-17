@@ -22,11 +22,13 @@ type ToolConfig struct {
 	Output  string // "text" or "json"
 
 	// Range/position flags
-	Start   int
-	End     int
-	EndAuto bool
-	After   int
-	Line    int
+	Start    int
+	StartSet bool
+	End      int
+	EndSet   bool
+	EndAuto  bool
+	After    int
+	Line     int
 
 	// Content/matching flags
 	Content     string
@@ -77,14 +79,17 @@ func ParseToolArgs(args []string) (ToolConfig, bool) {
 			cfg.File = strings.TrimPrefix(arg, "--file=")
 		case arg == "--start" || arg == "-s":
 			cfg.Start = parseIntArg(args, &i, "--start")
+			cfg.StartSet = true
 		case strings.HasPrefix(arg, "--start="):
 			cfg.Start = mustAtoi(strings.TrimPrefix(arg, "--start="), "--start")
+			cfg.StartSet = true
 		case arg == "--end" || arg == "-e":
 			v := nextArg(args, &i, "--end")
 			if v == "auto" {
 				cfg.EndAuto = true
 			} else {
 				cfg.End = mustAtoi(v, "--end")
+				cfg.EndSet = true
 			}
 		case strings.HasPrefix(arg, "--end="):
 			v := strings.TrimPrefix(arg, "--end=")
@@ -92,6 +97,7 @@ func ParseToolArgs(args []string) (ToolConfig, bool) {
 				cfg.EndAuto = true
 			} else {
 				cfg.End = mustAtoi(v, "--end")
+				cfg.EndSet = true
 			}
 		case arg == "--after" || arg == "--after-line":
 			cfg.After = parseIntArg(args, &i, "--after-line")
@@ -191,11 +197,15 @@ func RunTool(cfg ToolConfig) error {
 }
 
 func runRead(cfg ToolConfig) error {
+	start := cfg.Start
+	if !cfg.StartSet {
+		start = 1
+	}
 	endLine := cfg.End
-	if cfg.EndAuto {
+	if cfg.EndAuto || !cfg.EndSet {
 		endLine = -1
 	}
-	res, _, err := betools.Read(cfg.File, cfg.Start, endLine, cfg.Brief)
+	res, _, err := betools.Read(cfg.File, start, endLine, cfg.Brief)
 	if err != nil {
 		return err
 	}

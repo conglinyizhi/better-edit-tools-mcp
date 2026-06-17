@@ -11,14 +11,30 @@ import (
 // Format: "path/to/file.go" or "path/to/file.go:23" or "path/to/file.go:1-3"
 // Returns: file path, start line (0 if not specified), end line (0 if not specified), error
 func ParseFileRange(input string) (file string, start int, end int, err error) {
-	// Find the last colon that's not part of a Windows drive letter (e.g., C:\)
-	colonIdx := strings.LastIndex(input, ":")
+	searchStart := 0
 
-	// Check if this is a Windows path like C:\path\file.go
-	// In that case, the first colon is part of the drive letter
-	if colonIdx > 0 && input[colonIdx-1] == ':' {
-		// Could be part of a protocol like file://, check for that too
-		colonIdx = strings.LastIndex(input[:colonIdx-1], ":")
+	// Explicitly detect Windows drive letters (e.g., C:\path\file.go).
+	// The drive-letter colon must not be treated as a range separator.
+	if len(input) >= 3 && input[1] == ':' &&
+		((input[0] >= 'A' && input[0] <= 'Z') || (input[0] >= 'a' && input[0] <= 'z')) &&
+		(input[2] == '\\' || input[2] == '/') {
+		searchStart = 2
+	} else if protoEnd := strings.Index(input, "://"); protoEnd >= 0 {
+		// For URL-like inputs (file://host:port/path), only consider colons
+		// that appear in the path portion, after the host:port authority.
+		authorityStart := protoEnd + 3
+		if slashIdx := strings.Index(input[authorityStart:], "/"); slashIdx >= 0 {
+			searchStart = authorityStart + slashIdx
+		} else {
+			// No path component; the whole string is an authority, not a file path.
+			return input, 0, 0, nil
+		}
+	}
+
+	// Find the last colon within the searchable portion of the input.
+	colonIdx := strings.LastIndex(input[searchStart:], ":")
+	if colonIdx >= 0 {
+		colonIdx += searchStart
 	}
 
 	if colonIdx < 0 {
