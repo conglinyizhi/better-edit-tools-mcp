@@ -403,7 +403,31 @@ func dedupeInts(in []int) []int {
 	return out
 }
 
+// readFullTag 从 start 处的 '<' 开始，扫描返回完整的 tag 文本（包含两端的尖括号）。
+// 它会正确跳过属性字符串中的 >，并识别同一行内的 HTML 注释 <!-- --> 和 CDATA 节。
 func readFullTag(chars []byte, start int) (string, int, bool) {
+	if start+1 >= len(chars) {
+		return "", start, false
+	}
+	// HTML 注释 <!-- ... -->
+	if start+3 < len(chars) && chars[start+1] == '!' && chars[start+2] == '-' && chars[start+3] == '-' {
+		for i := start + 4; i+2 < len(chars); i++ {
+			if chars[i] == '-' && chars[i+1] == '-' && chars[i+2] == '>' {
+				return string(chars[start : i+3]), i + 2, true
+			}
+		}
+		return "", start, false
+	}
+	// CDATA 节 <![CDATA[ ... ]]>
+	if start+8 < len(chars) && chars[start+1] == '!' && string(chars[start+2:start+9]) == "[CDATA[" {
+		for i := start + 9; i+2 < len(chars); i++ {
+			if chars[i] == ']' && chars[i+1] == ']' && chars[i+2] == '>' {
+				return string(chars[start : i+3]), i + 2, true
+			}
+		}
+		return "", start, false
+	}
+	// 普通标签（包括 <!DOCTYPE>、<?xml?> 等声明）使用引号感知扫描。
 	inQ := false
 	var qChar byte
 	for i := start + 1; i < len(chars); i++ {
