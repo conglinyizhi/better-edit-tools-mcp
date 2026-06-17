@@ -13,6 +13,7 @@ import (
 
 	"github.com/conglinyizhi/better-edit-tools-mcp/internal/app"
 	betools "github.com/conglinyizhi/better-edit-tools-mcp/pkg/betools"
+	befs "github.com/conglinyizhi/better-edit-tools-mcp/pkg/fs"
 )
 
 //go:embed i18n/*.json
@@ -33,7 +34,12 @@ type Server struct {
 }
 
 func Run(cfg app.Config) error {
-	return New(cfg.Lang, cfg.NoPrefix).Serve(os.Stdin, os.Stdout)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+	fsys := befs.NewRootFileSystem(cwd)
+	return New(cfg.Lang, cfg.NoPrefix, betools.WithFileSystem(fsys)).Serve(os.Stdin, os.Stdout)
 }
 
 func New(lang string, noPrefix bool, opts ...betools.Option) *Server {
