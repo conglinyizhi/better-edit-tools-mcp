@@ -688,6 +688,132 @@ func TestSnapshotEviction_RemovesDiskFile(t *testing.T) {
 	CommitSnapshots()
 }
 
+// Capacity: 超过总磁盘容量上限时最旧 snapshot 被自动淘汰
+func TestSnapshotCapacityEviction_RemovesOldest(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", dir)
+	resetSnapshotStore(t)
+	CommitSnapshots()
+
+	// Override capacity to a small value so tests run quickly.
+	maxSnapshotTotalBytes = 10000
+
+	content := strings.Repeat("x", 1500) + "\n"
+	ids := make([]string, 4)
+	warnings := 0
+	for i := 0; i < 4; i++ {
+		id, warn := PushSnapshot(SnapshotRecord{
+			Tool:    "test",
+			File:    "/tmp/cap.txt",
+			Summary: fmt.Sprintf("snap-%d", i),
+			Before:  SnapshotRange{Start: 1, End: 1, Lines: []string{content}},
+			After:   SnapshotRange{Start: 1, End: 1, Lines: []string{content}},
+		})
+		ids[i] = id
+		if warn != "" {
+			warnings++
+		}
+	}
+
+	if warnings == 0 {
+		t.Fatal("expected at least one capacity eviction warning")
+	}
+
+	list := ListSnapshots()
+	if len(list) != 3 {
+		t.Fatalf("expected 3 snapshots after capacity eviction, got %d", len(list))
+	}
+
+	seen := make(map[string]bool)
+	for _, s := range list {
+		seen[s.ID] = true
+	}
+	if seen[ids[0]] {
+		t.Fatalf("oldest snapshot should have been evicted")
+	}
+	for i := 1; i < 4; i++ {
+		if !seen[ids[i]] {
+			t.Fatalf("snapshot %d (id=%s) should remain", i, ids[i])
+		}
+	}
+
+	stats := SnapshotQueueStats()
+	if stats.DiskBytes > int64(maxSnapshotTotalBytes) {
+		t.Fatalf("disk bytes %d exceeds capacity %d", stats.DiskBytes, maxSnapshotTotalBytes)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, fmt.Sprintf("snapshot-%s.json", ids[0]))); !os.IsNotExist(err) {
+		t.Fatalf("evicted snapshot file should be removed from disk")
+	}
+	for i := 1; i < 4; i++ {
+		if _, err := os.Stat(filepath.Join(dir, fmt.Sprintf("snapshot-%s.json", ids[i]))); err != nil {
+			t.Fatalf("remaining snapshot file missing: %v", err)
+		}
+	}
+
+	CommitSnapshots()
+}
+
+// Capacity: 加载磁盘 snapshot 时超过总容量上限会淘汰最旧
+func TestSnapshotCapacityEviction_LoadFromDisk(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", dir)
+	resetSnapshotStore(t)
+	CommitSnapshots()
+
+	content := strings.Repeat("y", 1500) + "\n"
+	ids := make([]string, 4)
+	for i := 0; i < 4; i++ {
+		id := fmt.Sprintf("disk%d", i)
+		ids[i] = id
+		rec := SnapshotRecord{
+			ID:        id,
+			Tool:      "test",
+			File:      "/tmp/diskcap.txt",
+			Summary:   fmt.Sprintf("snap-%d", i),
+			Before:    SnapshotRange{Start: 1, End: 1, Lines: []string{content}},
+			After:     SnapshotRange{Start: 1, End: 1, Lines: []string{content}},
+			CreatedAt: int64(i),
+		}
+		data, err := json.MarshalIndent(rec, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal snapshot %d: %v", i, err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("snapshot-%s.json", id)), data, 0o644); err != nil {
+			t.Fatalf("write snapshot %d: %v", i, err)
+		}
+	}
+
+	// Set capacity below total disk size and reload from disk.
+	resetSnapshotStore(t)
+	maxSnapshotTotalBytes = 10000
+	ensureSnapshotStore()
+
+	list := ListSnapshots()
+	if len(list) != 3 {
+		t.Fatalf("expected 3 snapshots loaded after capacity eviction, got %d", len(list))
+	}
+
+	seen := make(map[string]bool)
+	for _, s := range list {
+		seen[s.ID] = true
+	}
+	if seen[ids[0]] {
+		t.Fatalf("oldest disk snapshot should have been evicted")
+	}
+	for i := 1; i < 4; i++ {
+		if !seen[ids[i]] {
+			t.Fatalf("snapshot %d should remain after load", i)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, fmt.Sprintf("snapshot-%s.json", ids[0]))); !os.IsNotExist(err) {
+		t.Fatalf("evicted disk snapshot file should be removed")
+	}
+
+	CommitSnapshots()
+}
+
 // ──────────────────────────────────────────────
 // #33/#44: 内容按 JSON 解析结果原样使用
 // ──────────────────────────────────────────────
