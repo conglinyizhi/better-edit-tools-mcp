@@ -8,6 +8,35 @@ import (
 	"testing"
 )
 
+// snapshotTestDir is the isolated snapshot directory used for this package's
+// tests. It is set in TestMain so that non-snapshot tests that accidentally
+// trigger PushSnapshot do not pollute the user's real cache directory.
+var snapshotTestDir string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "betools-snapshots-*")
+	if err != nil {
+		panic(err)
+	}
+	snapshotTestDir = dir
+	os.Setenv("BETTER_EDIT_SNAPSHOT_DIR", dir)
+	code := m.Run()
+	_ = os.RemoveAll(dir)
+	os.Exit(code)
+}
+
+// resetSnapshotStore clears the in-memory snapshot state and marks the store
+// as not loaded, so the next call will reload from the current SnapshotDir().
+// This is used by tests that simulate a process restart.
+func resetSnapshotStore(t *testing.T) {
+	t.Helper()
+	snapshotMu.Lock()
+	snapshotLoaded = false
+	snapshots = nil
+	snapshotIDs = nil
+	snapshotMu.Unlock()
+}
+
 // sandboxFS is a FileSystem rooted at a temp directory, optionally
 // blocking reads on specific paths.
 // Deprecated: use MemFS + WithFileSystem instead.

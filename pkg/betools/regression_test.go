@@ -522,6 +522,8 @@ func TestDeleteFunctionTarget_NoEatAdjacentBrace(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestSnapshotRollback(t *testing.T) {
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", t.TempDir())
+	resetSnapshotStore(t)
 	CommitSnapshots()
 	path := filepath.Join(t.TempDir(), "rollback.txt")
 	if err := os.WriteFile(path, []byte("original\nline2\nline3\n"), 0o644); err != nil {
@@ -550,6 +552,8 @@ func TestSnapshotRollback(t *testing.T) {
 }
 
 func TestSnapshotRollback_Multiple(t *testing.T) {
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", t.TempDir())
+	resetSnapshotStore(t)
 	CommitSnapshots()
 	path := filepath.Join(t.TempDir(), "multiback.txt")
 	if err := os.WriteFile(path, []byte("a\nb\nc\n"), 0o644); err != nil {
@@ -572,6 +576,115 @@ func TestSnapshotRollback_Multiple(t *testing.T) {
 	if restored != "a\nb\nc\n" {
 		t.Fatalf("expected full rollback to original, got: %q", restored)
 	}
+	CommitSnapshots()
+}
+
+// #58: 连续多次 replace 后 rollback 应完整恢复原始文件
+func TestSnapshotRollback_ConsecutiveReplace(t *testing.T) {
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", t.TempDir())
+	resetSnapshotStore(t)
+	CommitSnapshots()
+	path := filepath.Join(t.TempDir(), "consecutive.txt")
+	if err := os.WriteFile(path, []byte("a\nb\nc\nd\ne\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := Replace(path, 2, 2, nil, "X\n", "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace 1: %v", err)
+	}
+	_, err = Replace(path, 4, 4, nil, "Y\n", "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace 2: %v", err)
+	}
+	got := readFile(t, path)
+	if got != "a\nX\nc\nY\ne\n" {
+		t.Fatalf("unexpected after both edits: %q", got)
+	}
+	count, errs := RollbackSnapshots(2)
+	if len(errs) > 0 {
+		t.Fatalf("rollback errors: %v", errs)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 rollbacks, got %d", count)
+	}
+	restored := readFile(t, path)
+	if restored != "a\nb\nc\nd\ne\n" {
+		t.Fatalf("expected full rollback to original, got: %q", restored)
+	}
+	CommitSnapshots()
+}
+
+// #58: snapshot 应持久化到磁盘，进程重启后仍可 rollback
+func TestSnapshotPersistence_Restart(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", dir)
+	resetSnapshotStore(t)
+	CommitSnapshots()
+	path := filepath.Join(t.TempDir(), "restart.txt")
+	if err := os.WriteFile(path, []byte("original\ncontent\nhere\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := Replace(path, 2, 2, nil, "modified\n", "plain", false, "", false)
+	if err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+	if readFile(t, path) != "original\nmodified\nhere\n" {
+		t.Fatalf("unexpected after replace")
+	}
+
+	// Verify a snapshot file was persisted
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read snapshot dir: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 snapshot file, got %d", len(entries))
+	}
+
+	// Simulate process restart: clear in-memory state
+	resetSnapshotStore(t)
+
+	// Rollback should reload from disk and restore the full original file
+	count, errs := RollbackSnapshots(1)
+	if len(errs) > 0 {
+		t.Fatalf("rollback errors after restart: %v", errs)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 rollback after restart, got %d", count)
+	}
+	restored := readFile(t, path)
+	if restored != "original\ncontent\nhere\n" {
+		t.Fatalf("expected rollback after restart to original, got: %q", restored)
+	}
+	CommitSnapshots()
+}
+
+// #58: snapshot 队列满时最旧的磁盘文件应被删除
+func TestSnapshotEviction_RemovesDiskFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BETTER_EDIT_SNAPSHOT_DIR", dir)
+	resetSnapshotStore(t)
+	CommitSnapshots()
+	path := filepath.Join(t.TempDir(), "evict.txt")
+	if err := os.WriteFile(path, []byte("line\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	for i := 0; i < MaxSnapshots+1; i++ {
+		_, err := Replace(path, 1, 1, nil, fmt.Sprintf("v%d\n", i), "plain", false, "", false)
+		if err != nil {
+			t.Fatalf("replace %d: %v", i, err)
+		}
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read snapshot dir: %v", err)
+	}
+	if len(entries) != MaxSnapshots {
+		t.Fatalf("expected %d snapshot files after eviction, got %d", MaxSnapshots, len(entries))
+	}
+
 	CommitSnapshots()
 }
 

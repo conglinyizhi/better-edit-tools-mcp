@@ -36,7 +36,7 @@ func Show(path string, start int, endLine int, brief bool, opts ...Option) (Show
 		// Negative end (e.g., -3): count from end of file: total + endLine + 1
 		e = total + endLine + 1
 		if e < s {
-		return ShowResult{}, "", invalidArg(fmt.Sprintf("show: computed end (%d) < start (%d) with end=%d, total=%d", e, s, endLine, total))
+			return ShowResult{}, "", invalidArg(fmt.Sprintf("show: computed end (%d) < start (%d) with end=%d, total=%d", e, s, endLine, total))
 		}
 		if e > total {
 			e = total
@@ -138,9 +138,12 @@ func Replace(path string, start, end int, old *string, content string, format st
 			return ReplaceResult{}, invalidArg(fmt.Sprintf("replace: old content does not match (line %d-%d)", start, end))
 		}
 	}
-	beforeStart := max(1, start-5)
-	beforeEnd := min(total, end+5)
-	beforeContent := append([]string(nil), lines[beforeStart-1:beforeEnd]...)
+	diffBeforeStart := max(1, start-5)
+	diffBeforeEnd := min(total, end+5)
+	diffBeforeContent := append([]string(nil), lines[diffBeforeStart-1:diffBeforeEnd]...)
+	beforeStart := 1
+	beforeEnd := total
+	beforeContent := append([]string(nil), lines...)
 	newLines := prepareContentLines(content, le)
 	out := make([]string, 0, len(lines)-((end-start)+1)+len(newLines))
 	out = append(out, lines[:start-1]...)
@@ -155,12 +158,14 @@ func Replace(path string, start, end int, old *string, content string, format st
 	}
 	delta := len(newLines) - (end - start + 1)
 	afterTotal := len(out)
-	afterEnd := min(afterTotal, beforeEnd+delta)
-	afterContent := append([]string(nil), out[beforeStart-1:afterEnd]...)
+	diffAfterEnd := min(afterTotal, diffBeforeEnd+delta)
+	diffAfterContent := append([]string(nil), out[diffBeforeStart-1:diffAfterEnd]...)
+	afterEnd := afterTotal
+	afterContent := append([]string(nil), out...)
 	var diff string
 	var balance string
 	if !brief {
-		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+		diff = buildDiff(diffBeforeContent, diffAfterContent, diffBeforeStart, format)
 		balance = quickBalanceCheck(strings.Join(out, ""))
 	}
 	res := ReplaceResult{
@@ -171,7 +176,7 @@ func Replace(path string, start, end int, old *string, content string, format st
 		Total:    afterTotal,
 		Diff:     diff,
 		Balance:  balance,
-		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
+		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", diffBeforeStart, diffAfterEnd, afterTotal),
 		Preview:  preview,
 		Warning:  sessionWarning,
 		Brief:    brief,
@@ -221,9 +226,12 @@ func Insert(path string, after int, content string, format string, preview bool,
 	if after > total {
 		return InsertResult{}, invalidArg(fmt.Sprintf("insert: line (%d) out of range (0..%d)", after, total))
 	}
-	beforeStart := max(1, after-5)
-	beforeEnd := min(total, after+5)
-	beforeContent := append([]string(nil), lines[beforeStart-1:beforeEnd]...)
+	diffBeforeStart := max(1, after-5)
+	diffBeforeEnd := min(total, after+5)
+	diffBeforeContent := append([]string(nil), lines[diffBeforeStart-1:diffBeforeEnd]...)
+	beforeStart := 1
+	beforeEnd := total
+	beforeContent := append([]string(nil), lines...)
 	newLines := prepareContentLines(content, le)
 	result := make([]string, 0, len(lines)+len(newLines))
 	result = append(result, lines[:after]...)
@@ -237,12 +245,14 @@ func Insert(path string, after int, content string, format string, preview bool,
 		}
 	}
 	afterTotal := len(result)
-	afterEnd := min(afterTotal, beforeEnd+len(newLines))
-	afterContent := append([]string(nil), result[beforeStart-1:afterEnd]...)
+	diffAfterEnd := min(afterTotal, diffBeforeEnd+len(newLines))
+	diffAfterContent := append([]string(nil), result[diffBeforeStart-1:diffAfterEnd]...)
+	afterEnd := afterTotal
+	afterContent := append([]string(nil), result...)
 	var diff string
 	var balance string
 	if !brief {
-		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+		diff = buildDiff(diffBeforeContent, diffAfterContent, diffBeforeStart, format)
 		balance = quickBalanceCheck(strings.Join(result, ""))
 	}
 	res := InsertResult{
@@ -253,7 +263,7 @@ func Insert(path string, after int, content string, format string, preview bool,
 		Total:    afterTotal,
 		Diff:     diff,
 		Balance:  balance,
-		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
+		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", diffBeforeStart, diffAfterEnd, afterTotal),
 		Preview:  preview,
 		Brief:    brief,
 		Warnings: warnings,
@@ -309,9 +319,12 @@ func Delete(path string, start, end int, format string, preview bool, brief bool
 		return DeleteResult{}, err
 	}
 
-	beforeStart := max(1, start-5)
-	beforeEnd := min(total, end+5)
-	beforeContent := append([]string(nil), fileLines[beforeStart-1:beforeEnd]...)
+	diffBeforeStart := max(1, start-5)
+	diffBeforeEnd := min(total, end+5)
+	diffBeforeContent := append([]string(nil), fileLines[diffBeforeStart-1:diffBeforeEnd]...)
+	beforeStart := 1
+	beforeEnd := total
+	beforeContent := append([]string(nil), fileLines...)
 	deleted := end - start + 1
 	result := append([]string(nil), fileLines[:start-1]...)
 	result = append(result, fileLines[end:]...)
@@ -333,12 +346,14 @@ func Delete(path string, start, end int, format string, preview bool, brief bool
 	}
 
 	afterTotal := len(result)
-	afterEnd := min(afterTotal, max(0, beforeEnd-deleted))
-	afterContent := append([]string(nil), result[beforeStart-1:afterEnd]...)
+	diffAfterEnd := min(afterTotal, max(0, diffBeforeEnd-deleted))
+	diffAfterContent := append([]string(nil), result[diffBeforeStart-1:diffAfterEnd]...)
+	afterEnd := afterTotal
+	afterContent := append([]string(nil), result...)
 	var diff string
 	var balance string
 	if !brief {
-		diff = buildDiff(beforeContent, afterContent, beforeStart, format)
+		diff = buildDiff(diffBeforeContent, diffAfterContent, diffBeforeStart, format)
 		balance = quickBalanceCheck(strings.Join(result, ""))
 	}
 
@@ -348,7 +363,7 @@ func Delete(path string, start, end int, format string, preview bool, brief bool
 		Total:    afterTotal,
 		Diff:     diff,
 		Balance:  balance,
-		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", beforeStart, afterEnd, afterTotal),
+		Affected: fmt.Sprintf("行 %d-%d（当前共 %d 行）", diffBeforeStart, diffAfterEnd, afterTotal),
 		Preview:  preview,
 		Brief:    brief,
 		Warnings: warnings,
@@ -379,7 +394,6 @@ func Delete(path string, start, end int, format string, preview bool, brief bool
 	}
 	return res, nil
 }
-
 
 func max(a, b int) int {
 	if a > b {
