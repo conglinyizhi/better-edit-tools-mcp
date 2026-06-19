@@ -8,7 +8,7 @@
 > Experimental project: tool names, parameters, and behaviors may change as the design evolves. Do not hardcode specific tool names into prompts; prefer capability-based or dynamically resolved tool selection.
 > Tool descriptions are localized at startup via `--lang <zh|en>` and fall back to the `LANG` environment variable when omitted.
 >
-> ⚠️ **For Chinese-speaking users**: if you are using a Chinese-language model (e.g., Kimi), make sure to add `"args": ["--lang", "zh"]` to your MCP configuration. Otherwise tool descriptions will fall back to English.
+> ~~⚠️ **For Chinese-speaking users**: if you are using a Chinese-language model (e.g., Kimi), make sure to add `"args": ["--lang", "zh"]` to your MCP configuration. Otherwise tool descriptions will fall back to English.~~ Based on recent findings, using Chinese prompts with Chinese-language models is no longer recommended, as the tokenizer produces more tokens for semantically equivalent content in Chinese.
 
 If you are a Go developer who wants to embed editing capabilities directly in your agent framework, see the [Go API documentation](docs/go-api/README.md).
 
