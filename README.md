@@ -54,7 +54,7 @@ Adds content after a specified line. `after_line=0` inserts at the very beginnin
 
 ### `be-insert-chip`
 
-Inserts content from a file (`file:///absolute/path`) or a previously saved chip cache (`chip://{id}`). When `from` is omitted, lists all available chip IDs. This tool bridges the gap between failed operations and recovery: when `be-write` fails due to malformed JSON and saves its arguments as a chip, `be-insert-chip` can replay that content directly into the target file. See [Chip Recovery](#chip-recovery) for the full workflow.
+Inserts content from a file (`file:///absolute/path`) or a previously saved chip cache (`chip://{id}`). When `from` is omitted, lists all available chip IDs. This tool bridges the gap between failed operations and recovery: when `be-write` fails due to malformed JSON and saves its arguments as a chip, `be-insert-chip` can replay that content directly into the target file.
 
 ——Replay cached arguments from a prior failure, or inject file content at a precise line.
 

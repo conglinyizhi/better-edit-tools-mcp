@@ -54,7 +54,7 @@ install this mcp server:https://conglinyizhi.github.io/better-edit-tools-mcp/llm
 
 ### `be-insert-chip`
 
-从文件（`file:///绝对路径`）或 chip 缓存（`chip://{id}`）读取内容并插入到指定行。不传 `from` 时列出所有可用的 chip ID。本工具桥接了失败操作与恢复之间的断层：当 `be-write` 因 JSON 格式异常失败并将参数保存为 chip 后，`be-insert-chip` 可将该内容回放到目标文件中。详细流程见 [Chip 恢复](#chip-恢复) 章节。
+从文件（`file:///绝对路径`）或 chip 缓存（`chip://{id}`）读取内容并插入到指定行。不传 `from` 时列出所有可用的 chip ID。本工具桥接了失败操作与恢复之间的断层：当 `be-write` 因 JSON 格式异常失败并将参数保存为 chip 后，`be-insert-chip` 可将该内容回放到目标文件中。
 
 ——从文件或失败缓存回放内容，精确插入到指定位置。
 
