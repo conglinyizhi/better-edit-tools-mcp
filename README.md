@@ -13,8 +13,13 @@
 If you are a Go developer who wants to embed editing capabilities directly in your agent framework, see the [Go API documentation](docs/go-api/README.md).
 
 🤖 Want an AI agent to install and configure the binary for you? See the [LLM self-setup guide](docs/llm-setup-guide.md).
-
 📜 For historical decisions and closed feature proposals, see the [decision log](docs/decisions.zh.md) (Simplified Chinese only).
+
+To have an AI agent install it for you:
+
+```
+install this mcp server:https://conglinyizhi.github.io/better-edit-tools-mcp/llms.txt
+```
 
 ## Tools
 

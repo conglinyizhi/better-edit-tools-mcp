@@ -17,6 +17,12 @@
 
 📜 想了解项目历史决策和已被关闭的功能提议，请参见 [历史决策记录](docs/decisions.zh.md)（仅提供简体中文）。
 
+让 AI Agent 自己安装：
+
+```
+install this mcp server:https://conglinyizhi.github.io/better-edit-tools-mcp/llms.txt
+```
+
 ## 工具说明
 
 ### `be-balance`
