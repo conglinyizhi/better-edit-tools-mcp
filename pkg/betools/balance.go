@@ -197,6 +197,15 @@ lineLoop:
 				continue
 			case modeCode, modeTemplateExpr:
 			}
+			// Handle `${` in code and template expression contexts (nested template literals)
+			if (top.mode == modeCode || top.mode == modeTemplateExpr) && ch == '$' && next == '{' {
+				symbolLines["{"] = append(symbolLines["{"], lineNum)
+				stack = append(stack, tagItem{name: "{", line: lineNum, col: col + 1})
+				modes = append(modes, frame{mode: modeTemplateExpr, braceDepth: 1})
+				regexCanStart = true
+				col++
+				continue
+			}
 
 			if isIdentContinue(ch) {
 				if pendingIdent.Len() == 0 && isIdentStart(ch) {
